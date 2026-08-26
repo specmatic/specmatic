@@ -1,0 +1,96 @@
+openapi: 3.0.0
+info:
+  title: Task OneOf API
+  version: 1.0.0
+paths:
+  /tasks:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+      responses:
+        '200':
+          description: Task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: Invalid task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+  /task-containers:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskContainer'
+      responses:
+        '200':
+          description: Task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: Invalid task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+components:
+  schemas:
+    Task:
+      oneOf:
+        - $ref: '#/components/schemas/CardTask'
+        - $ref: '#/components/schemas/BankTransferTask'
+      discriminator:
+        propertyName: taskType
+        mapping:
+          card: '#/components/schemas/CardTask'
+          bank_transfer: '#/components/schemas/BankTransferTask'
+    TaskContainer:
+      type: object
+      required:
+        - task
+      properties:
+        task:
+          $ref: '#/components/schemas/Task'
+    CardTask:
+      type: object
+      required:
+        - taskType
+        - taskId
+      properties:
+        taskType:
+          type: string
+          enum:
+            - card
+        taskId:
+          type: integer
+    BankTransferTask:
+      type: object
+      required:
+        - taskType
+        - taskId
+      properties:
+        taskType:
+          type: string
+          enum:
+            - bank_transfer
+        taskId:
+          type: integer
+    TaskResponse:
+      type: object
+      required:
+        - accepted
+      properties:
+        accepted:
+          type: boolean

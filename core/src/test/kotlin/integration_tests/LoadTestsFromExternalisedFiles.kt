@@ -30,10 +30,12 @@ import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.interceptor.ContractTestInterceptor
 import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.*
+import org.assertj.core.api.SoftAssertions
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.math.BigDecimal
 import java.net.ServerSocket
@@ -76,6 +78,137 @@ class LoadTestsFromExternalisedFiles {
         println(results.report())
         assertThat(results.successCount).isEqualTo(1)
         assertThat(results.failureCount).isEqualTo(0)
+    }
+
+    @Nested
+    inner class OneOfExternalizedExamples {
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = [
+            "src/test/resources/openapi/task_oneof_externalized/api.yaml",
+            "src/test/resources/openapi/task_oneof_externalized/api_3_1.yaml",
+        ])
+        fun `should generate tests for top-level and nested oneOf variants from externalized example matrix`(specificationPath: String) {
+            val featureWithoutExamples = OpenApiSpecification.fromFile(specificationPath).toFeature()
+            val (feature, unusedExamples) = featureWithoutExamples.loadExternalisedExamplesAndListUnloadableExamples(
+                exampleSource = DirectoryExampleSource(
+                    strictMode = true,
+                    specmaticConfig = featureWithoutExamples.specmaticConfig,
+                    exampleDirs = listOf("src/test/resources/openapi/task_oneof_externalized/api_examples"),
+                ),
+            )
+
+            assertThat(unusedExamples).isEmpty()
+            val exampleRows = feature.scenarios.flatMap { scenario -> scenario.examples.flatMap { example -> example.rows } }
+            assertThat(exampleRows.map { it.name }).containsExactlyInAnyOrder(
+                "top-level card task",
+                "top-level bank transfer task",
+                "nested card task",
+                "nested bank transfer task",
+            )
+
+            val observedValidRequests = mutableSetOf<String>()
+            val results = feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    val body = request.body as? JSONObjectValue
+                    val task = when (request.path) {
+                        "/tasks" -> body
+                        "/task-containers" -> body?.jsonObject?.get("task") as? JSONObjectValue
+                        else -> null
+                    }
+
+                    val taskType = task?.jsonObject?.get("taskType") as? StringValue
+                    val taskId = task?.jsonObject?.get("taskId") as? NumberValue
+                    val isValidTask = taskType?.string in setOf("card", "bank_transfer") && taskId != null
+                    if (isValidTask) {
+                        observedValidRequests += "${request.path}:${taskType?.string}"
+                    }
+
+                    return HttpResponse(
+                        status = if (isValidTask) 200 else 400,
+                        body = parsedJSONObject("""{"accepted":$isValidTask}"""),
+                    )
+                }
+            })
+
+            assertThat(results.success()).withFailMessage(results.report()).isTrue()
+            assertThat(observedValidRequests).containsExactlyInAnyOrder(
+                "/tasks:card",
+                "/tasks:bank_transfer",
+                "/task-containers:card",
+                "/task-containers:bank_transfer",
+            )
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = [
+            "src/test/resources/openapi/task_oneof_partial_externalized/api.yaml",
+            "src/test/resources/openapi/task_oneof_partial_externalized/api_3_1.yaml",
+        ])
+        fun `executeTests covers externalized partial examples with tokens and substitutions`(specificationPath: String) {
+            val featureWithoutExamples = OpenApiSpecification.fromFile(specificationPath).toFeature()
+            val (feature, unusedExamples) = featureWithoutExamples.loadExternalisedExamplesAndListUnloadableExamples(
+                exampleSource = DirectoryExampleSource(
+                    strictMode = true,
+                    specmaticConfig = featureWithoutExamples.specmaticConfig,
+                    exampleDirs = listOf("src/test/resources/openapi/task_oneof_partial_externalized/api_examples"),
+                ),
+            )
+
+            assertThat(unusedExamples).isEmpty()
+            val exampleNames = feature.scenarios.flatMap { scenario -> scenario.examples.flatMap { example -> example.rows } }.map { it.name }
+            assertThat(exampleNames).contains(
+                "partial card task keeps supplied discriminator and id",
+                "typed pattern token keeps supplied card number",
+                "substitution resolves count before generating card task",
+            )
+
+            val observedRequests = mutableListOf<HttpRequest>()
+            val results = withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to RowValueLookupFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to RowValueLookupContractTestInterceptor::class.java.name,
+                )
+            ) {
+                feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        observedRequests += request
+                        val status = request.headers["Specmatic-Response-Code"]?.toIntOrNull() ?: 200
+                        return HttpResponse(
+                            status = status,
+                            body = parsedJSONObject("""{"accepted":${status == 200}}"""),
+                        )
+                    }
+                })
+            }
+
+            assertThat(results.success()).withFailMessage(results.report()).isTrue()
+            val positiveTaskBodies = observedRequests
+                .filter { it.headers["Specmatic-Response-Code"] == "200" && it.path == "/tasks" }
+                .mapNotNull { it.body as? JSONObjectValue }
+
+            SoftAssertions.assertSoftly { softly ->
+                softly.assertThat(positiveTaskBodies).anySatisfy { body ->
+                    softly.assertThat(body.jsonObject)
+                        .containsKey("cardNumber")
+                        .containsEntry("taskId", NumberValue(123))
+                        .containsEntry("taskType", StringValue("card"))
+                }
+
+                softly.assertThat(positiveTaskBodies).anySatisfy { body ->
+                    softly.assertThat(body.jsonObject["taskId"]).isInstanceOf(NumberValue::class.java)
+                    softly.assertThat(body.jsonObject)
+                        .containsEntry("taskType", StringValue("card"))
+                        .containsEntry("cardNumber", StringValue("4111"))
+                }
+
+                softly.assertThat(positiveTaskBodies).anySatisfy { body ->
+                    softly.assertThat(body.jsonObject)
+                        .containsEntry("taskId", NumberValue(42))
+                        .containsEntry("taskType", StringValue("card"))
+                        .containsEntry("cardNumber", StringValue("4113"))
+                }
+            }
+        }
     }
 
     @Test

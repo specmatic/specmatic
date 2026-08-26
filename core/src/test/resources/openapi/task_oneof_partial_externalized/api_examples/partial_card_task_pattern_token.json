@@ -1,0 +1,20 @@
+{
+  "partial": {
+    "http-request": {
+      "method": "POST",
+      "path": "/tasks",
+      "body": {
+        "taskType": "card",
+        "taskId": "(number)",
+        "cardNumber": "4111"
+      }
+    },
+    "http-response": {
+      "status": 200,
+      "body": {
+        "accepted": true
+      }
+    },
+    "name": "typed pattern token keeps supplied card number"
+  }
+}
