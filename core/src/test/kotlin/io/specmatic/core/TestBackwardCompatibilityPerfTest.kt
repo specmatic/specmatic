@@ -1,7 +1,6 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.reporter.commands.InsightsReportOptions
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertTimeoutPreemptively
@@ -18,8 +17,7 @@ class TestBackwardCompatibilityPerfTest {
 
         var results: Results? = null
         assertTimeoutPreemptively(ofSeconds(5)) {
-            val timeTaken = measureTimeMillis { results = testBackwardCompatibility(oldFeature, newFeature,
-                InsightsReportOptions()) }
+            val timeTaken = measureTimeMillis { results = backwardCompatibilityRecords(oldFeature, newFeature).first }
             System.err.println("Backward compatibility check took ${timeTaken}ms")
         }
 
