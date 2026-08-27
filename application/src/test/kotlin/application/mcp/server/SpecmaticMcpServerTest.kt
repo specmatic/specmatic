@@ -33,7 +33,8 @@ class SpecmaticMcpServerTest {
             "run_contract_test",
             "run_resiliency_test",
             "manage_mock_server",
-            "backward_compatibility_check"
+            "backward_compatibility_check",
+            "validate_examples"
         )
 
         assertThat(tools.getValue("run_contract_test").inputSchema().required())
@@ -43,6 +44,8 @@ class SpecmaticMcpServerTest {
         assertThat(tools.getValue("manage_mock_server").inputSchema().required())
             .containsExactly("command")
         assertThat(tools.getValue("backward_compatibility_check").inputSchema().required())
+            .isEmpty()
+        assertThat(tools.getValue("validate_examples").inputSchema().required())
             .isEmpty()
         assertThat(tools.getValue("manage_mock_server").inputSchema().properties().getValue("port"))
             .isEqualTo(mapOf("type" to "integer", "description" to "Port number for the mock server"))

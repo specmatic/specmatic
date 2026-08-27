@@ -1,0 +1,99 @@
+package application.mcp.server.tools
+
+import application.validate.ValidateCommand
+import io.specmatic.core.utilities.SystemExit
+import io.specmatic.core.utilities.SystemExitException
+import kotlinx.serialization.Serializable
+import picocli.CommandLine
+import java.io.File
+
+@Serializable
+data class ValidateExamplesArgs(
+    val contractFile: String? = null,
+    val examplesDir: String? = null
+)
+
+class ValidateExamplesTool {
+
+    internal fun validateExamples(args: ValidateExamplesArgs): String {
+        if (isInvalidRepoDir(args.contractFile)) return getFallbackResponse(args)
+        return try {
+            val command = ValidateCommand()
+            val argsList = mutableListOf<String>()
+
+            args.contractFile?.takeIf { it.isNotBlank() }?.let { argsList.add("--spec-file"); argsList.add(it) }
+            args.examplesDir?.takeIf { it.isNotBlank() }?.let { argsList.add("--dir"); argsList.add(it) }
+
+            val (exitCode, stdout, stderr) = captureStandardStreams {
+                SystemExit.throwOnExit {
+                    CommandLine(command).execute(*argsList.toTypedArray())
+                }
+            }
+
+            buildString {
+                append("## Specmatic Validate Results\n\n")
+                if (!args.contractFile.isNullOrBlank()) {
+                    append("Contract File: `${args.contractFile}`\n\n")
+                }
+                if (!args.examplesDir.isNullOrBlank()) {
+                    append("Directory: `${args.examplesDir}`\n\n")
+                }
+
+                append("### Status: ")
+                if (exitCode == 0) {
+                    append("PASSED")
+                } else {
+                    append("FAILED")
+                }
+                append("\n\n")
+
+                if (stdout.isNotBlank()) {
+                    append("### Validation Output\n")
+                    append("```text\n")
+                    append(stdout.trimEnd())
+                    append("\n```\n\n")
+                }
+
+                if (stderr.isNotBlank()) {
+                    append("### Execution Logs\n")
+                    append("```text\n")
+                    append(stderr.trimEnd())
+                    append("\n```\n")
+                }
+            }
+        } catch (e: SystemExitException) {
+            buildErrorResponse(args, e.message ?: "Process exited with code ${e.code}")
+        } catch (e: Throwable) {
+            buildErrorResponse(args, e.message ?: e::class.simpleName ?: "Unknown error")
+        }
+    }
+
+    private fun buildErrorResponse(args: ValidateExamplesArgs, message: String): String {
+        return buildString {
+            append("## Specmatic Validate Results\n\n")
+            if (!args.contractFile.isNullOrBlank()) {
+                append("Contract File: `${args.contractFile}`\n\n")
+            }
+            if (!args.examplesDir.isNullOrBlank()) {
+                append("Directory: `${args.examplesDir}`\n\n")
+            }
+            append("### Status: FAILED\n\n")
+            append("> **Error:** $message\n")
+        }
+    }
+
+    internal fun isInvalidRepoDir(contractFilePath:String?): Boolean {
+        if (contractFilePath.isNullOrBlank()) return true
+        return !File(contractFilePath).exists()
+    }
+
+    internal fun getFallbackResponse(args: ValidateExamplesArgs, reason: String? = null): String {
+        if(args.examplesDir.isNullOrBlank()) return reason ?: ""
+        return """
+            ## Specmatic Example Validation
+
+            ### Status: UNAVAILABLE
+
+            ### In case you are using docker, this issue may be due to incorrect paths being sent to the docker container. Please use specmatic jar to run the mcp to solve this issue. Else, you can look at [this documentation](https://docs.specmatic.io/getting_started/studio_quick_start#getting-started-with-studio) to understand how you can run example validation using Studio.""".trimIndent()
+    }
+}

@@ -12,7 +12,8 @@ class DefaultSpecmaticMcpToolProviderTest {
     private val contractTestTool = mockk<ContractTestTool>()
     private val mockServerTool = mockk<MockServerTool>()
     private val backwardCompatibilityTool = mockk<BackwardCompatibilityTool>()
-    private val provider = DefaultSpecmaticMcpToolProvider(contractTestTool, mockServerTool, backwardCompatibilityTool)
+    private val validateExamplesTool = mockk<ValidateExamplesTool>()
+    private val provider = DefaultSpecmaticMcpToolProvider(contractTestTool, mockServerTool, backwardCompatibilityTool, validateExamplesTool)
 
     @Test
     fun `should register all expected tools`() {
@@ -23,7 +24,8 @@ class DefaultSpecmaticMcpToolProviderTest {
             "run_contract_test",
             "run_resiliency_test",
             "manage_mock_server",
-            "backward_compatibility_check"
+            "backward_compatibility_check",
+            "validate_examples"
         )
     }
 
@@ -129,6 +131,31 @@ class DefaultSpecmaticMcpToolProviderTest {
             backwardCompatibilityTool.runBackwardCompatibilityCheck(
                 BackwardCompatArgs(targetPath = "spec.yaml", baseBranch = "main")
             ) 
+        }
+    }
+
+    @Test
+    fun `validate_examples tool should call validateExamplesTool`() {
+        val tools = provider.tools()
+        val tool = tools.first { it.tool().name() == "validate_examples" }
+
+        val args = mapOf(
+            "contractFile" to "spec.yaml",
+            "examplesDir" to "examples"
+        )
+        val request = McpSchema.CallToolRequest("validate_examples", args)
+
+        every { validateExamplesTool.validateExamples(any()) } returns "Validation Passed"
+
+        val result = tool.callHandler().apply(null, request)
+
+        assertThat(result.isError).isFalse()
+        assertThat((result.content()[0] as McpSchema.TextContent).text()).isEqualTo("Validation Passed")
+
+        verify {
+            validateExamplesTool.validateExamples(
+                ValidateExamplesArgs(contractFile = "spec.yaml", examplesDir = "examples")
+            )
         }
     }
 
