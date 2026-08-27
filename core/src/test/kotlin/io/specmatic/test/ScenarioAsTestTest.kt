@@ -20,8 +20,6 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.Substitution
 import io.specmatic.core.Workflow
-import io.specmatic.core.WorkflowConfiguration
-import io.specmatic.core.WorkflowIDOperation
 import io.specmatic.core.HttpQueryParamPattern
 import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.ExactValuePattern
@@ -55,6 +53,7 @@ import io.specmatic.test.fixtures.FixtureExecutionMetadata
 import io.specmatic.test.fixtures.FixtureScenarioType
 import io.specmatic.test.interceptor.ContractTestInterceptor
 import io.specmatic.test.interceptor.InterceptResult
+import io.specmatic.test.handlers.ResponseHandlerProvider
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
@@ -530,75 +529,51 @@ class ScenarioAsTestTest {
     }
 
     @Test
-    fun `runTest should pass the terminal response to the response example matcher after a documented 429`() {
-        val matcherEngine = mockk<MatcherEngine>()
-        mockkObject(MatcherEngine.Companion)
-        every { MatcherEngine.load() } returns matcherEngine
-        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns Result.Success()
-
-        val terminalBody = parsedJSONObject("""{"id": "terminal"}""")
-        val testScenario = scenarioWithDocumentedRateLimit().copy(
-            exampleRow = Row(
-                scenarioStub = ScenarioStub(
-                    response = HttpResponse(status = 200, body = terminalBody),
-                ),
-            ),
+    fun `runTest treats accepted responses as ordinary statuses when no provider is installed`() {
+        val acceptedScenario = scenario(status = 202)
+        val acceptedResponse = HttpResponse(
+            status = 202,
+            headers = mapOf("Link" to "</monitor/1>;rel=related;title=monitor"),
+            body = StringValue("accepted"),
         )
-        val rateLimitScenario = documentedRateLimitScenario()
+        var executionCount = 0
 
-        try {
-            val executionResult = scenarioAsTest(
-                scenario = testScenario,
-                scenarios = listOf(testScenario, rateLimitScenario),
-            ).runTest(rateLimitedExecutor(terminalBody))
-
-            assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
-            verify(exactly = 1) { matcherEngine.matchResponseValue(terminalBody, terminalBody, any(), any()) }
-        } finally {
-            unmockkObject(MatcherEngine.Companion)
+        val executionResult = withoutResponseHandlerProviders {
+            scenarioAsTest(acceptedScenario).runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    executionCount++
+                    return acceptedResponse
+                }
+            })
         }
+
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+        assertThat(executionResult.response).isEqualTo(acceptedResponse)
+        assertThat(executionCount).isEqualTo(1)
     }
 
     @Test
-    fun `runTest should extract workflow data from the test result response after a documented 429`() {
-        val testScenario = scenarioWithDocumentedRateLimit()
-        val rateLimitScenario = documentedRateLimitScenario()
-        val workflow = Workflow(
-            workflow = WorkflowConfiguration(
-                ids = mapOf(testScenario.defaultAPIDescription to WorkflowIDOperation(extract = "BODY.id")),
-            ),
+    fun `runTest treats too-many-requests responses as ordinary statuses when no provider is installed`() {
+        val successScenario = scenario(status = 200)
+        val tooManyRequestsResponse = HttpResponse(
+            status = 429,
+            headers = mapOf("Retry-After" to "0"),
+            body = StringValue("rate limited"),
         )
-        val terminalBody = parsedJSONObject("""{"id": "terminal"}""")
+        var executionCount = 0
 
-        val executionResult = scenarioAsTest(
-            scenario = testScenario,
-            scenarios = listOf(testScenario, rateLimitScenario),
-            workflow = workflow,
-        ).runTest(rateLimitedExecutor(terminalBody))
-
-        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
-        assertThat(workflow.id).isEqualTo(StringValue("terminal"))
-    }
-
-    @Test
-    fun `runTest should pass the test result response to first-phase validators after a documented 429`() {
-        val testScenario = scenarioWithDocumentedRateLimit()
-        val rateLimitScenario = documentedRateLimitScenario()
-        val validatedStatuses = mutableListOf<Int>()
-        val validator = object : ResponseValidator {
-            override fun validate(scenario: Scenario, httpResponse: HttpResponse): Result? {
-                validatedStatuses.add(httpResponse.status)
-                return if (httpResponse.status == 429) Result.Failure("intermediate response") else null
-            }
+        val executionResult = withoutResponseHandlerProviders {
+            scenarioAsTest(successScenario).runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    executionCount++
+                    return tooManyRequestsResponse
+                }
+            })
         }
 
-        val executionResult = scenarioAsTest(
-            scenario = testScenario,
-            scenarios = listOf(testScenario, rateLimitScenario),
-        ).plusValidator(validator).runTest(rateLimitedExecutor(parsedJSONObject("""{"id": "terminal"}""")))
-
-        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
-        assertThat(validatedStatuses).containsExactly(200)
+        assertThat(executionResult.result).isInstanceOf(Result.Failure::class.java)
+        assertThat(executionResult.response).isEqualTo(tooManyRequestsResponse)
+        assertThat(executionCount).isEqualTo(1)
     }
 
     @Test
@@ -796,53 +771,27 @@ class ScenarioAsTestTest {
         )
     }
 
-    private fun scenarioWithDocumentedRateLimit(): Scenario {
-        return Scenario(
-            ScenarioInfo(
-                specType = SpecType.OPENAPI,
-                protocol = SpecmaticProtocol.HTTP,
-                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
-                httpResponsePattern = HttpResponsePattern(
-                    status = 200,
-                    body = JSONObjectPattern(mapOf("id" to StringPattern())),
-                ),
-            )
-        )
-    }
-
-    private fun documentedRateLimitScenario(): Scenario {
-        return scenarioWithDocumentedRateLimit().copy(
-            httpResponsePattern = HttpResponsePattern(
-                status = 429,
-                body = JSONObjectPattern(mapOf("error" to StringPattern())),
-            ),
-        )
-    }
-
-    private fun rateLimitedExecutor(terminalBody: Value): TestExecutor {
-        return object : TestExecutor {
-            private var executionCount = 0
-
-            override fun execute(request: HttpRequest): HttpResponse {
-                executionCount++
-                return if (executionCount == 1) {
-                    HttpResponse(
-                        status = 429,
-                        headers = mapOf("Retry-After" to "0"),
-                        body = parsedJSONObject("""{"error": "rate limited"}"""),
-                    )
-                } else {
-                    HttpResponse(status = 200, body = terminalBody)
-                }
-            }
-        }
-    }
-
     private fun fixedResponseExecutor(status: Int = 200, body: String, headers: Map<String, String> = emptyMap()): TestExecutor {
         return object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(status = status, body = body, headers = headers)
             }
+        }
+    }
+
+    private fun <T> withoutResponseHandlerProviders(block: () -> T): T {
+        val previousClassLoader = Thread.currentThread().contextClassLoader
+        val providerServiceName = "META-INF/services/${ResponseHandlerProvider::class.java.name}"
+        Thread.currentThread().contextClassLoader = object : ClassLoader(previousClassLoader) {
+            override fun getResources(name: String): java.util.Enumeration<java.net.URL> {
+                return if (name == providerServiceName) java.util.Collections.emptyEnumeration() else super.getResources(name)
+            }
+        }
+
+        return try {
+            block()
+        } finally {
+            Thread.currentThread().contextClassLoader = previousClassLoader
         }
     }
 

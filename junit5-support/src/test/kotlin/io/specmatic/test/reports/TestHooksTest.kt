@@ -1,10 +1,11 @@
 package io.specmatic.test.reports
 
-import io.ktor.http.HttpHeaders
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Scenario
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.reports.ReportingResponseHandlerProvider.Companion.HANDLED_RESPONSE_PATH
+import io.specmatic.test.reports.ReportingResponseHandlerProvider.Companion.TRANSIENT_RESPONSE_STATUS
 import io.specmatic.test.utils.ContractTestScope
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -55,86 +56,56 @@ class TestHooksTest {
     }
 
     @Test
-    fun `onTestResult should report retries for special handling cases like 429`(@TempDir tempDir: File) {
-        ContractTestScope.from(rateLimitSpecYaml(), tempDir).execute(v3Config(tempDir)) { server ->
-            server.on("/products", "GET") {
-                header("X-Header", "0")
-                respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
-                times(2)
-            }
-
-            server.on("/products", "GET") {
-                header("X-Header", "(number)")
-                respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
+    fun `onTestResult reports a handled transient response before the terminal response`(@TempDir tempDir: File) {
+        ContractTestScope.from(handledResponseSpecYaml(), tempDir).execute(v3Config(tempDir)) { server ->
+            server.on(HANDLED_RESPONSE_PATH, "GET") {
+                respond(HttpResponse(status = TRANSIENT_RESPONSE_STATUS))
                 times(1)
             }
-
-            server.on("/products", "GET") {
-                header("X-Header", "(number)")
+            server.on(HANDLED_RESPONSE_PATH, "GET") {
                 respond(200)
             }
         }.verify { listener ->
-            assertThat(listener.testResults).hasSize(listener.dynamicTests.size).hasSize(2)
-            assertThat(listener.testResults.filter { it.scenario.status == 200 }).hasSize(1).allSatisfy { record ->
+            assertThat(listener.testResults).hasSize(1).allSatisfy { record ->
                 assertThat(record.testRecord.result).isEqualTo(TestResult.Success)
                 assertThat(record.request).hasSize(record.response.size).hasSize(2)
-                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 200)
-            }
-            assertThat(listener.testResults.filter { it.scenario.status == 429 }).hasSize(1).allSatisfy { record ->
-                assertThat(record.testRecord.result).isEqualTo(TestResult.Success)
-                assertThat(record.request).hasSize(record.response.size).hasSize(3)
-                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 429, 200)
+                assertThat(record.response.mapNotNull { it?.status }).containsExactly(TRANSIENT_RESPONSE_STATUS, 200)
             }
         }
     }
 
     @Test
-    fun `onTestResult should report every too-many-requests response when retries are exhausted`(@TempDir tempDir: File) {
-        ContractTestScope.from(rateLimitSpecYaml(), tempDir).execute(v3Config(tempDir)) { server ->
-            server.on("/products", "GET") {
-                header("X-Header", "(number)")
-                respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
+    fun `onTestResult reports every response when handling is exhausted`(@TempDir tempDir: File) {
+        ContractTestScope.from(handledResponseSpecYaml(), tempDir).execute(v3Config(tempDir)) { server ->
+            server.on(HANDLED_RESPONSE_PATH, "GET") {
+                respond(HttpResponse(status = TRANSIENT_RESPONSE_STATUS))
             }
         }.verify { listener ->
-            assertThat(listener.testResults).hasSize(listener.dynamicTests.size).hasSize(2)
-            assertThat(listener.testResults.filter { it.scenario.status == 200 }).hasSize(1).allSatisfy { record ->
+            assertThat(listener.testResults).hasSize(1).allSatisfy { record ->
                 assertThat(record.testRecord.result).isEqualTo(TestResult.Failed)
                 assertThat(record.request).hasSize(record.response.size).hasSize(4)
-                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 429, 429, 429)
+                assertThat(record.response.mapNotNull { it?.status }).containsExactly(
+                    TRANSIENT_RESPONSE_STATUS,
+                    TRANSIENT_RESPONSE_STATUS,
+                    TRANSIENT_RESPONSE_STATUS,
+                    TRANSIENT_RESPONSE_STATUS,
+                )
             }
         }
     }
 }
 
-private fun rateLimitSpecYaml() = """
+private fun handledResponseSpecYaml() = """
     openapi: 3.0.0
     info:
-      title: TestHooks special case reporting
+      title: TestHooks handled response reporting
       version: 1.0.0
     paths:
-      /products:
+      $HANDLED_RESPONSE_PATH:
         get:
-          parameters:
-            - in: header
-              name: X-Header
-              required: true
-              schema:
-                type: integer
-              examples:
-                TOO_MANY_REQUESTS:
-                  value: 0
           responses:
             '200':
               description: OK
-            '429':
-              description: Bad request
-              headers:
-                X-Retry-After:
-                  schema:
-                    type: integer
-                  examples:
-                    TOO_MANY_REQUESTS:
-                      value: 0
 """.trimIndent()
 
 private fun v3Config(tempDir: File) =

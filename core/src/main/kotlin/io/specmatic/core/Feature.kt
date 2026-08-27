@@ -990,6 +990,19 @@ data class Feature(
         }
     }
 
+    fun successfulResponseScenariosFor(scenario: Scenario): List<Scenario> {
+        return scenarios.filter {
+            it.path == scenario.path && it.method == scenario.method && it.isA2xxScenario()
+        }
+    }
+
+    fun scenarioMatchingPathAndMethod(method: String, path: String): Scenario? {
+        return scenarios.firstOrNull { scenario ->
+            if (scenario.httpRequestPattern.httpPathPattern == null) return@firstOrNull false
+            scenario.method == method && scenario.httpRequestPattern.matchesPath(path, scenario.resolver).isSuccess()
+        }
+    }
+
     // TODO: Should this filter include requestContentType to find matchingScenarios ?
     internal fun getBadRequestsOrDefault(scenario: Scenario, scenariosToLookInto: List<Scenario> = scenarios): BadRequestOrDefault? {
         val matchingScenarios = scenariosMatchingPathAndMethod(scenario, scenariosToLookInto)
