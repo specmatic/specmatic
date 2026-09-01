@@ -35,6 +35,7 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Changed
 
 - Fixed request fixing to preserve security scheme headers and query parameters and repair invalid security values.
+- Use `mock` or `test` with `--ci` and the Insights repository/build metadata options to submit reports directly to Specmatic Insights. The separate `send-report` follow-up step is deprecated.
 
 ## 2.53.1 (2026-08-22)
 
