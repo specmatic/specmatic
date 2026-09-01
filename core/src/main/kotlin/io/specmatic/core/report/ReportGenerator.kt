@@ -1,8 +1,11 @@
 package io.specmatic.core.report
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.log.consoleLog
+import io.specmatic.reporter.ReportConfig
 import io.specmatic.reporter.ReportTracker
 import io.specmatic.reporter.RawReportType
 import io.specmatic.reporter.commands.InsightsReportOptions
@@ -46,7 +49,7 @@ object ReportGenerator {
             toolName = toolName
         )
 
-        ReportTracker.instance.send(report, reportType, insightsReportOptions)
+        ReportTracker.instance.send(report, reportType, insightsReportOptions, rawReportConfig())
         ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
     }
@@ -77,7 +80,7 @@ object ReportGenerator {
             extra = extra,
         )
 
-        ReportTracker.instance.send(report, RawReportType.BCC, insightsReportOptions)
+        ReportTracker.instance.send(report, RawReportType.BCC, insightsReportOptions, rawReportConfig())
         ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
         return report
@@ -89,6 +92,12 @@ object ReportGenerator {
         } catch(_: Throwable) {
             emptyMap()
         }
+    }
+
+    internal fun rawReportConfig(): ReportConfig {
+        val configPath = getConfigFilePath()
+        val config = loadSpecmaticConfigOrNull(configPath) ?: return ReportConfig()
+        return ReportConfig(configPath, ObjectMapper().writeValueAsString(config))
     }
 
     private fun isCoverageReportSpecificationsValid(

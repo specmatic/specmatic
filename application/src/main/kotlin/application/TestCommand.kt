@@ -12,7 +12,7 @@ import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.core.utilities.xmlToString
 import io.specmatic.license.core.cli.Category
 import io.specmatic.reporter.commands.GitReportDefaultValueProvider
-import io.specmatic.reporter.commands.InsightsReportOptions
+import io.specmatic.reporter.commands.InsightsReportOptionsWithConfig
 import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.DeprecatedArguments
 import io.specmatic.test.SpecmaticJUnitSupport
@@ -53,7 +53,7 @@ private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
 class TestCommand(
     private val junitLauncher: Launcher = LauncherFactory.create(),
     @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
-    val insightsReportOptions: InsightsReportOptions = InsightsReportOptions()
+    val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig()
 ) : Callable<Int> {
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])
     var contractPaths: List<String>? = null
@@ -102,9 +102,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--junitReportDir"], description = ["Create junit xml reports in this directory"])
     var junitReportDirName: String? = null
 
-    @Option(names = ["--config"], description = ["Configuration file name ($APPLICATION_NAME_LOWER_CASE.json by default)"])
-    var configFileName: String? = null
-
     @Option(names = ["--debug"], description = ["Debug logs"])
     var verboseMode: Boolean? = null
 
@@ -135,9 +132,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     lateinit var commandSpec: CommandSpec
 
     private val specmaticConfig: SpecmaticConfig by lazy(LazyThreadSafetyMode.NONE) {
-        configFileName?.let { Configuration.configFilePath = it }
-        val resolvedConfigPath = configFileName ?: Configuration.configFilePath
-        loadSpecmaticConfigOrNull(resolvedConfigPath, explicitlySpecifiedByUser = configFileName != null).orDefault()
+        insightsReportOptions.configPath?.let { Configuration.configFilePath = it }
+        val resolvedConfigPath = insightsReportOptions.configPath ?: Configuration.configFilePath
+        loadSpecmaticConfigOrNull(resolvedConfigPath, explicitlySpecifiedByUser = insightsReportOptions.configPath != null).orDefault()
     }
 
     override fun call(): Int = try {
@@ -237,7 +234,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             reportBaseDirectory = resolvedJunitReportDir(),
             filter = filter.takeIf(::isNotNullOrBlank),
             testBaseURL = testBaseURL.takeIf(::isNotNullOrBlank),
-            configFile = configFileName.takeIf(::isNotNullOrBlank),
+            configFile = insightsReportOptions.configPath.takeIf(::isNotNullOrBlank),
             timeoutInMilliSeconds = timeoutInMs ?: timeout?.times(1000),
             contractPaths = contractPaths?.joinToString(separator = ",").takeIf(::isNotNullOrBlank),
             insightsReportOptions = insightsReportOptions,

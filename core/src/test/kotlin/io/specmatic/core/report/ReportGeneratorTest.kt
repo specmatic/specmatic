@@ -1,5 +1,6 @@
 package io.specmatic.core.report
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import org.assertj.core.api.Assertions.assertThat
@@ -12,6 +13,18 @@ import java.io.File
 import java.util.stream.Stream
 
 class ReportGeneratorTest {
+    @Test
+    fun `raw report config returns loaded config as JSON`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }
+
+        val config = using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            ReportGenerator.rawReportConfig()
+        }
+
+        assertThat(config.path).isEqualTo(configFile.canonicalPath)
+        assertThat(ObjectMapper().readTree(config.json)["version"].asInt()).isEqualTo(2)
+    }
+
     @Test
     fun `specmaticConfigAsMap returns empty map when config file is empty`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("") }

@@ -88,6 +88,13 @@ internal class StubCommandTest {
     }
 
     @Test
+    fun `stores config path in insights report options`() {
+        CommandLine(stubCommand).parseArgs("--config", "specmatic.yaml")
+
+        assertThat(stubCommand.insightsReportOptions.configPath).isEqualTo("specmatic.yaml")
+    }
+
+    @Test
     fun `should attempt to start a HTTP stub`(@TempDir tempDir: File) {
         val contractPath = osAgnosticPath("${tempDir.path}/contract.$CONTRACT_EXTENSION")
         val contract = """
