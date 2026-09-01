@@ -14,8 +14,7 @@ import io.specmatic.core.toIncomingMtlsRegistryForStub
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.license.core.cli.Category
 import io.specmatic.reporter.commands.GitReportDefaultValueProvider
-import io.specmatic.reporter.commands.InsightsReportOptions
-import io.specmatic.reporter.ReportTracker
+import io.specmatic.reporter.commands.InsightsReportOptionsWithConfig
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
@@ -54,7 +53,7 @@ class StubCommand(
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory(),
     @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
-    val insightsReportOptions: InsightsReportOptions = InsightsReportOptions()
+    val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig()
 ) : SpecmaticMockRunner {
     var httpStub: HttpStub? = null
 
@@ -111,9 +110,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--debug"], description = ["Debug logs"])
     var verbose: Boolean? = null
 
-    @Option(names = ["--config"], description = ["Configuration file name ($APPLICATION_NAME_LOWER_CASE.json by default)"])
-    var configFileName: String? = null
-
     @Option(names = ["--textLog"], description = ["Directory in which to write a text log"])
     var textLogDir: File? = null
 
@@ -165,9 +161,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     fun ctrfTestResultRecords() = (httpStub as? HttpStub)?.ctrfTestResultRecords().orEmpty()
 
     private val specmaticConfigurationSource: SpecmaticConfigSource by lazy(LazyThreadSafetyMode.NONE) {
-        if (configFileName != null) Configuration.configFilePath = configFileName as String
+        insightsReportOptions.configPath?.let { Configuration.configFilePath = it }
         val specmaticConfigPath = File(Configuration.configFilePath).canonicalPath
-        val configFromFile = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = configFileName != null)
+        val configFromFile = loadSpecmaticConfigOrNull(specmaticConfigPath, explicitlySpecifiedByUser = insightsReportOptions.configPath != null)
         val config = configFromFile.orDefault()
         val pathFromWhichConfigWasLoaded = if (configFromFile != null) {
             specmaticConfigPath
