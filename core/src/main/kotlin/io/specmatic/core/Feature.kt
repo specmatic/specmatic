@@ -1010,7 +1010,7 @@ data class Feature(
         val badRequestResponses = matchingScenarios.filter {
             it.httpResponsePattern.status in 400..499
         }
-        val defaultResponses = matchingScenarios.filter { it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE }
+        val defaultResponses = matchingScenarios.filter { it.isDefaultResponse() }
 
         if (badRequestResponses.isEmpty() && defaultResponses.isEmpty()) return null
         return BadRequestOrDefault(

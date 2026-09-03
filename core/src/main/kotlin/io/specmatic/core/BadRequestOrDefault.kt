@@ -18,7 +18,7 @@ class BadRequestOrDefault(val badRequestResponses: Map<Int, List<Scenario>> = em
 
     fun supportsStatus(status: String): Boolean {
         val statusInt = status.toIntOrNull() ?: return false
-        return badRequestResponses.containsKey(statusInt) || defaultResponses.isNotEmpty()
+        return badRequestResponses.containsKey(statusInt) || defaultResponses.any { it.httpResponsePattern.matchesStatus(statusInt) }
     }
 
     fun supportsResponseContentType(contentType: String): Boolean {
@@ -31,11 +31,12 @@ class BadRequestOrDefault(val badRequestResponses: Map<Int, List<Scenario>> = em
     private fun findBestMatchingScenario(httpResponse: HttpResponse): BestEffortMatch? {
         val sameStatus = badRequestResponses[httpResponse.status].orEmpty()
         val otherStatuses = badRequestResponses.filterKeys { it != httpResponse.status }.values.flatten()
+        val matchingDefaultResponses = defaultResponses.filter { it.httpResponsePattern.matchesStatus(httpResponse.status) }
 
         val sameStatusAndContentType = matchByContentType(sameStatus, httpResponse)
         if (sameStatusAndContentType != null) return BestEffortMatch(sameStatusAndContentType)
 
-        val defaultAndContentType = matchByContentType(defaultResponses, httpResponse)
+        val defaultAndContentType = matchByContentType(matchingDefaultResponses, httpResponse)
         if (defaultAndContentType != null) return BestEffortMatch(defaultAndContentType, fromDefault = true)
 
         val sameStatusFirst = sameStatus.firstOrNull()
@@ -44,7 +45,7 @@ class BadRequestOrDefault(val badRequestResponses: Map<Int, List<Scenario>> = em
         val otherStatusAndContentType = matchByContentType(otherStatuses, httpResponse)
         if (otherStatusAndContentType != null) return BestEffortMatch(otherStatusAndContentType)
 
-        val defaultFirst = defaultResponses.firstOrNull()
+        val defaultFirst = matchingDefaultResponses.firstOrNull()
         if (defaultFirst != null) return BestEffortMatch(defaultFirst, fromDefault = true)
 
         val otherStatusFirst = otherStatuses.firstOrNull()

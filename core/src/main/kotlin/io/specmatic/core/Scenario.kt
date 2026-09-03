@@ -195,8 +195,7 @@ data class Scenario(
         httpRequestPattern.requestMatchesIdentityForResponseStatus(responseStatus, httpRequest, resolver)
 
     fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
-        if (this.status !in setOf(DEFAULT_RESPONSE_CODE, httpResponse.status)) return false
-        return matchesContentType(httpResponse)
+        return httpResponsePattern.matchesStatus(httpResponse.status) && matchesContentType(httpResponse)
     }
 
     fun matchesContentType(httpResponse: HttpResponse): Boolean {
@@ -344,7 +343,7 @@ data class Scenario(
         httpRequest: HttpRequest, httpResponse: HttpResponse, mismatchMessages: MismatchMessages,
         flagsBased: FlagsBased, isPartial: Boolean = false, disableOverrideKeyCheck: Boolean = true
     ): Result {
-        if (httpResponsePattern.status == DEFAULT_RESPONSE_CODE || httpResponse.status != httpResponsePattern.status) {
+        if (!httpResponsePattern.matchesStatus(httpResponse.status)) {
             return Result.Failure(
                 message = "",
                 breadCrumb = "STATUS",
@@ -699,7 +698,7 @@ data class Scenario(
             if (requestMatchResult is Result.Failure)
                 requestMatchResult.updateScenario(this)
 
-            if (requestMatchResult is Result.Failure && response.status != httpResponsePattern.status)
+            if (requestMatchResult is Result.Failure && !httpResponsePattern.matchesStatus(response.status))
                 return Result.Failure(
                     cause = requestMatchResult,
                     failureReason = FailureReason.RequestMismatchButStatusAlsoWrong

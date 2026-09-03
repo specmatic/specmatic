@@ -1,0 +1,22 @@
+openapi: 3.0.0
+info:
+  title: Response status matching
+  version: 1.0.0
+paths:
+  /items:
+    get:
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: string
+        default:
+          description: Other response
+          content:
+            application/json:
+              schema:
+                type: string

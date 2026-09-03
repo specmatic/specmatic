@@ -26,7 +26,9 @@ data class ScenarioFingerprint(
             httpRequestPattern = scenario.httpRequestPattern.let { request ->
                 request.copy(httpPathPattern = request.httpPathPattern?.withoutOtherPathPatterns())
             },
-            httpResponsePattern = scenario.httpResponsePattern,
+            // Drop the operation-level status context so adding another response status does not
+            // mark existing response scenarios as changed.
+            httpResponsePattern = scenario.httpResponsePattern.withoutExplicitlyDefinedStatuses(),
         )
 
         fun keyOf(scenario: Scenario): Key = Key(

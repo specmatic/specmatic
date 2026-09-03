@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.util.function.Consumer
@@ -37,6 +38,42 @@ import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 
 class ScenarioTest {
+
+    @Nested
+    inner class ResponseStatusMatching {
+        @ParameterizedTest
+        @CsvSource("200, false", "201, true")
+        fun `scenario status matching should respect explicitly defined statuses`(responseStatus: Int, expected: Boolean) {
+            val scenario = scenarioWithResponseStatus(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            assertThat(scenario.matchesStatusAndContentType(HttpResponse(status = responseStatus))).isEqualTo(expected)
+        }
+
+        @ParameterizedTest
+        @CsvSource("200, false", "201, true")
+        fun `full request response matching should respect explicitly defined statuses`(responseStatus: Int, expected: Boolean) {
+            val scenario = scenarioWithResponseStatus(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            val result = scenario.matches(
+                flagsBased = DefaultStrategies,
+                mismatchMessages = DefaultMismatchMessages,
+                httpResponse = HttpResponse(status = responseStatus),
+                httpRequest = HttpRequest(method = "GET", path = "/items"),
+            )
+
+            assertThat(result).isInstanceOf(if (expected) Result.Success::class.java else Result.Failure::class.java)
+        }
+
+        @ParameterizedTest
+        @CsvSource("200, RequestMismatchButStatusAlsoWrong", "201, null")
+        fun `mock matching should use the centralized status predicate when request also mismatches`(responseStatus: Int, expectedFailureReason: String) {
+            val scenario = scenarioWithResponseStatus(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            val result = scenario.matchesMock(
+                request = HttpRequest(method = "GET", path = "/other-items"),
+                response = HttpResponse(status = responseStatus),
+            ) as Result.Failure
+
+            assertThat(result.failureReason?.name).isEqualTo(expectedFailureReason.takeUnless { it == "null" })
+        }
+    }
 
     @Test
     fun `operation is derived through the scenario operation provider`() {
@@ -104,6 +141,23 @@ class ScenarioTest {
             assertThat(fixedRequest).isEqualTo(expectedRequest)
             assertThat(fixedResponse).isEqualTo(response)
         }
+    }
+
+    @Suppress("SameParameterValue")
+    private fun scenarioWithResponseStatus(status: Int, explicitlyDefinedStatuses: Set<Int>): Scenario {
+        return Scenario(
+            name = "GET /items",
+            httpRequestPattern = HttpRequestPattern(
+                method = "GET",
+                httpPathPattern = buildHttpPathPattern("/items"),
+            ),
+            httpResponsePattern = HttpResponsePattern(
+                status = status,
+                explicitlyDefinedStatuses = explicitlyDefinedStatuses,
+            ),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
+        )
     }
 
     companion object {

@@ -3,6 +3,7 @@ package io.specmatic.conversions
 import integration_tests.OpenApiVersion
 import io.specmatic.core.Feature
 import io.specmatic.core.CONTENT_TYPE
+import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.IssueSeverity
@@ -57,6 +58,32 @@ import java.math.BigDecimal
 import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
+    @Nested
+    inner class ResponseStatusPatterns {
+        @ParameterizedTest
+        @ValueSource(strings = ["3.0.0", "3.1.0"])
+        fun `response patterns retain all explicitly defined statuses for an operation`(openApiVersion: String) {
+            val specification = loadFixture("openapi/default_response_status_selection/status_patterns.yaml")
+                .replace("openapi: 3.0.0", "openapi: $openApiVersion")
+
+            val feature = OpenApiSpecification.fromYAML(specification, "").toFeature()
+            val scenariosByStatus = feature.scenarios.associateBy { it.httpResponsePattern.status }
+            assertThat(scenariosByStatus.keys).isEqualTo(setOf(200, 201, DEFAULT_RESPONSE_CODE))
+            assertThat(scenariosByStatus.mapValues { it.value.httpResponsePattern.explicitlyDefinedStatuses })
+                .isEqualTo(
+                    mapOf(
+                        200 to setOf(200, 201),
+                        201 to setOf(200, 201),
+                        DEFAULT_RESPONSE_CODE to setOf(200, 201),
+                    )
+                )
+
+            val badRequestOrDefault = feature.getBadRequestsOrDefault(scenariosByStatus.getValue(200))!!
+            assertThat(badRequestOrDefault.supportsStatus("200")).isFalse()
+            assertThat(badRequestOrDefault.supportsStatus("202")).isTrue()
+        }
+    }
+
     @Test
     fun `unsupported enum type preserves null string fallback`() {
         val specification = """

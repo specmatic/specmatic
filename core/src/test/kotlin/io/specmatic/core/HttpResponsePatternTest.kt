@@ -9,6 +9,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 internal class HttpResponsePatternTest {
     @Test
@@ -229,6 +231,25 @@ internal class HttpResponsePatternTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).contains(">> RESPONSE.STATUS")
+    }
+
+    @Nested
+    inner class DefaultStatusMatching {
+        @ParameterizedTest
+        @CsvSource("200, false", "201, true")
+        fun `default response should match only statuses not explicitly defined`(responseStatus: Int, expected: Boolean) {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            assertThat(pattern.matchesStatus(responseStatus)).isEqualTo(expected)
+        }
+
+        @Test
+        fun `default response should not match an explicitly defined status`() {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            assertThat(pattern.matchesStatusAndContentType(HttpResponse(status = 200), Resolver()))
+                .isInstanceOf(Result.Failure::class.java)
+            assertThat(pattern.matchesStatusAndContentType(HttpResponse(status = 201), Resolver()))
+                .isInstanceOf(Result.Success::class.java)
+        }
     }
 
     @Nested

@@ -178,7 +178,7 @@ data class HttpLogMessage(
         return when {
             result != null -> result.testResult()
             this.matchedAnExample -> TestResult.Success
-            response?.status == scenario.status -> TestResult.Success
+            response?.let { scenario.httpResponsePattern.matchesStatus(it.status) } == true -> TestResult.Success
             else -> TestResult.Failed
         }
     }
@@ -189,7 +189,7 @@ data class HttpLogMessage(
         return when {
             this.isInlineExample -> "Request Matched Inline Example: ${this.resolvedExampleName}"
             this.isExternalExample -> "Request Matched External Example: ${this.resolvedExampleName}"
-            scenario != null && response?.status == scenario.status -> "Request Matched Contract ${scenario.defaultAPIDescription}"
+            scenario != null && response?.let { scenario.httpResponsePattern.matchesStatus(it.status) } == true -> "Request Matched Contract ${scenario.defaultAPIDescription}"
             this.exception != null -> "Invalid Request\n${exception?.let(::exceptionCauseMessage)}"
             else -> response?.body?.toStringLiteral() ?: "Request Didn't Match Contract"
         }

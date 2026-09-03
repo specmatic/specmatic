@@ -1,0 +1,11 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/items",
+    "query": { "kind": "fallback" }
+  },
+  "http-response": {
+    "status": 400,
+    "body": { "message": "unavailable" }
+  }
+}
