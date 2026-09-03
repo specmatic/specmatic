@@ -258,6 +258,14 @@ internal class HttpResponsePatternTest {
             assertThat(pattern.matchesStatusAndContentType(HttpResponse(status = 201), Resolver()))
                 .isInstanceOf(Result.Success::class.java)
         }
+
+        @ParameterizedTest
+        @CsvSource("201, 201", "200, 1000")
+        fun `fixResponse should preserve a response status only when the default pattern matches`(responseStatus: Int, expectedStatus: Int) {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            val fixedResponse = pattern.fixResponse(HttpResponse(status = responseStatus), Resolver())
+            assertThat(fixedResponse.status).isEqualTo(expectedStatus)
+        }
     }
 
     @Nested

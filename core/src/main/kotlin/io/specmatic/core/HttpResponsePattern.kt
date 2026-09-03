@@ -222,7 +222,7 @@ data class HttpResponsePattern(
 
     fun fixResponse(response: HttpResponse, resolver: Resolver): HttpResponse {
         return response.copy(
-            status = status,
+            status = response.status.takeIf(::matchesStatus) ?: status,
             headers = headersPattern.fixValue(response.headers, resolver.disableOverrideUnexpectedKeyCheck().updateLookupPath(BreadCrumb.RESPONSE.value)),
             body = body.fixValue(response.body, resolver)
         )
