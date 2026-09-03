@@ -30,11 +30,22 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased
+## 2.54.0 (2026-09-03)
+
+### Added
+
+- Added support for column level filtering in the HTML report.
+- Added a `validate_examples` MCP tool for validating inline and external OpenAPI examples against their specification, with structured validation results and guidance when Docker paths prevent local validation.
 
 ### Changed
 
 - Fixed request fixing to preserve security scheme headers and query parameters and repair invalid security values.
+- Fixed regular expressions containing an unescaped `.` so matching and generated values use the same behavior and do not unexpectedly include line terminators.
+- License, telemetry, and utilization requests now support HTTP(S) proxies configured through JVM proxy properties or standard proxy environment variables, with NO_PROXY bypass support.
+- Use `mock`, `test`, or `backward-compatibility-check` with `--ci` and the Insights repository/build metadata options to submit reports directly to Specmatic Insights. The separate `send-report` follow-up step is deprecated.
+- Improved GraphQL specification parsing for large schemas and clearer validation errors for missing or empty query roots and improved parser diagnostics for invalid OpenAPI, AsyncAPI, and gRPC specifications during report generation.
+- Improved OpenAPI handling of `default` responses to ensure they only match undeclared statuses. Fixed issues with loading, validating and fixing default response examples. Now, the declared status of a default response example is asserted during contract tests and returned by mocks.
+- Renamed the central contract repository report to the Spec Metadata Report. The `spec-metadata-report` command and `spec_metadata_report.json` output are now the primary names, while the previous command name remains an alias and `send-report` continues to consume the previous report filename.
 
 ## 2.53.1 (2026-08-22)
 
