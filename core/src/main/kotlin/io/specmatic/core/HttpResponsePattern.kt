@@ -83,15 +83,12 @@ data class HttpResponsePattern(
     private fun matchStatus(parameters: Pair<HttpResponse, Resolver>): MatchingResult<Pair<HttpResponse, Resolver>> {
         val (response, resolver) = parameters
         if (matchesStatus(response.status)) return MatchSuccess(parameters)
-        return when (response.status) {
-            status -> MatchSuccess(parameters)
-            else -> MatchFailure(mismatchFailure(
-                expected = "status $status",
-                actual = "status ${response.status}",
-                ruleViolation = OpenApiRuleViolation.STATUS_MISMATCH,
-                mismatchMessages = resolver.mismatchMessages
-            ).copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
-        }
+        return MatchFailure(mismatchFailure(
+            expected = "status $status",
+            actual = "status ${response.status}",
+            ruleViolation = OpenApiRuleViolation.STATUS_MISMATCH,
+            mismatchMessages = resolver.mismatchMessages
+        ).copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
     }
 
     private fun matchHeaders(parameters: Pair<HttpResponse, Resolver>): MatchingResult<Triple<HttpResponse, Resolver, List<Result.Failure>>> {
