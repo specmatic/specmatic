@@ -15,7 +15,7 @@ import kotlin.time.Duration.Companion.seconds
 @Serializable
 data class ManageMockServerArgs(
     val command: String,
-    val openApiSpec: String? = null,
+    val specFilePath: String? = null,
     val port: Int = 9000,
     val specFormat: String = "yaml"
 )
@@ -25,8 +25,8 @@ class MockServerTool {
 
     internal fun manageMockServer(args: ManageMockServerArgs): String = when (args.command) {
         "start" -> startMockServer(
-            openApiSpec = args.openApiSpec
-                ?: throw IllegalArgumentException("openApiSpec is required for 'start' command"),
+            specFilePath = args.specFilePath
+                ?: throw IllegalArgumentException("specFilePath is required for 'start' command"),
             port = args.port,
             specFormat = args.specFormat
         )
@@ -35,15 +35,12 @@ class MockServerTool {
         else -> throw IllegalArgumentException("command must be one of: start, stop, list")
     }
 
-    private fun startMockServer(openApiSpec: String, port: Int, specFormat: String): String {
+    private fun startMockServer(specFilePath: String, port: Int, specFormat: String): String {
         validatePortAvailability(port)?.let { return it }
-
-        val tempDir = createTempDirectory("specmatic-mock-").toFile()
-        val specFile = tempDir.resolve("spec.$specFormat").apply { writeText(openApiSpec) }
 
         return try {
             val command = StubCommand()
-            val argsList = stubCommandArgs(port, specFile)
+            val argsList = stubCommandArgs(port, File(specFilePath))
 
             command.registerShutdownHook = false
 
@@ -56,7 +53,7 @@ class MockServerTool {
 
             if (!ready) {
                 System.err.println("[MockServerTool] Timeout waiting for mock server on port $port.")
-                cleanupFailedStart(command, tempDir)
+                cleanupFailedStart(command)
                 return startFailure("The mock server did not become reachable on port $port within 10 seconds.")
             }
 
@@ -66,14 +63,14 @@ class MockServerTool {
             mockServerMessage(
                 "Mock server started successfully",
                 listOf(
-                    "Server URL: http://localhost:$port",
-                    "Port: $port",
-                    "Status: Running in-process",
-                    "Log directory: ${tempDir.canonicalPath}"
-                )
+                "Server URL: http://localhost:$port",
+                "Port: $port",
+                "Status: Running in-process",
+                "Spec file: ${File(specFilePath).canonicalPath}"
+            )
             )
         } catch (e: Throwable) {
-            cleanupFailedStart(tempDir = tempDir)
+            cleanupFailedStart()
             startFailure(e.message ?: "Unknown error")
         }
     }
@@ -143,9 +140,8 @@ class MockServerTool {
         )
     }
 
-    private fun cleanupFailedStart(command: StubCommand? = null, tempDir: File) {
+    private fun cleanupFailedStart(command: StubCommand? = null) {
         command?.close()
-        tempDir.deleteRecursively()
     }
 
     private fun stopServer(port: Int) {
