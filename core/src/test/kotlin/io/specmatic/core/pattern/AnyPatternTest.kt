@@ -15,12 +15,21 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 
 internal class AnyPatternTest {
     companion object {
+        internal enum class OneOfVariantSelection {
+            DISCRIMINATOR_ENUM,
+            DISCRIMINATOR_STRING,
+            PATTERN_MATCHING_ENUM,
+            PATTERN_MATCHING_CONST,
+            PATTERN_MATCHING_STRING,
+        }
+
         @JvmStatic
         fun jsonObjectAlternativeCases(): Stream<Arguments> = Stream.of(
             Arguments.of(
@@ -414,6 +423,178 @@ internal class AnyPatternTest {
         assertThat(results.filterIsInstance<HasValue<Pattern>>()).isNotEmpty.allSatisfy {
             assertThat(it.valueDetails).isNotEmpty
             assertThat(it.comments()).isNotBlank
+        }
+    }
+
+    @Nested
+    internal inner class RowBasedOneOfMutations {
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(OneOfVariantSelection::class)
+        fun `newBasedOn routes the example only to the matching oneOf branch`(variantSelection: OneOfVariantSelection) {
+            val results = oneOfPattern(variantSelection).newBasedOn(exampleRow(), Resolver()).toList()
+            assertThat(results).hasSize(2).allSatisfy { assertThat(it).isInstanceOf(HasValue::class.java) }
+            assertThat(results.map { it.value.typeAlias })
+                .containsExactlyInAnyOrder("(CardPaymentRequest)", "(BankTransferPaymentRequest)")
+        }
+
+        @Test
+        fun `newBasedOn prioritises the discriminator when every branch otherwise matches the example`() {
+            val pattern = oneOfPattern(OneOfVariantSelection.DISCRIMINATOR_STRING)
+            val example = parsedJSONObject("""{"paymentType":"card","orderId":123}""")
+            assertThat(pattern.pattern).allSatisfy { branch ->
+                assertThat(branch.matches(example, Resolver()).isSuccess()).isTrue()
+            }
+
+            val resultsByAlias = pattern.newBasedOn(exampleRow(), Resolver())
+                .map { it.value as JSONObjectPattern }
+                .associateBy { it.typeAlias }
+
+            assertThat(resultsByAlias.keys)
+                .containsExactlyInAnyOrder("(CardPaymentRequest)", "(BankTransferPaymentRequest)")
+            assertThat(resultsByAlias.getValue("(CardPaymentRequest)").pattern.getValue("orderId"))
+                .isEqualTo(ExactValuePattern(NumberValue(123)))
+            assertThat(resultsByAlias.getValue("(BankTransferPaymentRequest)").pattern.getValue("orderId"))
+                .isEqualTo(NumberPattern())
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(OneOfVariantSelection::class)
+        fun `negativeBasedOn processes every oneOf branch`(variantSelection: OneOfVariantSelection) {
+            val results = oneOfPattern(variantSelection).negativeBasedOn(exampleRow(), Resolver()).toList()
+            assertThat(results).hasSize(expectedNegativeMutationCount(variantSelection))
+                .allSatisfy { assertThat(it).isInstanceOf(HasValue::class.java) }
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(OneOfVariantSelection::class)
+        fun `newBasedOn routes a structured example to a nested oneOf`(variantSelection: OneOfVariantSelection) {
+            val pattern = JSONObjectPattern(mapOf("payment" to oneOfPattern(variantSelection)))
+            val results = pattern.newBasedOn(exampleRow(nested = true), Resolver()).toList()
+
+            assertThat(results).hasSize(2).allSatisfy { assertThat(it).isInstanceOf(HasValue::class.java) }
+            assertThat(results.map {
+                ((it.value as JSONObjectPattern).pattern.getValue("payment") as JSONObjectPattern).typeAlias
+            }).containsExactlyInAnyOrder("(CardPaymentRequest)", "(BankTransferPaymentRequest)")
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(OneOfVariantSelection::class)
+        fun `negativeBasedOn processes every branch in a nested oneOf`(variantSelection: OneOfVariantSelection) {
+            val pattern = JSONObjectPattern(mapOf("payment" to oneOfPattern(variantSelection)))
+            val results = pattern.negativeBasedOn(exampleRow(nested = true), Resolver()).toList()
+            assertThat(results).hasSize(expectedNegativeMutationCount(variantSelection))
+                .allSatisfy { assertThat(it).isInstanceOf(HasValue::class.java) }
+        }
+
+        @Test
+        fun `newBasedOn routes a filled-in non-discriminator oneOf example`() {
+            val pattern = AnyPattern(
+                extensions = emptyMap(),
+                pattern = listOf(
+                    JSONObjectPattern(
+                        typeAlias = "(CardPaymentRequest)",
+                        pattern = mapOf(
+                            "orderId" to NumberPattern(),
+                            "cardNumber" to StringPattern(),
+                            "paymentType" to ExactValuePattern(StringValue("card")),
+                        ),
+                    ),
+                    JSONObjectPattern(
+                        typeAlias = "(BankTransferPaymentRequest)",
+                        pattern = mapOf(
+                            "orderId" to NumberPattern(),
+                            "accountNumber" to StringPattern(),
+                            "paymentType" to ExactValuePattern(StringValue("bank_transfer")),
+                        ),
+                    ),
+                ),
+            )
+
+            val filledInRow = Row(
+                requestBodyJSONExample = JSONExample(
+                    originalRow = Row(),
+                    jsonObject = parsedJSONObject("""{"paymentType":"card","orderId":123,"cardNumber":"4111"}"""),
+                ),
+            )
+
+            val resultsByAlias = pattern.newBasedOn(filledInRow, Resolver())
+                .map { it.value as JSONObjectPattern }
+                .associateBy { it.typeAlias }
+
+            assertThat(resultsByAlias.getValue("(CardPaymentRequest)").pattern.getValue("orderId"))
+                .isEqualTo(ExactValuePattern(NumberValue(123)))
+            assertThat(resultsByAlias.getValue("(CardPaymentRequest)").pattern.getValue("cardNumber"))
+                .isEqualTo(ExactValuePattern(StringValue("4111")))
+        }
+
+        private fun oneOfPattern(variantSelection: OneOfVariantSelection): AnyPattern {
+            val cardPaymentType = paymentTypePattern("card", variantSelection)
+            val bankTransferPaymentType = paymentTypePattern("bank_transfer", variantSelection)
+            val discriminator = if (variantSelection.usesDiscriminator()) {
+                Discriminator(
+                    property = "paymentType",
+                    values = setOf("card", "bank_transfer"),
+                    mapping = mapOf(
+                        "card" to "#/components/schemas/CardPaymentRequest",
+                        "bank_transfer" to "#/components/schemas/BankTransferPaymentRequest",
+                    ),
+                )
+            } else null
+
+            return AnyPattern(
+                pattern = listOf(
+                    JSONObjectPattern(
+                        mapOf("paymentType" to cardPaymentType, "orderId" to NumberPattern()),
+                        typeAlias = "(CardPaymentRequest)",
+                    ),
+                    JSONObjectPattern(
+                        mapOf("paymentType" to bankTransferPaymentType, "orderId" to NumberPattern()),
+                        typeAlias = "(BankTransferPaymentRequest)",
+                    ),
+                ),
+                extensions = emptyMap(),
+                discriminator = discriminator,
+            )
+        }
+
+        private fun paymentTypePattern(value: String, variantSelection: OneOfVariantSelection): Pattern {
+            return when (variantSelection) {
+                OneOfVariantSelection.PATTERN_MATCHING_CONST -> ExactValuePattern(StringValue(value))
+                OneOfVariantSelection.DISCRIMINATOR_STRING, OneOfVariantSelection.PATTERN_MATCHING_STRING -> StringPattern()
+                OneOfVariantSelection.DISCRIMINATOR_ENUM, OneOfVariantSelection.PATTERN_MATCHING_ENUM -> EnumPattern(listOf(StringValue(value)))
+            }
+        }
+
+        private fun OneOfVariantSelection.usesDiscriminator(): Boolean {
+            return this == OneOfVariantSelection.DISCRIMINATOR_STRING || this == OneOfVariantSelection.DISCRIMINATOR_ENUM
+        }
+
+        private fun expectedNegativeMutationCount(variantSelection: OneOfVariantSelection) = when (variantSelection) {
+            OneOfVariantSelection.PATTERN_MATCHING_STRING -> 12
+            else -> 14
+        }
+
+        private fun exampleRow(nested: Boolean = false): Row {
+            val example = if (nested) {
+                """{"payment":{"paymentType":"card","orderId":123}}"""
+            } else {
+                """{"paymentType":"card","orderId":123}"""
+            }
+
+            return if (nested) {
+                Row(
+                    values = listOf(example),
+                    columnNames = listOf(REQUEST_BODY_FIELD),
+                    requestBodyJSONExample = JSONExample(parsedJSONObject(example), Row()),
+                )
+            } else {
+                Row(
+                    requestBodyJSONExample = JSONExample(
+                        originalRow = Row(),
+                        jsonObject = parsedJSONObject(example),
+                    )
+                )
+            }
         }
     }
 
