@@ -5,6 +5,8 @@ import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class BadRequestOrDefaultTest {
     @Nested
@@ -25,6 +27,22 @@ class BadRequestOrDefaultTest {
         fun `should return false when status absent and no default response exists`() {
             val badRequestOrDefault = BadRequestOrDefault(badRequestResponses = mapOf(401 to listOf(scenario(status = 401, contentType = "application/json"))))
             assertThat(badRequestOrDefault.supportsStatus("400")).isFalse()
+        }
+
+        @ParameterizedTest
+        @CsvSource("400, false", "401, true")
+        fun `default response should only support undeclared statuses`(status: String, expected: Boolean) {
+            val badRequestOrDefault = BadRequestOrDefault(
+                defaultResponses = listOf(
+                    scenario(
+                        status = DEFAULT_RESPONSE_CODE,
+                        contentType = "application/json",
+                        explicitlyDefinedStatuses = setOf(400),
+                    )
+                )
+            )
+
+            assertThat(badRequestOrDefault.supportsStatus(status)).isEqualTo(expected)
         }
     }
 
@@ -84,6 +102,16 @@ class BadRequestOrDefaultTest {
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat((result as Result.Success).partialSuccessMessage)
                 .isEqualTo("The response matched the default response, but the contract should declare a 499 response.")
+        }
+
+        @Test
+        fun `should not select default response for an explicitly defined status`() {
+            val defaultScenario = scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/json", explicitlyDefinedStatuses = setOf(400))
+            val badRequestOrDefault = BadRequestOrDefault(defaultResponses = listOf(defaultScenario))
+            val result = badRequestOrDefault.matches(httpResponse(status = 400, contentType = "application/json"), Resolver())
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+            assertThat((result as Result.Failure).message)
+                .isEqualTo("No matching or default response found for status 400.")
         }
 
         @Test
@@ -261,13 +289,22 @@ class BadRequestOrDefaultTest {
         }
     }
 
-    private fun scenario(status: Int, contentType: String, name: String = "scenario-$status") =
+    private fun scenario(
+        status: Int,
+        contentType: String,
+        name: String = "scenario-$status",
+        explicitlyDefinedStatuses: Set<Int> = emptySet()
+    ) =
         Scenario(
             name = name,
             specType = SpecType.OPENAPI,
             protocol = SpecmaticProtocol.HTTP,
             httpRequestPattern = HttpRequestPattern(),
-            httpResponsePattern = HttpResponsePattern(status = status, headersPattern = HttpHeadersPattern(contentType = contentType)),
+            httpResponsePattern = HttpResponsePattern(
+                status = status,
+                explicitlyDefinedStatuses = explicitlyDefinedStatuses,
+                headersPattern = HttpHeadersPattern(contentType = contentType),
+            ),
         )
 
     private fun httpResponse(status: Int, contentType: String): HttpResponse {

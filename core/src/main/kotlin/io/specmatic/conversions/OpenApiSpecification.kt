@@ -1574,8 +1574,14 @@ class OpenApiSpecification(
         return value.toIntOrNull() != null
     }
 
+    private fun String.toSpecmaticResponseStatus(): Int {
+        return if (this == "default") DEFAULT_RESPONSE_CODE else toInt()
+    }
+
     private fun toHttpResponsePatterns(responses: ApiResponses?, collectorContext: CollectorContext, openApiPath: String, httpMethod: String): List<ResponsePatternData> {
         val responsesContext = collectorContext.at("responses")
+        val explicitlyDefinedStatuses = responses.orEmpty().keys.mapNotNull { it.toIntOrNull() }.toSet()
+
         return responses.orEmpty().map { (status, response) ->
             logger.debug("Processing response payload with status $status")
             val statusContext = responsesContext.at(status)
@@ -1600,6 +1606,7 @@ class OpenApiSpecification(
                     responseBasePointer = responseBasePointer,
                     responseUseSitePointer = responseUseSitePointer,
                     responseHeaderPointers = responseHeaderPointers,
+                    explicitlyDefinedStatuses = explicitlyDefinedStatuses,
                 )
             }
         }.flatten()
@@ -1679,6 +1686,7 @@ class OpenApiSpecification(
         collectorContext: CollectorContext,
         responseBasePointer: String,
         responseUseSitePointer: String,
+        explicitlyDefinedStatuses: Set<Int>,
         responseHeaderPointers: Map<String, String> = emptyMap(),
     ): List<ResponsePatternData> {
         val headerExamples =
@@ -1698,7 +1706,8 @@ class OpenApiSpecification(
                         parameterPointers = responseHeaderPointers
                     ),
                     body = NoBodyPattern,
-                    status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE,
+                    status = status.toSpecmaticResponseStatus(),
+                    explicitlyDefinedStatuses = explicitlyDefinedStatuses,
                 )
 
             val examples =
@@ -1743,7 +1752,8 @@ class OpenApiSpecification(
                     preferEscapedSoapAction = preferEscapedSoapAction,
                     parameterPointers = responseHeaderPointers
                 ),
-                status = if (status == "default") 1000 else status.toInt(),
+                status = status.toSpecmaticResponseStatus(),
+                explicitlyDefinedStatuses = explicitlyDefinedStatuses,
                 body = when (contentType) {
                     "application/xml" -> {
                         val rawXmlBody = toXMLPattern(mediaType, mediaTypeContext)

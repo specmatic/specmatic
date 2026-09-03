@@ -560,6 +560,7 @@ class HttpStub(
             testType = STUB_TEST_TYPE,
             actualResponseStatus = httpResponse.status,
             actualResponseContentType = httpResponse.normalizedContentType(),
+            matchesResponseIdentifiers = httpLogMessage.scenario?.matchesStatusAndContentType(httpResponse) ?: false,
             operations = setOf(
                 OpenAPIOperation(
                     path = path,

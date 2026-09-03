@@ -76,7 +76,8 @@ class ScenarioFingerprintTest {
                 httpPathPattern = scenario.httpRequestPattern.httpPathPattern?.withoutOtherPathPatterns()
             )
         )
-        assertThat(fingerprint.httpResponsePattern).isEqualTo(scenario.httpResponsePattern)
+        assertThat(fingerprint.httpResponsePattern)
+            .isEqualTo(scenario.httpResponsePattern.withoutExplicitlyDefinedStatuses())
     }
 
     @Test
@@ -142,6 +143,34 @@ class ScenarioFingerprintTest {
 
         assertThat(ScenarioFingerprint.from(original))
             .isNotEqualTo(ScenarioFingerprint.from(differentStatus))
+    }
+
+    @Test
+    fun `fingerprint ignores statuses explicitly defined for the whole operation`() {
+        val oldSpec = """
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+        """.trimIndent()
+
+        val newSpec = oldSpec.applyJsonPatch("""
+            - op: add
+              path: /paths/~1orders/get/responses/201
+              value:
+                description: created
+        """.trimIndent())
+
+        val oldResponse = scenariosFrom(oldSpec).single()
+        val newResponse = scenariosFrom(newSpec).single { it.status == 200 }
+        assertThat(ScenarioFingerprint.from(oldResponse))
+            .isEqualTo(ScenarioFingerprint.from(newResponse))
     }
 
     @Test

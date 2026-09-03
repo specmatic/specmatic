@@ -14,7 +14,8 @@ const val STATUS_BREAD_CRUMB = "STATUS"
 data class HttpResponsePattern(
     val headersPattern: HttpHeadersPattern = HttpHeadersPattern(),
     val status: Int = 0,
-    val body: Pattern = EmptyStringPattern
+    val body: Pattern = EmptyStringPattern,
+    val explicitlyDefinedStatuses: Set<Int> = emptySet()
 ) {
     constructor(response: HttpResponse) : this(HttpHeadersPattern(response.headers.mapValues { stringToPattern(it.value, it.key) }), response.status, response.body.exactMatchElseType())
 
@@ -68,19 +69,26 @@ data class HttpResponsePattern(
 
     fun matchesMock(response: HttpResponse, resolver: Resolver) = matchesResponse(response, resolver)
 
-    private fun matchStatus(parameters: Pair<HttpResponse, Resolver>): MatchingResult<Pair<HttpResponse, Resolver>> {
-        if(status == DEFAULT_RESPONSE_CODE) return MatchSuccess(parameters)
+    fun withStatus(status: Int): HttpResponsePattern = copy(status = status)
 
+    // explicitlyDefinedStatuses is ambient operation-level context used only while matching a default response.
+    // It is not part of this response pattern's own contract and must not affect structural comparisons.
+    fun withoutExplicitlyDefinedStatuses(): HttpResponsePattern = copy(explicitlyDefinedStatuses = emptySet())
+
+    fun matchesStatus(responseStatus: Int): Boolean {
+        return responseStatus == status ||
+            status == DEFAULT_RESPONSE_CODE && responseStatus !in explicitlyDefinedStatuses
+    }
+
+    private fun matchStatus(parameters: Pair<HttpResponse, Resolver>): MatchingResult<Pair<HttpResponse, Resolver>> {
         val (response, resolver) = parameters
-        return when (response.status) {
-            status -> MatchSuccess(parameters)
-            else -> MatchFailure(mismatchFailure(
-                expected = "status $status",
-                actual = "status ${response.status}",
-                ruleViolation = OpenApiRuleViolation.STATUS_MISMATCH,
-                mismatchMessages = resolver.mismatchMessages
-            ).copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
-        }
+        if (matchesStatus(response.status)) return MatchSuccess(parameters)
+        return MatchFailure(mismatchFailure(
+            expected = "status $status",
+            actual = "status ${response.status}",
+            ruleViolation = OpenApiRuleViolation.STATUS_MISMATCH,
+            mismatchMessages = resolver.mismatchMessages
+        ).copy(breadCrumb = "RESPONSE.STATUS", failureReason = FailureReason.StatusMismatch))
     }
 
     private fun matchHeaders(parameters: Pair<HttpResponse, Resolver>): MatchingResult<Triple<HttpResponse, Resolver, List<Result.Failure>>> {
@@ -211,7 +219,7 @@ data class HttpResponsePattern(
 
     fun fixResponse(response: HttpResponse, resolver: Resolver): HttpResponse {
         return response.copy(
-            status = status,
+            status = response.status.takeIf(::matchesStatus) ?: status,
             headers = headersPattern.fixValue(response.headers, resolver.disableOverrideUnexpectedKeyCheck().updateLookupPath(BreadCrumb.RESPONSE.value)),
             body = body.fixValue(response.body, resolver)
         )

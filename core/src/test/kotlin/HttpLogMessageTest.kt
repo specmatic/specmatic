@@ -1,3 +1,4 @@
+import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.parseContractFileToFeature
@@ -6,6 +7,7 @@ import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.reporter.model.TestResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -124,5 +126,25 @@ internal class HttpLogMessageTest {
         )
 
         assertThat(message.toDetails()).isEqualTo("Request Matched External Example: examples/example.json")
+    }
+
+    @ParameterizedTest
+    @CsvSource("200, false", "400, true")
+    fun `toResult and toDetails should use the default response status only for undeclared statuses`(responseStatus: Int, expectedMatch: Boolean) {
+        val defaultScenario = parseContractFileToFeature(File("src/test/resources/openapi/default_response_status_selection/api.yaml"))
+            .scenarios
+            .single { it.status == DEFAULT_RESPONSE_CODE }
+
+        val message = HttpLogMessage(
+            scenario = defaultScenario,
+            response = HttpResponse(status = responseStatus),
+            request = HttpRequest("GET", "/items?kind=fallback"),
+        )
+
+        assertThat(message.toResult()).isEqualTo(if (expectedMatch) TestResult.Success else TestResult.Failed)
+        assertThat(message.toDetails()).isEqualTo(
+            if (expectedMatch) "Request Matched Contract ${defaultScenario.defaultAPIDescription}"
+            else ""
+        )
     }
 }

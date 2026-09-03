@@ -6,6 +6,7 @@ import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
 import io.specmatic.core.DEFAULT_RESPONSE_CODE
+import io.specmatic.core.FailureReason
 import io.specmatic.core.Feature
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
@@ -59,12 +60,48 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.net.ServerSocket
 import java.net.URLClassLoader
 import java.nio.file.Files
 
 class ScenarioAsTestTest {
+
+    @Nested
+    inner class DefaultResponseExampleStatus {
+        @ParameterizedTest
+        @CsvSource("400, true", "401, false")
+        fun `default response example should require its response status`(actualStatus: Int, expectedSuccess: Boolean) {
+            val testScenario = scenario(
+                exampleRow = Row(responseExample = HttpResponse(status = 400)),
+                status = DEFAULT_RESPONSE_CODE,
+            )
+
+            val result = scenarioAsTest(testScenario)
+                .runTest(fixedResponseExecutor(status = actualStatus, body = "anything"))
+                .result
+
+            assertThat(result.isSuccess()).isEqualTo(expectedSuccess)
+            if (!expectedSuccess) {
+                assertThat((result as Result.Failure).failureReason).isEqualTo(FailureReason.StatusMismatch)
+            }
+        }
+
+        @Test
+        fun `negative tests should continue to use default response fallback matching`() {
+            val negativeScenario = negativeScenario(
+                expectedResponses = mapOf(400 to listOf(expectationScenario(status = 400, contentType = "text/plain"))),
+                defaultResponses = listOf(expectationScenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/xml")),
+            )
+
+            val result = scenarioAsTest(negativeScenario)
+                .runTest(fixedResponseExecutor(status = 401, body = "response", headers = mapOf("Content-Type" to "application/xml")))
+                .result
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+    }
 
     @Nested
     inner class FixtureExecutorTest {

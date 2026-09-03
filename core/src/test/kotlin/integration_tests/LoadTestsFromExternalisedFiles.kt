@@ -33,6 +33,7 @@ import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
 import java.io.File
 import java.math.BigDecimal
@@ -47,6 +48,7 @@ private val XML_ONEOF_CONTRACT = XML_ONEOF_RESOURCE_DIR.resolve("api.yaml")
 private val XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES = XML_ONEOF_RESOURCE_DIR.resolve("api_with_inline_examples.yaml")
 private val XML_ONEOF_EXTERNAL_EXAMPLES_DIR = XML_ONEOF_RESOURCE_DIR.resolve("api_examples")
 private val XML_ONEOF_INVALID_INVOICE_EXAMPLE = XML_ONEOF_RESOURCE_DIR.resolve("invalid_examples/invoice.json")
+private val DEFAULT_RESPONSE_STATUS_SELECTION_SPEC = File("src/test/resources/openapi/default_response_status_selection/api.yaml")
 
 class LoadTestsFromExternalisedFiles {
     @TempDir
@@ -55,6 +57,86 @@ class LoadTestsFromExternalisedFiles {
     @BeforeEach
     fun setup() {
         unmockkAll()
+    }
+
+    @Nested
+    inner class DefaultResponseStatusSelection {
+        @Test
+        fun `external examples are loaded, generated tests execute, and mock responses retain their statuses`() {
+            val feature = OpenApiSpecification.fromFile(DEFAULT_RESPONSE_STATUS_SELECTION_SPEC.canonicalPath)
+                .toFeature()
+                .loadExternalisedExamples()
+
+            val scenariosByStatus = feature.scenarios.associateBy { it.status }
+            assertThat(scenariosByStatus.keys).isEqualTo(setOf(200, DEFAULT_RESPONSE_CODE))
+            assertThat(scenariosByStatus.getValue(200).examples.flatMap { it.rows }.map { it.name })
+                .isEqualTo(listOf("explicit"))
+            assertThat(scenariosByStatus.getValue(DEFAULT_RESPONSE_CODE).examples.flatMap { it.rows }.map { it.name })
+                .isEqualTo(listOf("fallback"))
+
+            feature.validateExamplesOrException()
+            val generatedResults = feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    return if (request.headers["Specmatic-Response-Code"] == "200") {
+                        HttpResponse(
+                            status = 200,
+                            body = parsedJSONObject("""{"id": 2}"""),
+                            headers = mapOf(CONTENT_TYPE to "application/json")
+                        )
+                    } else {
+                        HttpResponse(
+                            status = 400,
+                            headers = mapOf(CONTENT_TYPE to "application/json"),
+                            body = parsedJSONObject("""{"message": "unavailable"}"""),
+                        )
+                    }
+                }
+            })
+
+            assertThat(generatedResults.failureCount).withFailMessage(generatedResults.report()).isEqualTo(0)
+            assertThat(generatedResults.successCount).isEqualTo(3)
+
+            val externalExamples = ExampleModule(SpecmaticConfig()).getExamplesFor(DEFAULT_RESPONSE_STATUS_SELECTION_SPEC)
+            HttpStub(feature = feature, port = freePort(), strictMode = true, scenarioStubs = externalExamples.map { it.scenarioStub }).use { stub ->
+                val responses = listOf("explicit", "fallback").map { kind ->
+                    stub.client.execute(
+                        request = HttpRequest(
+                            method = "GET",
+                            path = "/items",
+                            queryParams = QueryParameters(mapOf("kind" to kind))
+                        )
+                    )
+                }
+
+                assertThat(responses.map { it.status }).isEqualTo(listOf(200, 400))
+                assertThat(responses.map { it.body }).isEqualTo(
+                    listOf(
+                        parsedJSONObject("""{"id": 1}"""),
+                        parsedJSONObject("""{"message": "unavailable"}""")
+                    )
+                )
+                assertThat(stub.ctrfTestResultRecords().map { it.matchesResponseIdentifiers })
+                    .containsExactly(true, true)
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource("400, 0, 1", "401, 1, 0")
+        fun `default response external example should require its response status`(actualStatus: Int, expectedFailureCount: Int, expectedSuccessCount: Int) {
+            val feature = OpenApiSpecification.fromFile(DEFAULT_RESPONSE_STATUS_SELECTION_SPEC.canonicalPath)
+                .toFeature()
+                .loadExternalisedExamples()
+
+            val defaultScenario = feature.scenarios.single { it.status == DEFAULT_RESPONSE_CODE }
+            val exampleResponse = requireNotNull(defaultScenario.examples.single().rows.single().responseExample)
+            val defaultFeature = feature.copy(scenarios = listOf(defaultScenario))
+            val results = defaultFeature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = exampleResponse.copy(status = actualStatus)
+            })
+
+            assertThat(results.failureCount).withFailMessage(results.report()).isEqualTo(expectedFailureCount)
+            assertThat(results.successCount).isEqualTo(expectedSuccessCount)
+        }
     }
 
     @Test

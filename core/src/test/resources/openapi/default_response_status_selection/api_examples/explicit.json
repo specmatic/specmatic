@@ -1,0 +1,11 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/items",
+    "query": { "kind": "explicit" }
+  },
+  "http-response": {
+    "status": 200,
+    "body": { "id": 1 }
+  }
+}

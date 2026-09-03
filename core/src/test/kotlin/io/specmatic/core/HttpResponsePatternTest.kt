@@ -9,6 +9,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 internal class HttpResponsePatternTest {
     @Test
@@ -229,6 +231,41 @@ internal class HttpResponsePatternTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).contains(">> RESPONSE.STATUS")
+    }
+
+    @Nested
+    inner class DefaultStatusMatching {
+        @Test
+        fun `withStatus should return a copy with only the status changed`() {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, body = StringPattern(), explicitlyDefinedStatuses = setOf(200))
+            val updatedPattern = pattern.withStatus(400)
+            assertThat(updatedPattern).isEqualTo(pattern.copy(status = 400))
+            assertThat(pattern.status).isEqualTo(DEFAULT_RESPONSE_CODE)
+        }
+
+        @ParameterizedTest
+        @CsvSource("200, false", "201, true")
+        fun `default response should match only statuses not explicitly defined`(responseStatus: Int, expected: Boolean) {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            assertThat(pattern.matchesStatus(responseStatus)).isEqualTo(expected)
+        }
+
+        @Test
+        fun `default response should not match an explicitly defined status`() {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            assertThat(pattern.matchesStatusAndContentType(HttpResponse(status = 200), Resolver()))
+                .isInstanceOf(Result.Failure::class.java)
+            assertThat(pattern.matchesStatusAndContentType(HttpResponse(status = 201), Resolver()))
+                .isInstanceOf(Result.Success::class.java)
+        }
+
+        @ParameterizedTest
+        @CsvSource("201, 201", "200, 1000")
+        fun `fixResponse should preserve a response status only when the default pattern matches`(responseStatus: Int, expectedStatus: Int) {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
+            val fixedResponse = pattern.fixResponse(HttpResponse(status = responseStatus), Resolver())
+            assertThat(fixedResponse.status).isEqualTo(expectedStatus)
+        }
     }
 
     @Nested
