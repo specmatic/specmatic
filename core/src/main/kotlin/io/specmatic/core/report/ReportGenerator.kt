@@ -96,7 +96,7 @@ object ReportGenerator {
 
     internal fun rawReportConfig(): ReportConfig {
         val configPath = getConfigFilePath()
-        val config = loadSpecmaticConfigOrNull(configPath) ?: return ReportConfig()
+        val config = specmaticConfigAsMap()
         return ReportConfig(configPath, ObjectMapper().writeValueAsString(config))
     }
 
