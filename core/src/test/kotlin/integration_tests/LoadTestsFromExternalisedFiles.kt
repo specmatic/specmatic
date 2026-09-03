@@ -33,6 +33,7 @@ import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.EnumSource
 import java.io.File
 import java.math.BigDecimal
@@ -117,6 +118,24 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(stub.ctrfTestResultRecords().map { it.matchesResponseIdentifiers })
                     .containsExactly(true, true)
             }
+        }
+
+        @ParameterizedTest
+        @CsvSource("400, 0, 1", "401, 1, 0")
+        fun `default response external example should require its response status`(actualStatus: Int, expectedFailureCount: Int, expectedSuccessCount: Int) {
+            val feature = OpenApiSpecification.fromFile(DEFAULT_RESPONSE_STATUS_SELECTION_SPEC.canonicalPath)
+                .toFeature()
+                .loadExternalisedExamples()
+
+            val defaultScenario = feature.scenarios.single { it.status == DEFAULT_RESPONSE_CODE }
+            val exampleResponse = requireNotNull(defaultScenario.examples.single().rows.single().responseExample)
+            val defaultFeature = feature.copy(scenarios = listOf(defaultScenario))
+            val results = defaultFeature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = exampleResponse.copy(status = actualStatus)
+            })
+
+            assertThat(results.failureCount).withFailMessage(results.report()).isEqualTo(expectedFailureCount)
+            assertThat(results.successCount).isEqualTo(expectedSuccessCount)
         }
     }
 

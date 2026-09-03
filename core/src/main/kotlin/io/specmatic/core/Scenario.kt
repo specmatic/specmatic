@@ -14,7 +14,6 @@ import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.nullOrExceptionString
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -407,10 +406,16 @@ data class Scenario(
         }
 
         return try {
-            httpResponsePattern.matchesResponse(httpResponse, resolver).updateScenario(this)
+            updatedDefaultResponsePatternForExample(resolver).matchesResponse(httpResponse, resolver).updateScenario(this)
         } catch (exception: Throwable) {
             Result.Failure("Exception: ${exception.message}")
         }
+    }
+
+    private fun updatedDefaultResponsePatternForExample(resolver: Resolver): HttpResponsePattern {
+        if (resolver.mockMode || !isDefaultResponse()) return httpResponsePattern
+        val exampleResponseStatus = exampleRow?.responseExample?.status?.takeIf { it != 0 } ?: return httpResponsePattern
+        return httpResponsePattern.withStatus(exampleResponseStatus)
     }
 
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {

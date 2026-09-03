@@ -235,6 +235,14 @@ internal class HttpResponsePatternTest {
 
     @Nested
     inner class DefaultStatusMatching {
+        @Test
+        fun `withStatus should return a copy with only the status changed`() {
+            val pattern = HttpResponsePattern(status = DEFAULT_RESPONSE_CODE, body = StringPattern(), explicitlyDefinedStatuses = setOf(200))
+            val updatedPattern = pattern.withStatus(400)
+            assertThat(updatedPattern).isEqualTo(pattern.copy(status = 400))
+            assertThat(pattern.status).isEqualTo(DEFAULT_RESPONSE_CODE)
+        }
+
         @ParameterizedTest
         @CsvSource("200, false", "201, true")
         fun `default response should match only statuses not explicitly defined`(responseStatus: Int, expected: Boolean) {

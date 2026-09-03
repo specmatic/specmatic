@@ -42,6 +42,33 @@ class ScenarioTest {
     @Nested
     inner class ResponseStatusMatching {
         @ParameterizedTest
+        @CsvSource("400, true", "401, false")
+        fun `default response should match the status from its response example`(responseStatus: Int, expected: Boolean) {
+            val scenario = scenarioWithResponseStatus(
+                status = DEFAULT_RESPONSE_CODE,
+                explicitlyDefinedStatuses = emptySet(),
+            ).copy(exampleRow = Row(responseExample = HttpResponse(status = 400)))
+
+            val result = scenario.matches(HttpResponse(status = responseStatus))
+            assertThat(result.isSuccess()).isEqualTo(expected)
+        }
+
+        @Test
+        fun `mock matching should retain default response status matching when an example exists`() {
+            val scenario = scenarioWithResponseStatus(
+                status = DEFAULT_RESPONSE_CODE,
+                explicitlyDefinedStatuses = emptySet(),
+            ).copy(exampleRow = Row(responseExample = HttpResponse(status = 400)))
+
+            val result = scenario.matchesMock(
+                request = HttpRequest(method = "GET", path = "/items"),
+                response = HttpResponse(status = 401),
+            )
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+
+        @ParameterizedTest
         @CsvSource("200, false", "201, true")
         fun `scenario status matching should respect explicitly defined statuses`(responseStatus: Int, expected: Boolean) {
             val scenario = scenarioWithResponseStatus(status = DEFAULT_RESPONSE_CODE, explicitlyDefinedStatuses = setOf(200))
