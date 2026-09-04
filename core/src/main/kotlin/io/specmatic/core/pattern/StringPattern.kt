@@ -23,8 +23,9 @@ data class StringPattern (
     val regex: String? = null,
     private val downsampledMin: Boolean = false,
     private val downsampledMax: Boolean = false,
+    private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH,
 ) : Pattern, ScalarType, HasDefaultExample {
-    internal val regExSpec = RegExSpec(regex)
+    internal val regExSpec = RegExSpec(regex, matchMode)
     private val effectiveMinLength = minLength ?: 0
 
     init {
