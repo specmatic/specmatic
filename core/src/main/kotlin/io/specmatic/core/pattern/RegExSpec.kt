@@ -9,12 +9,15 @@ import io.specmatic.core.value.Value
 internal const val WORD_BOUNDARY = "\\b"
 internal const val DOT_WITHOUT_LINE_TERMINATORS = "[^\n\r\u0085\u2028\u2029]"
 
-class RegExSpec(
-    regex: String?,
-) {
+enum class RegexMatchMode {
+    SEARCH,
+    WHOLE_VALUE,
+}
+
+class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH) {
     private val originalRegex = regex
     private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
-    private val regexForRuntimeMatch: Regex? = originalRegex?.let { Regex(it.replaceRegexLowerBounds()) }
+    private val regexForRuntimeMatch = originalRegex?.let { Regex(it.toRuntimeRegex(matchMode)) }
 
     init {
         validateRegex()
@@ -24,7 +27,7 @@ class RegExSpec(
         runCatching {
             if (regexGenerator == null || regexForRuntimeMatch == null) return
             val random = regexGenerator.random()
-            if (!regexForRuntimeMatch.matches(random)) {
+            if (!matchesRuntimeRegex(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
         }.getOrElse { e ->
@@ -78,7 +81,14 @@ class RegExSpec(
         return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
-    fun match(sampleData: StringValue) = regexForRuntimeMatch?.containsMatchIn(sampleData.toStringLiteral()) ?: true
+    fun match(sampleData: StringValue) = matchesRuntimeRegex(sampleData.toStringLiteral())
+    private fun matchesRuntimeRegex(value: String): Boolean {
+        return when {
+            regexForRuntimeMatch == null -> true
+            matchMode == RegexMatchMode.SEARCH -> regexForRuntimeMatch.containsMatchIn(value)
+            else -> regexForRuntimeMatch.matches(value)
+        }
+    }
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
         return regexGenerator?.let {
@@ -147,6 +157,15 @@ class RegExSpec(
 
         if (pendingEscape) result.append('\\')
         return result.toString()
+    }
+
+    private fun String.toRuntimeRegex(matchMode: RegexMatchMode): String {
+        return replaceRegexLowerBounds().let { regex ->
+            when (matchMode) {
+                RegexMatchMode.WHOLE_VALUE -> regex
+                RegexMatchMode.SEARCH -> regex.replaceEcmaEndAssertions()
+            }
+        }
     }
 
     private fun String.replaceRegexLowerBounds(): String {
@@ -246,6 +265,37 @@ class RegExSpec(
                     result.append(ch)
                     index++
                 }
+            }
+        }
+
+        return result.toString()
+    }
+
+    private fun String.replaceEcmaEndAssertions(): String {
+        val result = StringBuilder(length)
+
+        var escaped = false
+        var insideCharClass = false
+        for (ch in this) {
+            when {
+                escaped -> {
+                    result.append(ch)
+                    escaped = false
+                }
+                ch == '\\' -> {
+                    result.append(ch)
+                    escaped = true
+                }
+                ch == '[' -> {
+                    result.append(ch)
+                    insideCharClass = true
+                }
+                ch == ']' && insideCharClass -> {
+                    result.append(ch)
+                    insideCharClass = false
+                }
+                ch == '$' && !insideCharClass -> result.append("\\z")
+                else -> result.append(ch)
             }
         }
 

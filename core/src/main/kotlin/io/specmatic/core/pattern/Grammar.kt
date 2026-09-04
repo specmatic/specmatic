@@ -230,7 +230,8 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
                         typeAlias = typeAlias,
                         minLength = restrictions["minLength"]?.toIntOrNull(),
                         maxLength = restrictions["maxLength"]?.toIntOrNull(),
-                        regex = restrictions["regex"]
+                        regex = restrictions["regex"],
+                        matchMode = restrictions["matchMode"]?.let(RegexMatchMode::valueOf) ?: RegexMatchMode.SEARCH,
                     )
                 } catch (e: IllegalArgumentException) {
                     throw ContractException(e.message ?: "", exceptionCause = e)

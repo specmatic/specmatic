@@ -26,7 +26,11 @@ internal class StringPatternTest {
         @ParameterizedTest
         @ValueSource(strings = ["^[A-Z]{3}", "[A-Z]{3}$"])
         fun `generates values at minimum regular and maximum lengths that satisfy the original pattern`(regex: String) {
-            val pattern = StringPattern(regex = regex, minLength = 3, maxLength = 20)
+            val pattern = StringPattern(
+                regex = regex,
+                minLength = 3,
+                maxLength = 20,
+            )
             listOf(3, 10, 20).forEach { requestedLength ->
                 val generated = pattern.regExSpec.generateRandomString(requestedLength, requestedLength)
                 assertThat(generated.toStringLiteral()).hasSize(requestedLength)

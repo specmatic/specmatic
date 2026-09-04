@@ -3,6 +3,7 @@ package io.specmatic.core.wsdl.parser.message
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.RegexMatchMode
 import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.FullyQualifiedName
@@ -257,7 +258,8 @@ private fun constrainedStringValue(restrictions: StringRestrictions): StringValu
     val restrictionClauses = listOfNotNull(
         restrictions.minLength?.let { "minLength $it" },
         restrictions.maxLength?.let { "maxLength $it" },
-        restrictions.regex?.let { "regex $it" }
+        restrictions.regex?.let { "regex $it" },
+        restrictions.regex?.let { "matchMode ${RegexMatchMode.WHOLE_VALUE.name}" }
     )
 
     val token = if (restrictionClauses.isEmpty()) {
