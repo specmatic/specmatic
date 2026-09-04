@@ -78,7 +78,7 @@ class RegExSpec(
         return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
-    fun match(sampleData: StringValue) = regexForRuntimeMatch?.matches(sampleData.toStringLiteral()) ?: true
+    fun match(sampleData: StringValue) = regexForRuntimeMatch?.containsMatchIn(sampleData.toStringLiteral()) ?: true
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
         return regexGenerator?.let {

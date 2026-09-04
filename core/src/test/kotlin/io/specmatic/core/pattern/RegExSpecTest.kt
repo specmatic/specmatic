@@ -2,15 +2,100 @@ package io.specmatic.core.pattern
 
 import dk.brics.automaton.RegExp
 import io.specmatic.core.value.StringValue
+import java.util.stream.Stream
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class RegExSpecTest {
+    data class RuntimeMatchCase(val regex: String, val matchingInputs: List<String>, val nonMatchingInputs: List<String> = emptyList()) {
+        override fun toString(): String = "regex=/$regex/"
+    }
+
+    @Nested
+    inner class UnanchoredPatterns {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#unanchoredPatternCases")
+        fun `match anywhere in the input`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class StartAnchoredPatterns {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#startAnchoredPatternCases")
+        fun `match from the beginning while allowing a suffix`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class EndAnchoredPatterns {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#endAnchoredPatternCases")
+        fun `match through the end while allowing a prefix`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class FullyAnchoredPatterns {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#fullyAnchoredPatternCases")
+        fun `retain both explicit boundaries`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class AlternationPatterns {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#alternationPatternCases")
+        fun `retain anchor semantics independently across alternatives`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class EscapedAnchorPatterns {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#escapedAnchorPatternCases")
+        fun `treat escaped anchors as literal characters`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class CharacterClassPatterns {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#characterClassPatternCases")
+        fun `treat anchors inside character classes as characters`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class NestedWholeGroups {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#nestedWholeGroupCases")
+        fun `apply boundaries around nested whole groups`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class EmptyAlternatives {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#emptyAlternativeCases")
+        fun `match empty alternatives only when the original regex allows them`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    private fun assertRuntimeMatches(case: RuntimeMatchCase) {
+        val regex = RegExSpec(case.regex)
+        case.matchingInputs.forEach { input ->
+            assertThat(regex.match(StringValue(input)))
+                .withFailMessage("Expected /${case.regex}/ to match $input")
+                .isTrue
+        }
+
+        case.nonMatchingInputs.forEach { input ->
+            assertThat(regex.match(StringValue(input)))
+                .withFailMessage("Expected /${case.regex}/ not to match $input")
+                .isFalse
+        }
+    }
+
     @Test
     fun `should not allow construction with invalid regex`() {
         val invalidRegex = "/^a{10}\$/"
@@ -233,5 +318,124 @@ class RegExSpecTest {
         assertThat(generatedString).allSatisfy {
             assertThat(it).matches(regex)
         }
+    }
+
+    companion object {
+        @JvmStatic
+        fun unanchoredPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = "ABC",
+                matchingInputs = listOf("ABC", "ABCxx", "xxABC", "xxABCxx"),
+                nonMatchingInputs = listOf("ABX"),
+            ),
+            RuntimeMatchCase(regex = "", matchingInputs = listOf("", "anything")),
+        )
+
+        @JvmStatic
+        fun startAnchoredPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = "^ABC",
+                matchingInputs = listOf("ABC", "ABCxx"),
+                nonMatchingInputs = listOf("xxABC", "xxABCxx"),
+            ),
+            RuntimeMatchCase(
+                regex = "^[A-Z]{3}",
+                matchingInputs = listOf("ABC", "ABCxxxx", "ABC-anything"),
+                nonMatchingInputs = listOf("xxABC"),
+            ),
+        )
+
+        @JvmStatic
+        fun endAnchoredPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = """ABC$""",
+                matchingInputs = listOf("ABC", "xxABC"),
+                nonMatchingInputs = listOf("ABCxx", "xxABCxx"),
+            ),
+            RuntimeMatchCase(
+                regex = """[A-Z]{3}$""",
+                matchingInputs = listOf("ABC", "xxxxABC"),
+                nonMatchingInputs = listOf("ABCxxxx"),
+            ),
+        )
+
+        @JvmStatic
+        fun fullyAnchoredPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = """^ABC$""",
+                matchingInputs = listOf("ABC"),
+                nonMatchingInputs = listOf("xxABCxx", "ABCxx", "xxABC"),
+            ),
+            RuntimeMatchCase(
+                regex = """^[A-Z]{3}$""",
+                matchingInputs = listOf("ABC"),
+                nonMatchingInputs = listOf("ABc", "ABCD", "xxABC"),
+            ),
+        )
+
+        @JvmStatic
+        fun alternationPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = "foo|bar",
+                matchingInputs = listOf("foo", "xxfoo", "barxx"),
+                nonMatchingInputs = listOf("baz"),
+            ),
+            RuntimeMatchCase(
+                regex = """^ABC$|XYZ""",
+                matchingInputs = listOf("ABC", "xxXYZxx"),
+                nonMatchingInputs = listOf("xxABCxx", "ABCxx"),
+            ),
+            RuntimeMatchCase(
+                regex = """^ABC|XYZ$""",
+                matchingInputs = listOf("ABC", "ABCxx", "XYZ", "xxXYZ"),
+                nonMatchingInputs = listOf("xxABC", "XYZxx"),
+            ),
+        )
+
+        @JvmStatic
+        fun escapedAnchorPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = """\^foo\$""",
+                matchingInputs = listOf("^foo$", $$"xx^foo$xx"),
+                nonMatchingInputs = listOf("foo", $$"xxfoo$xx"),
+            ),
+        )
+
+        @JvmStatic
+        fun characterClassPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = """[a^$]+""",
+                matchingInputs = listOf("a", "^", "$", $$"x^$a"),
+                nonMatchingInputs = listOf("xyz"),
+            ),
+            RuntimeMatchCase(
+                regex = """[^$]+""",
+                matchingInputs = listOf("abc"),
+                nonMatchingInputs = listOf("$"),
+            ),
+        )
+
+        @JvmStatic
+        fun nestedWholeGroupCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = """^((foo|bar))$""",
+                matchingInputs = listOf("foo", "bar"),
+                nonMatchingInputs = listOf("foobar", "xxfoo"),
+            ),
+        )
+
+        @JvmStatic
+        fun emptyAlternativeCases(): Stream<RuntimeMatchCase> = Stream.of(
+            RuntimeMatchCase(
+                regex = """^$|^[A-Za-z0-9._\-]{1,64}$""",
+                matchingInputs = listOf("", "abc", "a_b.c-1"),
+                nonMatchingInputs = listOf("a!"),
+            ),
+            RuntimeMatchCase(
+                regex = """^(foo|)$""",
+                matchingInputs = listOf("", "foo"),
+                nonMatchingInputs = listOf("bar", "foobar"),
+            ),
+        )
     }
 }
