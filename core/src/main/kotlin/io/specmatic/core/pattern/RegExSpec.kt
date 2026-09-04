@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.regex.OpenApiRegexAnchorNormalizer
 import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -95,8 +96,7 @@ class RegExSpec(
 
     private fun cleanRegex(regex: String): String {
         return regex
-            .removePrefix("^")
-            .removeSuffix("$")
+            .removeOuterAnchors()
             .removePrefix(WORD_BOUNDARY)
             .removeSuffix(WORD_BOUNDARY)
             .replaceRegexLowerBounds()
@@ -104,6 +104,15 @@ class RegExSpec(
             .requote()
             .replaceNonCapturingGroups()
             .replaceUnescapedDot()
+    }
+
+    private fun String.removeOuterAnchors(): String {
+        val result = OpenApiRegexAnchorNormalizer().normalize(this)
+        if (result is OpenApiRegexAnchorNormalizer.Result.Unsupported) {
+            logger.debug("Could not normalize OpenAPI regex anchors: ${result.reason}. Using the original regex: ${result.regex}")
+        }
+
+        return result.regex
     }
 
     private fun String.replaceUnescapedDot(): String {
