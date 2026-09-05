@@ -21,6 +21,9 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.RequestHandler
 import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.SpecmaticMockRunner
+import io.specmatic.stub.OneShotClose
+import io.specmatic.stub.ShutdownHookRegistrar
+import io.specmatic.stub.JvmShutdownHookRegistrar
 import io.specmatic.stub.endPointFromHostAndPort
 import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
@@ -33,6 +36,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import picocli.CommandLine.*
 import picocli.CommandLine.Model.CommandSpec
+import java.io.Closeable
 import java.io.File
 import java.util.concurrent.TimeoutException
 import kotlin.time.DurationUnit
@@ -52,6 +56,7 @@ class StubCommand(
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory(),
+    private val shutdownHookRegistrar: ShutdownHookRegistrar = JvmShutdownHookRegistrar,
     @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
     val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig()
 ) : SpecmaticMockRunner {
@@ -153,8 +158,18 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     var specmaticConfigPath: String? = null
 
     var listeners: List<MockEventListener> = emptyList()
-    var registerShutdownHook: Boolean = true
     var requestHandlers: List<RequestHandler> = emptyList()
+
+    private val serverLifecycleLock = Any()
+    private var shutdownHookRegistration: Closeable? = null
+    private val terminalClose = OneShotClose(serverLifecycleLock) {
+        try {
+            consoleLog(StringLog("Shutting down mock servers"))
+            stopServer()
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+    }
 
     // used by plugins
     @Suppress("unused")
@@ -246,7 +261,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             startServer()
 
             if (httpStub != null) {
-                if (registerShutdownHook) addShutdownHook()
+                shutdownHookRegistration = shutdownHookRegistrar.register(terminalClose)
 
                 val configuredHotReload = configuredHotReload()
 
@@ -349,35 +364,25 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun restartServer() {
-        consoleLog(StringLog("Stopping servers..."))
-        try {
-            stopServer()
-            consoleLog(StringLog("Stopped."))
-        } catch (e: Throwable) {
-            consoleLog(e,"Error stopping server")
-        }
+        synchronized(serverLifecycleLock) {
+            if (terminalClose.hasStarted) return
+            consoleLog(StringLog("Stopping servers..."))
+            try {
+                stopServer()
+                consoleLog(StringLog("Stopped."))
+            } catch (e: Throwable) {
+                consoleLog(e,"Error stopping server")
+            }
 
-        try { startServer() } catch (e: Throwable) {
-            consoleLog(e, "Error starting server")
+            try { startServer() } catch (e: Throwable) {
+                consoleLog(e, "Error starting server")
+            }
         }
     }
 
     private fun stopServer() {
         httpStub?.close()
         httpStub = null
-    }
-
-    private fun addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(object : Thread() {
-            override fun run() {
-                try {
-                    consoleLog(StringLog("Shutting down mock servers"))
-                    httpStub?.close()
-                } catch (e: InterruptedException) {
-                    currentThread().interrupt()
-                }
-            }
-        })
     }
 
     private fun logStubLoadingSummary(stubData: List<Pair<Feature, List<ScenarioStub>>>) {
@@ -407,7 +412,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun close() {
-        stopServer()
+        shutdownHookRegistration?.close()
+        shutdownHookRegistration = null
+        terminalClose.close()
     }
 
     override suspend fun checkReadiness() {

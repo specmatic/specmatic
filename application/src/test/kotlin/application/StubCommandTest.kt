@@ -8,6 +8,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
+import io.specmatic.core.config.Switch
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.Flags
@@ -16,6 +17,7 @@ import io.specmatic.core.utilities.StubServerWatcher
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
+import io.specmatic.stub.ShutdownHookRegistrar
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -28,10 +30,15 @@ import org.junit.jupiter.params.provider.ValueSource
 import picocli.CommandLine
 import java.io.File
 import java.io.FileOutputStream
+import java.io.Closeable
 import java.net.ServerSocket
 import java.nio.file.Path
 import java.security.KeyStore
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.use
 
 
@@ -52,13 +59,16 @@ internal class StubCommandTest {
     @MockK
     lateinit var stubLoaderEngine: StubLoaderEngine
 
+    @MockK
+    lateinit var shutdownHookRegistrar: ShutdownHookRegistrar
+
     @InjectMockKs
     lateinit var stubCommand: StubCommand
 
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
-        stubCommand.registerShutdownHook = false
+        every { shutdownHookRegistrar.register(any()) } returns java.io.Closeable {}
     }
 
     @AfterEach
@@ -85,6 +95,157 @@ internal class StubCommandTest {
         CommandLine(stubCommand).execute("/parameter/path/to/contract.$CONTRACT_EXTENSION")
 
         verify(exactly = 0) { specmaticConfig.contractStubPathData() }
+    }
+
+    @Test
+    fun `terminal close closes the active server only once`() {
+        val closeCount = AtomicInteger(0)
+        stubCommand.httpStub = mockk {
+            every { close() } answers { closeCount.incrementAndGet() }
+        }
+
+        stubCommand.close()
+        stubCommand.close()
+        assertThat(closeCount.get()).isEqualTo(1)
+    }
+
+    @Test
+    fun `terminal close before start does not close a server`() {
+        stubCommand.close()
+        assertThat(stubCommand.httpStub).isNull()
+    }
+
+    @Test
+    fun `standalone shutdown hook and explicit terminal close share one final close`(@TempDir tempDir: File) {
+        val contractPath = tempDir.resolve("contract.$CONTRACT_EXTENSION").canonicalPath
+        File(contractPath).writeText("Feature: A stub")
+
+        val registeredHook = slot<Closeable>()
+        val closeCount = AtomicInteger(0)
+        every { watchMaker.make(listOf(contractPath)) } returns watcher
+        every { specmaticConfig.contractStubPaths() } returns arrayListOf(contractPath)
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { shutdownHookRegistrar.register(capture(registeredHook)) } returns Closeable {}
+        every {
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns mockk {
+            every { close() } answers { closeCount.incrementAndGet() }
+        }
+
+        assertThat(CommandLine(stubCommand).execute(contractPath)).isZero()
+        assertThat(registeredHook.isCaptured).isTrue()
+
+        registeredHook.captured.close()
+        stubCommand.close()
+
+        assertThat(closeCount.get()).isEqualTo(1)
+    }
+
+    @Test
+    fun `terminal close remains separate from automatic restart closes`(@TempDir tempDir: File) {
+        val contractPath = tempDir.resolve("contract.$CONTRACT_EXTENSION").canonicalPath
+        File(contractPath).writeText("Feature: A stub")
+
+        val restart = slot<() -> Unit>()
+        val closeCount = AtomicInteger(0)
+        val firstServer = mockk<HttpStub> {
+            every { close() } answers { closeCount.incrementAndGet() }
+        }
+
+        val secondServer = mockk<HttpStub> {
+            every { close() } answers { closeCount.incrementAndGet() }
+        }
+
+        val thirdServer = mockk<HttpStub> {
+            every { close() } answers { closeCount.incrementAndGet() }
+        }
+
+        every { watcher.watchForChanges(capture(restart)) } just Runs
+        every { watchMaker.make(listOf(contractPath)) } returns watcher
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(firstServer, secondServer, thirdServer)
+        stubCommand.hotReload = Switch.enabled
+
+        assertThat(CommandLine(stubCommand).execute(contractPath)).isZero()
+        restart.captured.invoke()
+        restart.captured.invoke()
+
+        stubCommand.close()
+        stubCommand.close()
+        restart.captured.invoke()
+        assertThat(closeCount.get()).isEqualTo(3)
+        verify(exactly = 3) {
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `terminal close waits for an in-progress restart`(@TempDir tempDir: File) {
+        val contractPath = tempDir.resolve("contract.$CONTRACT_EXTENSION").canonicalPath
+        File(contractPath).writeText("Feature: A stub")
+
+        val restart = slot<() -> Unit>()
+        val allowRestartStop = CountDownLatch(1)
+        val restartStopStarted = CountDownLatch(1)
+        val terminalCloseRequested = CountDownLatch(1)
+        val closeCount = AtomicInteger(0)
+        val firstServer = mockk<HttpStub> {
+            every { close() } answers {
+                restartStopStarted.countDown()
+                if (!allowRestartStop.await(5, TimeUnit.SECONDS)) {
+                    throw AssertionError("Timed out waiting to finish the restart stop")
+                }
+
+                closeCount.incrementAndGet()
+            }
+        }
+
+        val secondServer = mockk<HttpStub> {
+            every { close() } answers { closeCount.incrementAndGet() }
+        }
+
+        every { watcher.watchForChanges(capture(restart)) } just Runs
+        every { watchMaker.make(listOf(contractPath)) } returns watcher
+        every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
+        every { shutdownHookRegistrar.register(any()) } returns Closeable { terminalCloseRequested.countDown() }
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(firstServer, secondServer)
+        stubCommand.hotReload = Switch.enabled
+
+        assertThat(CommandLine(stubCommand).execute(contractPath)).isZero()
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val restartFuture = executor.submit { restart.captured.invoke() }
+            assertThat(restartStopStarted.await(5, TimeUnit.SECONDS)).isTrue()
+
+            val closeFuture = executor.submit { stubCommand.close() }
+            assertThat(terminalCloseRequested.await(5, TimeUnit.SECONDS)).isTrue()
+            assertThat(closeCount.get()).isZero()
+
+            allowRestartStop.countDown()
+            restartFuture.get(5, TimeUnit.SECONDS)
+            closeFuture.get(5, TimeUnit.SECONDS)
+            assertThat(closeCount.get()).isEqualTo(2)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `concurrent terminal close closes the active server only once`() {
+        val closeCount = AtomicInteger(0)
+        stubCommand.httpStub = mockk {
+            every { close() } answers { closeCount.incrementAndGet() }
+        }
+
+        val executor = Executors.newFixedThreadPool(8)
+        try {
+            val closes = (1..8).map { executor.submit { stubCommand.close() } }
+            closes.forEach { it.get(5, TimeUnit.SECONDS) }
+        } finally {
+            executor.shutdownNow()
+        }
+
+        assertThat(closeCount.get()).isEqualTo(1)
     }
 
     @Test
