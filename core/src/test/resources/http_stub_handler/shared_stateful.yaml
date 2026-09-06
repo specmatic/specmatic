@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: Stateful API
+  version: 1.0.0
+paths:
+  /shared:
+    get:
+      responses:
+        '200':
+          description: Shared collection
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id]
+                  properties:
+                    id:
+                      type: integer

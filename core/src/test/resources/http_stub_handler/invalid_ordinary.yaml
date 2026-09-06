@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: Ordinary API
+  version: 1.0.0
+paths:
+  /orders:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+        '415':
+          description: Unsupported media type
+          content:
+            application/json:
+              schema:
+                type: object
+        '405':
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                type: object

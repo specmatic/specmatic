@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: Http stub handler API
+  version: 1.0.0
+paths:
+  /spi:
+    get:
+      responses:
+        '200':
+          description: SPI response
+          content:
+            text/plain:
+              schema:
+                type: string
+  /dynamic:
+    get:
+      responses:
+        '201':
+          description: Dynamic response
+          content:
+            text/plain:
+              schema:
+                type: string
+  /hello:
+    get:
+      responses:
+        '200':
+          description: Greeting response
+          content:
+            text/plain:
+              schema:
+                type: string
+  /example:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: integer
+            examples:
+              example:
+                value:
+                  id: 1
+      responses:
+        '200':
+          description: Inline example response
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                example:
+                  value: served from OpenAPI example

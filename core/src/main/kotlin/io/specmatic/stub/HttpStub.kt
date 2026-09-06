@@ -65,7 +65,6 @@ import io.specmatic.core.utilities.URIValidationResult
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
-import io.specmatic.core.utilities.toMap
 import io.specmatic.core.utilities.validateTestOrStubUri
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.BinaryValue
@@ -133,7 +132,7 @@ private const val SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE = "No OpenAPI specification
 
 class HttpStub(
     private val features: List<Feature>,
-    rawHttpStubs: List<HttpStubData> = emptyList(),
+    private val rawHttpStubs: List<HttpStubData> = emptyList(),
     val host: String = "127.0.0.1",
     private val port: Int = 9000,
     private val log: (event: LogMessage) -> Unit = dontPrintToConsole,
@@ -235,12 +234,15 @@ class HttpStub(
         }
     )
 
-    private val httpExpectations: HttpExpectations = HttpExpectations(
+    private val httpStubHandlers = HttpStubHandlers(
+        features = features,
         strictMode = strictMode,
+        rawHttpStubs = rawHttpStubs,
+        specToBaseUrlMap = specToBaseUrlMap,
+        httpClientFactory = httpClientFactory,
         specmaticConfig = specmaticConfigInstance,
-        static = staticHttpStubData(rawHttpStubs),
-        transient = rawHttpStubs.filter { it.stubToken != null }.reversed().toMutableList(),
-        specToBaseUrlMap = specToBaseUrlMap
+        passThroughTargetBase = passThroughTargetBase,
+        specmaticConfigPath = loadedSpecmaticConfig.path,
     )
 
     private val firstMockedOpenApiSpec: MockedOpenApiSpec? by lazy {
@@ -265,22 +267,6 @@ class HttpStub(
         requestHandlers.add(requestHandler)
     }
 
-    private fun staticHttpStubData(rawHttpStubs: List<HttpStubData>): MutableList<HttpStubData> {
-        val staticStubs = rawHttpStubs.filter { it.stubToken == null }
-
-        val stubsFromSpecificationExamples: List<HttpStubData> = features.map {
-            it.loadInlineExamplesAsStub()
-        }.flatten().mapNotNull {
-            it.realise(
-                hasValue = { stubData, _ -> stubData },
-                orFailure = { null },
-                orException = { null }
-            )
-        }
-
-        return staticStubs.plus(stubsFromSpecificationExamples).toMutableList()
-    }
-
     private val _logs: MutableList<StubEndpoint> = Collections.synchronizedList(ArrayList())
     private val _allEndpoints: List<StubEndpoint> = extractAllEndpoints()
 
@@ -290,12 +276,12 @@ class HttpStub(
 
     val stubCount: Int
         get() {
-            return httpExpectations.stubCount
+            return httpStubHandlers.stubCount
         }
 
     val transientStubCount: Int
         get() {
-            return httpExpectations.transientStubCount
+            return httpStubHandlers.transientStubCount
         }
 
     val endPoint = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
@@ -845,19 +831,22 @@ class HttpStub(
         val url = "$baseUrl$urlPath"
         val stubBaseUrlPath = specmaticConfigInstance.stubBaseUrlPathAssociatedTo(url, defaultBaseUrl)
 
-        return getHttpResponse(
-            httpRequest = httpRequest.trimBaseUrlPath(stubBaseUrlPath),
-            features = featuresAssociatedTo(baseUrl, features, specToBaseUrlMap, urlPath),
-            httpExpectations.associatedTo(baseUrl, defaultBaseUrl, urlPath),
-            strictMode = strictMode,
-            passThroughTargetBase = passThroughTargetBase,
-            httpClientFactory = httpClientFactory,
-            specmaticConfig = specmaticConfigInstance,
+        val trimmedRequest = httpRequest.trimBaseUrlPath(stubBaseUrlPath)
+        val candidateFeatures = featuresAssociatedTo(baseUrl, features, specToBaseUrlMap, urlPath)
+        val (handler, features) = httpStubHandlers.handlerForRequest(candidateFeatures, trimmedRequest)
+
+        return handler.serveStubResponse(
+            baseUrl = baseUrl,
+            urlPath = urlPath,
+            features = features,
+            httpRequest = trimmedRequest,
+            defaultBaseUrl = defaultBaseUrl,
         ).also {
-            if (it is FoundStubbedResponse) {
-                it.response.mock?.let { mock -> httpExpectations.utilizeMock(mock) }
-            }
             it.log(_logs, httpRequest)
+            if (it is FoundStubbedResponse) {
+                val mock = it.response.mock ?: return@also
+                httpStubHandlers.utilize(handler, mock)
+            }
         }
     }
 
@@ -886,7 +875,7 @@ class HttpStub(
     private fun handleFlushTransientStubsRequest(httpRequest: HttpRequest): HttpStubResponse {
         val token = httpRequest.path?.removePrefix("/_specmatic/$TRANSIENT_MOCK/")
 
-        httpExpectations.removeWithToken(token)
+        httpStubHandlers.removeWithToken(token)
 
         return HttpStubResponse(HttpResponse.OK)
     }
@@ -1117,47 +1106,28 @@ class HttpStub(
     }
 
     fun setExpectation(stub: ScenarioStub): List<HttpStubData> {
-        val results = features.asSequence().map { feature -> setExpectation(stub, feature) }
-
-        val result: Pair<Pair<Result.Success, List<HttpStubData>>?, NoMatchingScenario?>? =
-            results.find { it.first != null }
-        val firstResult: Pair<Result.Success, List<HttpStubData>>? = result?.first
-
-        when (firstResult) {
-            null -> {
-                val failures = results
-                    .flatMap {
-                        it.second?.results?.withoutFluff()?.results ?: emptyList()
-                    }
-                    .filterIsInstance<Result.Failure>()
-                    .distinctBy { failure -> failure.toReport().toText() }
-                    .toList()
-
-                val failureResults = Results(failures).withoutFluff()
-                throw NoMatchingScenario(
-                    failureResults,
-                    cachedMessage = failureResults.report(stub.requestElsePartialRequest())
-                )
-            }
-
-            else -> {
-                val stubData = firstResult.second.map { it.copy(scenarioStub = stub) }
-                val resultWithRequestBodyRegex = stubData.map { Pair(firstResult.first, it) }
-
-                if (stub.stubToken != null) {
-                    resultWithRequestBodyRegex.forEach {
-                        httpExpectations.addDynamicTransient(it, stub)
-                    }
-
-                } else {
-                    resultWithRequestBodyRegex.forEach {
-                        httpExpectations.addDynamic(it, stub)
-                    }
-                }
-            }
+        val results = features.asSequence().map { feature -> feature to setExpectation(stub, feature) }
+        val matchingResult = results.firstNotNullOfOrNull { (feature, result) ->
+            result.first?.let { expectation -> feature to expectation }
         }
 
-        return firstResult.second
+        if (matchingResult == null) {
+            val failures = results
+                .flatMap { (_, result) -> result.second?.results?.withoutFluff()?.results ?: emptyList() }
+                .filterIsInstance<Result.Failure>()
+                .distinctBy { failure -> failure.toReport().toText() }
+                .toList()
+
+            val failureResults = Results(failures).withoutFluff()
+            throw NoMatchingScenario(
+                results = failureResults,
+                cachedMessage = failureResults.report(stub.requestElsePartialRequest())
+            )
+        }
+
+        val (matchingFeature, expectation) = matchingResult
+        httpStubHandlers.addExpectation(matchingFeature, stub, expectation.second)
+        return expectation.second
     }
 
     private fun parseRegex(regex: String?): Regex? {
