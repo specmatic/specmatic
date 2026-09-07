@@ -194,7 +194,8 @@ open class SpecmaticJUnitSupport {
 
         settings = ContractTestSettings(settings, specmaticConfig)
 
-        LicenseConfig.instance.utilization.shipDisabled = specmaticConfig.isTelemetryDisabled()
+        LicenseConfig.instance.utilization.shipDisabled = LicenseConfig.instance.utilization.shipDisabled || specmaticConfig.isTelemetryDisabled()
+
         partialSuccesses.clear()
 
         val filterName: String? = settings.filterName

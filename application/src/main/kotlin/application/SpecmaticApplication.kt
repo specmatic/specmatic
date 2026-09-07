@@ -24,7 +24,7 @@ open class SpecmaticApplication {
 
             val specmaticConfig = loadSpecmaticConfigOrNull()
             specmaticConfig?.let {
-                LicenseConfig.instance.utilization.shipDisabled = it.isTelemetryDisabled()
+                LicenseConfig.instance.utilization.shipDisabled = LicenseConfig.instance.utilization.shipDisabled || it.isTelemetryDisabled()
             }
             setupPicoCli()
             setupLogging()
