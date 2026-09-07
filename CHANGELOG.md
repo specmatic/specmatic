@@ -30,6 +30,13 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+### Changed
+
+- Fixed OpenAPI and JSON Schema `pattern` matching to use search semantics, so unanchored expressions can match substrings while explicit `^` and `$` anchors continue to constrain the corresponding boundary.
+- Fixed generated values for anchored patterns with alternatives and length constraints, including empty alternatives and partial anchors, so generated values remain valid for the original pattern. Unsupported regex structures will use the lenient fallback.
+
 ## 2.54.0 (2026-09-03)
 
 ### Added

@@ -12,6 +12,7 @@ import io.specmatic.toViolationReportString
 import org.apache.commons.lang3.RandomStringUtils
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.fail
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -20,6 +21,71 @@ import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 
 internal class StringPatternTest {
+    @Nested
+    inner class PartialAnchoringWithLengthConstraints {
+        @ParameterizedTest
+        @ValueSource(strings = ["^[A-Z]{3}", "[A-Z]{3}$"])
+        fun `generates values at minimum regular and maximum lengths that satisfy the original pattern`(regex: String) {
+            val pattern = StringPattern(
+                regex = regex,
+                minLength = 3,
+                maxLength = 20,
+            )
+            listOf(3, 10, 20).forEach { requestedLength ->
+                val generated = pattern.regExSpec.generateRandomString(requestedLength, requestedLength)
+                assertThat(generated.toStringLiteral()).hasSize(requestedLength)
+                assertThat(pattern.matches(generated, Resolver()).isSuccess()).isTrue
+            }
+        }
+    }
+
+    @Nested
+    inner class WholeValueRegexWithLengthConstraints {
+        @ParameterizedTest
+        @CsvSource(
+            delimiter = ';',
+            value = [
+                "^foo; 3; 3",
+                "foo$; 3; 3",
+                "^foo|bar$; 3; 3",
+                "^[A-Z]{3,5}$; 4; 4",
+            ],
+        )
+        fun `generated values match the whole-value regex within length constraints`(regex: String, minLength: Int, maxLength: Int) {
+            val pattern = StringPattern(
+                regex = regex,
+                minLength = minLength,
+                maxLength = maxLength,
+                matchMode = RegexMatchMode.WHOLE_VALUE,
+            )
+
+            repeat(10) {
+                val generated = pattern.generate(Resolver())
+                assertThat(generated.toStringLiteral()).hasSizeBetween(minLength, maxLength)
+                assertThat(pattern.matches(generated, Resolver()).isSuccess())
+                    .withFailMessage("$generated does not match the whole-value regex $regex")
+                    .isTrue
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["^[A-Z]{3,20}", "[A-Z]{3,20}$"])
+        fun `generates values at minimum regular and maximum lengths that satisfy the whole-value regex`(regex: String) {
+            val pattern = StringPattern(
+                regex = regex,
+                minLength = 3,
+                maxLength = 20,
+                matchMode = RegexMatchMode.WHOLE_VALUE,
+            )
+
+            listOf(3, 10, 20).forEach { requestedLength ->
+                val generated = pattern.regExSpec.generateRandomString(requestedLength, requestedLength)
+                assertThat(generated.toStringLiteral()).hasSize(requestedLength)
+                assertThat(pattern.matches(generated, Resolver()).isSuccess()).isTrue
+            }
+        }
+    }
+
     @Test
     fun `should fail to match null values gracefully`() {
         NullValue shouldNotMatch StringPattern()
