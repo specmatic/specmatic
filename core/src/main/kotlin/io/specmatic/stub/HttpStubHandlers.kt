@@ -80,19 +80,19 @@ class HttpStubHandlers(
     }
 
     private fun createStatelessMockHandler(): HttpStubHandler.Default {
-        val context = contextFor(MockMode.MOCK, includeAllModes = statefulMockHandler == null)
+        val context = contextFor(MockMode.MOCK, skipModeFilter = statefulMockHandler == null)
         return DefaultHttpStubHandler(context)
     }
 
-    private fun contextFor(mode: MockMode, includeAllModes: Boolean = false): HttpStubHandlerContext {
+    private fun contextFor(mode: MockMode, skipModeFilter: Boolean = false): HttpStubHandlerContext {
         return HttpStubHandlerContext(
             strictMode = strictMode,
             specToBaseUrlMap = specToBaseUrlMap,
             httpClientFactory = httpClientFactory,
             passThroughTargetBase = passThroughTargetBase,
             specmaticConfigSource = specmaticConfigSource,
-            features = if (includeAllModes) features else features.filter { modeForFeature(it) == mode },
-            rawHttpStubs = if (includeAllModes) rawHttpStubs else rawHttpStubs.filter { modeForRawHttpStub(it) == mode },
+            features = if (skipModeFilter) features else features.filter { modeForFeature(it) == mode },
+            rawHttpStubs = if (skipModeFilter) rawHttpStubs else rawHttpStubs.filter { modeForRawHttpStub(it) == mode },
         )
     }
 
