@@ -30,12 +30,16 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased
+## 2.54.1 (2026-09-07)
 
 ### Changed
 
+- Fixed `send-report` command failing to start when `--metadata` was supplied.
 - Fixed OpenAPI and JSON Schema `pattern` matching to use search semantics, so unanchored expressions can match substrings while explicit `^` and `$` anchors continue to constrain the corresponding boundary.
 - Fixed generated values for anchored patterns with alternatives and length constraints, including empty alternatives and partial anchors, so generated values remain valid for the original pattern. Unsupported regex structures will use the lenient fallback.
+- Insights reporting commands now accept `--run-attempt` and include it with raw report submissions, allowing reports from repeated executions of one CI run to be distinguished.
+- CI report publishing now accepts repository and build identifiers supplied through `SPECMATIC_REPO_ID`, `SPECMATIC_BUILD_ID`, `-Dspecmatic.repo.id`, and `-Dspecmatic.build.id`, in addition to command-line options.
+- Insights build, repository, branch, and run-attempt details can now be inferred from GitHub Actions, GitLab CI, Azure Pipelines, Jenkins, CircleCI, Bitbucket Pipelines, Buildkite, and TeamCity. `SPECMATIC_*` environment variables and `-Dspecmatic.*` system properties override CI-derived values.
 
 ## 2.54.0 (2026-09-03)
 
