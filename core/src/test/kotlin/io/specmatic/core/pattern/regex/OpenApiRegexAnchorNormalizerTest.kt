@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource
 
 internal class OpenApiRegexAnchorNormalizerTest {
     private val normalizer = OpenApiRegexAnchorNormalizer()
+    private val wholeValueNormalizer = OpenApiRegexAnchorNormalizer(allowUnanchoredSides = false)
 
     @Nested
     inner class FullyAnchoredPatterns {
@@ -56,6 +57,104 @@ internal class OpenApiRegexAnchorNormalizerTest {
         )
         fun `adds an arbitrary suffix or prefix for a missing boundary`(regex: String, expected: String) {
             assertThat(normalizer.normalize(regex)).isEqualTo(OpenApiRegexAnchorNormalizer.Result.Normalized(expected))
+        }
+    }
+
+    @Nested
+    inner class WholeValuePatterns {
+        @ParameterizedTest
+        @CsvSource(
+            delimiter = '→',
+            value = [
+                "^foo$→foo",
+                "^$→()",
+                "^^foo$$→foo",
+                "^^$$→()",
+                "^[A-Za-z0-9._\\-]{0,64}$→[A-Za-z0-9._\\-]{0,64}",
+                "^foo\\$$→foo\\$",
+                "^foo\\^bar$→foo\\^bar",
+                "^[a^$]+$→[a^$]+",
+                "^[^$]+$→[^$]+",
+                "^foo\\|bar$→foo\\|bar",
+            ],
+        )
+        fun `removes fully anchored boundaries`(regex: String, expected: String) {
+            assertThat(wholeValueNormalizer.normalize(regex))
+                .isEqualTo(OpenApiRegexAnchorNormalizer.Result.Normalized(expected))
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            delimiter = '→',
+            value = [
+                "^foo→foo",
+                "foo$→foo",
+                "^[a-z0-9]{6,10}→[a-z0-9]{6,10}",
+                "[a-z0-9]{6,10}$→[a-z0-9]{6,10}",
+                "^foo\\$→foo\\$",
+                "\\^foo$→\\^foo",
+                "^→()",
+                "$→()",
+                "^^→()",
+                "$$→()",
+            ],
+        )
+        fun `removes partial anchors without adding unanchored sides`(regex: String, expected: String) {
+            assertThat(wholeValueNormalizer.normalize(regex))
+                .isEqualTo(OpenApiRegexAnchorNormalizer.Result.Normalized(expected))
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            delimiter = '→',
+            value = [
+                "^$|^[A-Za-z0-9._\\-]{1,64}$→()|[A-Za-z0-9._\\-]{1,64}",
+                "^foo$|^bar$→foo|bar",
+                "^foo|bar$→foo|bar",
+                "^foo$|bar→foo|bar",
+                "foo|^bar$→foo|bar",
+                "^foo|bar→foo|bar",
+                "foo|bar$→foo|bar",
+                "|^foo$→()|foo",
+                "^foo$|→foo|()",
+                "^$|$→()|()",
+                "^|foo$→()|foo",
+            ],
+        )
+        fun `normalizes alternatives without adding unanchored sides`(regex: String, expected: String) {
+            assertThat(wholeValueNormalizer.normalize(regex))
+                .isEqualTo(OpenApiRegexAnchorNormalizer.Result.Normalized(expected))
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            delimiter = '→',
+            value = [
+                "(^foo$|^bar$)→(foo|bar)",
+                "(?:^foo$|^bar$)→(?:foo|bar)",
+                "^(foo|bar)$→(foo|bar)",
+                "^(?:foo|bar)$→(?:foo|bar)",
+                "^(^foo$|bar)$→(foo|bar)",
+                "^(foo$|bar$)→(foo|bar)",
+                "(^foo|^bar)$→(foo|bar)",
+                "^(foo|bar)→(foo|bar)",
+                "(foo|bar)$→(foo|bar)",
+                "^(foo|bar$)→(foo|bar)",
+                "(^foo|bar)$→(foo|bar)",
+                "(foo$|bar$)→(foo|bar)",
+                "(^foo|^bar)→(foo|bar)",
+                "(foo|^bar$)→(foo|bar)",
+                "^((^foo$|bar))$→((foo|bar))",
+                "^(|foo)$→(()|foo)",
+                "^(foo|)$→(foo|())",
+                "^(foo||bar)$→(foo|()|bar)",
+                "^(|foo)→(()|foo)",
+                "(|foo)$→(()|foo)",
+            ],
+        )
+        fun `normalizes whole expression groups without adding unanchored sides`(regex: String, expected: String) {
+            assertThat(wholeValueNormalizer.normalize(regex))
+                .isEqualTo(OpenApiRegexAnchorNormalizer.Result.Normalized(expected))
         }
     }
 

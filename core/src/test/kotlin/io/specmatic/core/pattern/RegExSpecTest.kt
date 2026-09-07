@@ -198,6 +198,19 @@ class RegExSpecTest {
         assertThat(regExSpec.match(StringValue("a\nb"))).isFalse()
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = ';',
+        value = [
+            "^foo; foo",
+            "foo$; foo",
+            "^foo|bar$; foo|bar",
+        ],
+    )
+    fun `whole-value generation does not add unanchored sides`(regex: String, expectedRegex: String) {
+        assertThat(RegExSpec(regex, RegexMatchMode.WHOLE_VALUE).toString()).isEqualTo(expectedRegex)
+    }
+
     @Test
     fun `generation for unescaped dot must not accept line terminators that match rejects`() {
         val cleaned = RegExSpec(".").toString()

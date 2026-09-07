@@ -117,7 +117,7 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     private fun String.removeOuterAnchors(): String {
-        val result = OpenApiRegexAnchorNormalizer().normalize(this)
+        val result = OpenApiRegexAnchorNormalizer(allowUnanchoredSides = matchMode == RegexMatchMode.SEARCH).normalize(this)
         if (result is OpenApiRegexAnchorNormalizer.Result.Unsupported) {
             logger.debug("Could not normalize OpenAPI regex anchors: ${result.reason}. Using the original regex: ${result.regex}")
         }

@@ -2,7 +2,7 @@ package io.specmatic.core.pattern.regex
 
 import java.util.ArrayDeque
 
-internal class OpenApiRegexAnchorNormalizer {
+internal class OpenApiRegexAnchorNormalizer(private val allowUnanchoredSides: Boolean = true) {
     sealed interface Result {
         val regex: String
         data class Unchanged(override val regex: String) : Result
@@ -68,6 +68,10 @@ internal class OpenApiRegexAnchorNormalizer {
     }
 
     private fun applyBoundaries(body: String, boundaries: Boundaries): String {
+        if (!allowUnanchoredSides) {
+            return body.ifEmpty { EMPTY_STRING }
+        }
+
         if (body.isEmpty()) {
             return if (boundaries.start && boundaries.end) EMPTY_STRING else ANY_STRING
         }
