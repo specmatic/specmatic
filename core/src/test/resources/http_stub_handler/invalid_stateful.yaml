@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: Stateful API
+  version: 1.0.0
+paths:
+  /orders:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object

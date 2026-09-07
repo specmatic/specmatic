@@ -5,6 +5,7 @@ import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
+import io.specmatic.core.config.MockMode
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
@@ -12,7 +13,6 @@ import io.specmatic.core.config.Switch
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.FileAssociation
-import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
@@ -76,6 +76,9 @@ internal fun SpecmaticConfig.mostSpecificMatchingBaseUrl(requestUrl: URI, candid
 }
 
 interface SpecmaticConfig {
+    @JsonIgnore
+    fun getMockMode(specFile: File): MockMode = MockMode.MOCK
+
     @JsonIgnore
     fun getLogConfigurationOrDefault(): LoggingConfiguration
 

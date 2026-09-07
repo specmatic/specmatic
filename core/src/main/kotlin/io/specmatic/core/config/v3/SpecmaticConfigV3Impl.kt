@@ -54,6 +54,7 @@ import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
+import io.specmatic.core.config.MockMode
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
@@ -67,6 +68,7 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
 import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufRunOptions
+import io.specmatic.core.config.v3.components.runOptions.RunOptionType
 import io.specmatic.core.config.v3.components.services.MockServiceConfig
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
@@ -528,6 +530,11 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     override fun getStubFilter(specFile: File): String? {
         val runOpts = getMockRunOptions(specFile, SpecType.OPENAPI) as? OpenApiMockConfig ?: return null
         return runOpts.filter
+    }
+
+    override fun getMockMode(specFile: File): MockMode {
+        val runOpts = getMockRunOptions(specFile, SpecType.OPENAPI) as? OpenApiMockConfig
+        return if (runOpts?.type == RunOptionType.STATEFUL_MOCK) MockMode.STATEFUL_MOCK else MockMode.MOCK
     }
 
     override fun getStubHttpsConfiguration(): CertRegistry {
