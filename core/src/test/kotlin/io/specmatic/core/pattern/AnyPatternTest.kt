@@ -466,6 +466,21 @@ internal class AnyPatternTest {
         }
 
         @ParameterizedTest(name = "{0}")
+        @EnumSource(value = OneOfVariantSelection::class, names = ["DISCRIMINATOR_STRING"])
+        fun `negativeBasedOn should not mutate discriminator values`(variantSelection: OneOfVariantSelection) {
+            val results = oneOfPattern(variantSelection).negativeBasedOn(exampleRow(), Resolver()).toList()
+            val exactDiscriminatorValues = results.mapNotNull { result ->
+                val branch = (result as HasValue).value as JSONObjectPattern
+                (branch.pattern.getValue("paymentType") as? ExactValuePattern)?.pattern?.toStringLiteral()
+            }
+
+            assertThat(results).hasSize(12)
+            assertThat(exactDiscriminatorValues)
+                .withFailMessage { "Expected discriminator key mutations to not contain 'card_' or 'bank_transfer_', but found: ${exactDiscriminatorValues.distinct()}" }
+                .doesNotContain("card_", "bank_transfer_")
+        }
+
+        @ParameterizedTest(name = "{0}")
         @EnumSource(OneOfVariantSelection::class)
         fun `newBasedOn routes a structured example to a nested oneOf`(variantSelection: OneOfVariantSelection) {
             val pattern = JSONObjectPattern(mapOf("payment" to oneOfPattern(variantSelection)))
@@ -570,6 +585,7 @@ internal class AnyPatternTest {
         }
 
         private fun expectedNegativeMutationCount(variantSelection: OneOfVariantSelection) = when (variantSelection) {
+            OneOfVariantSelection.DISCRIMINATOR_STRING,
             OneOfVariantSelection.PATTERN_MATCHING_STRING -> 12
             else -> 14
         }

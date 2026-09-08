@@ -343,10 +343,11 @@ data class AnyPattern(
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
         val nullable = isNullablePattern()
-        val negativeTypeResults = getUpdatedPattern(resolver).filterNot(::isEmpty).asSequence().map {
+        val negativeTypeResults = pattern.filterNot(::isEmpty).asSequence().map { pattern ->
             try {
-                val rowForInnerPattern = rowForPattern(row, it, resolver, discriminator)
-                val patterns: Sequence<ReturnValue<Pattern>> = it.negativeBasedOn(rowForInnerPattern, resolver, config)
+                val discriminatorUpdatedPattern = updatedPatternViaDiscriminatorOrSelf(pattern, resolver)
+                val rowForInnerPattern = rowForPattern(row, discriminatorUpdatedPattern, resolver, discriminator)
+                val patterns: Sequence<ReturnValue<Pattern>> = pattern.negativeBasedOn(rowForInnerPattern, resolver, config)
                 Pair(patterns, null)
             } catch(e: Throwable) {
                 Pair(null, e)
@@ -368,6 +369,14 @@ data class AnyPattern(
                 distinctableValueOnlyForScalars(it)
             }
         }
+    }
+
+    private fun updatedPatternViaDiscriminatorOrSelf(pattern: Pattern, resolver: Resolver): Pattern {
+        return discriminator
+            ?.updatePatternsWithDiscriminator(listOf(pattern), resolver)
+            ?.singleOrNull()
+            ?.withDefault(pattern) { it }
+            ?: pattern
     }
 
     override fun parse(value: String, resolver: Resolver): Value {
