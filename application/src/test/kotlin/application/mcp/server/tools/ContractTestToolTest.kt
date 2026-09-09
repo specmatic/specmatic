@@ -33,7 +33,7 @@ class ContractTestToolTest {
     }
 
     @Test
-    fun `runContractTest should invoke TestCommand with generated spec and junit report directory`() {
+        fun `runContractTest should invoke TestCommand with spec file path and junit report directory`() {
         var capturedArgs: List<String> = emptyList()
         var generatedSpecFileName = ""
         var generatedSpecFileContent = ""
@@ -62,8 +62,9 @@ class ContractTestToolTest {
         }
 
         val specContent = "openapi: 3.0.0\ninfo:\n  title: API\n  version: 1.0.0\npaths: {}"
+        val specFile = tempDir.resolve("spec.yaml").apply { writeText(specContent) }
         val args = RunTestArgs(
-            openApiSpec = specContent,
+            specFilePath = specFile.canonicalPath,
             apiBaseUrl = "http://localhost:8080",
             specFormat = "yaml"
         )
@@ -103,7 +104,7 @@ class ContractTestToolTest {
         }
 
         val args = RunTestArgs(
-            openApiSpec = "openapi: 3.0.0...",
+            specFilePath = tempDir.resolve("spec.yaml").apply { writeText("openapi: 3.0.0...") }.canonicalPath,
             apiBaseUrl = "http://localhost:8080"
         )
 
@@ -128,7 +129,10 @@ class ContractTestToolTest {
         
         System.setProperty(SPECMATIC_GENERATIVE_TESTS, "original_value")
 
-        val args = RunTestArgs(openApiSpec = "...", apiBaseUrl = "...")
+        val args = RunTestArgs(
+            specFilePath = tempDir.resolve("spec.yaml").apply { writeText("...") }.canonicalPath,
+            apiBaseUrl = "..."
+        )
         
         try {
             tool.runContractTest(args, resiliency = true)
@@ -149,7 +153,10 @@ class ContractTestToolTest {
             0
         }
 
-        val args = RunTestArgs(openApiSpec = "...", apiBaseUrl = "...")
+        val args = RunTestArgs(
+            specFilePath = tempDir.resolve("spec.yaml").apply { writeText("...") }.canonicalPath,
+            apiBaseUrl = "..."
+        )
         val result = tool.runContractTest(args, resiliency = false)
 
         assertThat(result).contains("truncated 1000 characters")
