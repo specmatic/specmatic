@@ -2,11 +2,18 @@ package io.specmatic.core.config.v3.components.services
 
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.core.config.v3.mapValue
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
 data class Definition(val definition: Value) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        return definition.validate(context.child("definition"))
+    }
+
     fun mapPaths(
         mapper: ConfigPathMapper,
         configDirectory: File,
@@ -27,7 +34,14 @@ data class Definition(val definition: Value) {
         }))
     }
 
-    data class Value(val source: RefOrValue<SourceV3>, val specs: List<SpecificationDefinition>)
+    data class Value(val source: RefOrValue<SourceV3>, val specs: List<SpecificationDefinition>) {
+        fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+            return context.child("source").check(
+                reference = source,
+                resolve = { value, resolver -> value.resolveElseThrow(resolver) },
+            )
+        }
+    }
 
     companion object {
         fun create(specificationDefinition: SpecificationDefinition): Definition {

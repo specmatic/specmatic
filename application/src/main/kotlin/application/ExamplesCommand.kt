@@ -112,8 +112,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             }
         }
 
-        private val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
-        private val exampleValidationModule = ExampleValidationModule(lenientMode = lenientMode, specmaticConfig = specmaticConfig)
+        private val specmaticConfig by lazy { loadSpecmaticConfigIfAvailableElseDefault() }
+        private val exampleValidationModule by lazy { ExampleValidationModule(lenientMode = lenientMode, specmaticConfig = specmaticConfig) }
 
         override fun call(): Int {
             configureLogger(this.verbose)

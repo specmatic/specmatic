@@ -10,8 +10,10 @@ import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.config.v3.upgrade.LegacySpecmaticConfigToV3Upgrader
 import io.specmatic.core.config.v3.components.services.MockServiceConfig
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.pattern.ContractException
 import java.io.File
+import java.nio.file.Path
 
 data class SpecmaticConfigV3(
     val version: SpecmaticConfigVersion,
@@ -22,6 +24,20 @@ data class SpecmaticConfigV3(
     val specmatic: Specmatic? = null,
     val components: Components? = null,
 ) : SpecmaticVersionedConfig {
+    fun validate(origin: Path): List<ConfigValidationOutput> {
+        val context = ValidationContext(resolver = SpecmaticConfigV3Resolver(components ?: Components(), origin))
+        return buildList {
+            systemUnderTest?.let { addAll(it.validate(context.child("systemUnderTest"))) }
+            dependencies?.let { addAll(it.validate(context.child("dependencies"))) }
+            proxies.orEmpty().forEachIndexed { index, proxy ->
+                addAll(proxy.validate(context.child("proxies").child(index)))
+            }
+
+            specmatic?.let { addAll(it.validate(context.child("specmatic"))) }
+            components?.let { addAll(it.validate(context.child("components"))) }
+        }
+    }
+
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): SpecmaticConfigV3 {
         val resolver = SpecmaticConfigV3Resolver(components ?: Components(), configDirectory.toPath())
         val mappedComponents = components?.mapPaths(mapper.child("components"), configDirectory)

@@ -7,6 +7,7 @@ import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.mapValueOrReference
 import io.specmatic.core.config.v3.mapValue
@@ -23,9 +24,23 @@ import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
 data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        val serviceContext = context.child("service")
+        val validateRunOptions: (TestRunOptions, ValidationContext) -> List<ConfigValidationOutput> = {
+            runOptions, runOptionsContext -> runOptions.validate(runOptionsContext)
+        }
+
+        return serviceContext.check(
+            reference = service,
+            validate = { value, valueContext -> value.validate(valueContext, validateRunOptions) },
+            resolve = { value, resolver -> value.resolveElseThrow<TestRunOptions, TestSettings>(resolver) },
+        )
+    }
+
     fun mapPaths(
         mapper: ConfigPathMapper,
         configDirectory: File,

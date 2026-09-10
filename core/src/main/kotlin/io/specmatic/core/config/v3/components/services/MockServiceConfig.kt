@@ -6,6 +6,7 @@ import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.mapValueOrReference
 import io.specmatic.core.config.v3.mapValue
@@ -23,11 +24,36 @@ import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 import kotlin.collections.orEmpty
 import kotlin.collections.plus
 
 data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>? = null) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        val serviceOutput = services.flatMapIndexed { index, entry ->
+            val serviceContext = context.child("services").child(index).child("service")
+            val validateRunOptions: (MockRunOptions, ValidationContext) -> List<ConfigValidationOutput> = {
+                runOptions, runOptionsContext -> runOptions.validate(runOptionsContext)
+            }
+
+            serviceContext.check(
+                reference = entry.service,
+                validate = { value, valueContext -> value.validate(valueContext, validateRunOptions) },
+                resolve = { value, resolver -> value.resolveElseThrow<MockRunOptions, MockSettings>(resolver) },
+            )
+        }
+
+        val settingsOutput = settings?.let { reference ->
+            context.child("settings").check(
+                reference = reference,
+                resolve = { value, resolver -> value.resolveElseThrow<MockSettings>(resolver) },
+            )
+        }.orEmpty()
+
+        return serviceOutput + settingsOutput + data?.validate(context.child("data")).orEmpty()
+    }
+
     data class Value(val service: RefOrValue<CommonServiceConfig<MockRunOptions, MockSettings>>)
 
     fun mapPaths(

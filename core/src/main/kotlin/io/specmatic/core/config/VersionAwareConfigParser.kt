@@ -13,11 +13,11 @@ import io.specmatic.core.pattern.ContractException
 import java.io.File
 
 private const val SPECMATIC_CONFIG_VERSION = "version"
+internal val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
 
-private val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
-
+internal fun parseSpecmaticConfigTree(content: String): JsonNode = objectMapper.readTree(content)
 internal fun File.toResolvedSpecmaticConfigTree(): JsonNode {
-    return resolveTemplates(objectMapper.readTree(this.readText()))
+    return resolveTemplates(parseSpecmaticConfigTree(this.readText()))
 }
 
 internal fun File.toResolvedSpecmaticConfigMap(): Map<String, Any> {
@@ -161,6 +161,6 @@ private fun parseJsonStringValue(value: String): JsonNode? {
 }
 
 fun String.getVersion(): SpecmaticConfigVersion? {
-    val configTree = resolveTemplates(objectMapper.readTree(this))
+    val configTree = resolveTemplates(parseSpecmaticConfigTree(this))
     return configTree.getVersion()
 }

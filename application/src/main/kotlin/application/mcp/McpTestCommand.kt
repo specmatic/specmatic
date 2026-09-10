@@ -68,8 +68,8 @@ open class McpTestCommand : Callable<Int> {
     )
     var verbose: Boolean? = null
 
-    private val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
-    private val mcpConfig = specmaticConfig.getMcpConfiguration()
+    private val specmaticConfig by lazy { loadSpecmaticConfigIfAvailableElseDefault() }
+    private val mcpConfig by lazy { specmaticConfig.getMcpConfiguration() }
 
     override fun call(): Int {
         McpBaseCommand.configureLogger(verbose)
@@ -103,14 +103,16 @@ open class McpTestCommand : Callable<Int> {
     ): McpAutoTest = McpAutoTest(baseUrl, transport, enableResiliency, dictionaryFile, bearerToken, filterTools, skipTools)
 
     private fun effectiveTransport(): McpTransport {
+        val config = mcpConfig
         if (transportKind != null) return transportKind as McpTransport
-        if (mcpConfig?.test?.transportKind != null) return mcpConfig.test.transportKind as McpTransport
+        if (config?.test?.transportKind != null) return config.test.transportKind as McpTransport
         throw ContractException("Please provide transportKind through CLI arguments or Specmatic Config")
     }
 
     private fun effectiveBaseUrl(): String {
+        val config = mcpConfig
         if (baseUrl != null) return baseUrl as String
-        if (mcpConfig?.test?.baseUrl != null) return mcpConfig.test.baseUrl
+        if (config?.test?.baseUrl != null) return config.test.baseUrl
         throw ContractException("Please provide baseUrl through CLI arguments or Specmatic Config")
     }
 

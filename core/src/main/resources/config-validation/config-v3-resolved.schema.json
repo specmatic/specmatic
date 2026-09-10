@@ -1,0 +1,3155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specmatic.io/internal-schema/config-v3-resolved.schema.json",
+  "title": "Specmatic V3 resolved configuration",
+  "description": "Concrete V3 configuration after expression and template resolution. References remain structural and are checked semantically after Jackson binding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version"
+  ],
+  "properties": {
+    "version": {
+      "const": 3,
+      "title": "Configuration version",
+      "description": "Literal V3 configuration marker; it is not template-able at the resolved-config boundary."
+    },
+    "systemUnderTest": {
+      "$ref": "#/definitions/SystemUnderTestServiceDefinition",
+      "title": "System under test",
+      "description": "The service under test, supplied inline or by a supported reference."
+    },
+    "dependencies": {
+      "$ref": "#/definitions/DependenciesDefinition",
+      "title": "Dependencies",
+      "description": "Mocked dependency services and their optional data/settings."
+    },
+    "proxies": {
+      "type": "array",
+      "title": "Proxy definitions",
+      "description": "Proxy definitions. Multiple proxies are currently valid; target selection is runtime behavior.",
+      "items": {
+        "$ref": "#/definitions/ProxyEntry",
+        "description": "One proxy definition."
+      }
+    },
+    "mcp": {
+      "$ref": "#/definitions/McpDefinition",
+      "title": "MCP configuration",
+      "description": "Model Context Protocol test endpoint and transport settings."
+    },
+    "specmatic": {
+      "$ref": "#/definitions/SpecmaticDefinition",
+      "title": "Specmatic settings",
+      "description": "Specmatic-owned license, governance, and global settings."
+    },
+    "components": {
+      "$ref": "#/definitions/Components",
+      "title": "Reusable components",
+      "description": "Named reusable sources, services, run options, data, certificates, adapters, and settings."
+    }
+  },
+  "examples": [
+    {
+      "version": 3,
+      "systemUnderTest": {
+        "service": {
+          "definitions": []
+        }
+      },
+      "dependencies": {
+        "services": []
+      },
+      "mcp": {
+        "test": {
+          "baseUrl": "http://localhost:3000"
+        }
+      },
+      "specmatic": {
+        "license": {
+          "path": "license.txt"
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "Reference": {
+      "title": "Reference",
+      "type": "object",
+      "required": [
+        "$ref"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "$ref": {
+          "type": "string",
+          "title": "Reference target",
+          "description": "Component, internal pointer, relative, or supported external reference target."
+        }
+      },
+      "description": "A structural reference. Inline sibling fields are intentional overrides and are converted after the target is resolved. Existence, type compatibility, and cycles are semantic/reference checks.",
+      "examples": [
+        {
+          "$ref": "#/components/settings/global",
+          "test": {
+            "timeoutInMilliseconds": 5000
+          }
+        }
+      ]
+    },
+    "SystemUnderTestServiceDefinition": {
+      "title": "System under test",
+      "description": "The single service Specmatic exercises as the system under test.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service"
+      ],
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/RefOrTestService",
+          "title": "Test service",
+          "description": "Inline test service or reusable service reference."
+        }
+      }
+    },
+    "DependenciesDefinition": {
+      "title": "Dependencies",
+      "description": "Dependency services are wrapped under service; each dependency is interpreted as a mock service in this context.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "services"
+      ],
+      "properties": {
+        "services": {
+          "type": "array",
+          "title": "Mock dependency services",
+          "description": "Mock dependency entries. The array may be empty; each item must contain a service wrapper.",
+          "items": {
+            "$ref": "#/definitions/MockServiceEntry",
+            "description": "One wrapped mock dependency service."
+          }
+        },
+        "data": {
+          "$ref": "#/definitions/DataDefinition",
+          "title": "Dependency data",
+          "description": "Optional examples, dictionary, and adapter data for dependencies."
+        },
+        "settings": {
+          "$ref": "#/definitions/RefOrMockSettings",
+          "title": "Dependency settings",
+          "description": "Optional mock settings or a reference to them."
+        }
+      }
+    },
+    "MockServiceEntry": {
+      "title": "Mock dependency entry",
+      "description": "Wrapper containing one inline mock service or service reference.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service"
+      ],
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/RefOrMockService",
+          "title": "Mock service",
+          "description": "Inline mock service or reusable service reference."
+        }
+      }
+    },
+    "RefOrTestService": {
+      "title": "Test service or reference",
+      "description": "Use an inline test service or a reference to a reusable service component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a reusable test service."
+          },
+          "else": {
+            "$ref": "#/definitions/TestService",
+            "description": "An inline test service."
+          }
+        }
+      ]
+    },
+    "RefOrMockService": {
+      "title": "Mock service or reference",
+      "description": "Use an inline mock service or a reference to a reusable service component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a reusable mock service."
+          },
+          "else": {
+            "$ref": "#/definitions/MockService",
+            "description": "An inline mock service."
+          }
+        }
+      ]
+    },
+    "RefOrContextService": {
+      "title": "Contextual service or reference",
+      "description": "Use an inline reusable service or a reference; its test/mock context is selected by the consumer.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a reusable contextual service."
+          },
+          "else": {
+            "$ref": "#/definitions/ContextService",
+            "description": "An inline contextual service."
+          }
+        }
+      ]
+    },
+    "TestService": {
+      "title": "Test service",
+      "description": "A service used as the system under test, with definitions and optional test run options, data, and settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definitions"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "title": "Service description",
+          "description": "Optional human-readable description of the service."
+        },
+        "definitions": {
+          "$ref": "#/definitions/DefinitionArray",
+          "title": "Service definitions",
+          "description": "Specifications and their sources for this service."
+        },
+        "runOptions": {
+          "$ref": "#/definitions/RefOrTestRunOptions",
+          "title": "Test run options",
+          "description": "Optional test run options or a reference to reusable options."
+        },
+        "data": {
+          "$ref": "#/definitions/DataDefinition",
+          "title": "Test data",
+          "description": "Optional examples, dictionary, and adapter data for the test service."
+        },
+        "settings": {
+          "$ref": "#/definitions/RefOrTestSettings",
+          "title": "Test settings",
+          "description": "Optional test settings or a reference to them."
+        }
+      }
+    },
+    "MockService": {
+      "title": "Mock service",
+      "description": "A dependency service used as a mock, with definitions and optional mock run options, data, and settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definitions"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "title": "Service description",
+          "description": "Optional human-readable description of the service."
+        },
+        "definitions": {
+          "$ref": "#/definitions/DefinitionArray",
+          "title": "Service definitions",
+          "description": "Specifications and their sources for this service."
+        },
+        "runOptions": {
+          "$ref": "#/definitions/RefOrMockRunOptions",
+          "title": "Mock run options",
+          "description": "Optional mock run options or a reference to reusable options."
+        },
+        "data": {
+          "$ref": "#/definitions/DataDefinition",
+          "title": "Mock data",
+          "description": "Optional examples, dictionary, and adapter data for the mock service."
+        },
+        "settings": {
+          "$ref": "#/definitions/RefOrMockSettings",
+          "title": "Mock settings",
+          "description": "Optional mock settings or a reference to them."
+        }
+      }
+    },
+    "ContextService": {
+      "title": "Contextual service",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definitions"
+      ],
+      "description": "Reusable service whose concrete test or mock settings and run-option shape is selected by the consuming context. The service still requires definitions; arbitrary intermediate fields are not valid.",
+      "properties": {
+        "description": {
+          "type": "string",
+          "title": "Service description",
+          "description": "Optional human-readable description of the service."
+        },
+        "definitions": {
+          "$ref": "#/definitions/DefinitionArray",
+          "title": "Service definitions",
+          "description": "Specifications and their sources for this service."
+        },
+        "runOptions": {
+          "$ref": "#/definitions/RefOrContextRunOptions",
+          "title": "Contextual run options",
+          "description": "Optional test-or-mock run options selected by the consuming context."
+        },
+        "data": {
+          "$ref": "#/definitions/DataDefinition",
+          "title": "Service data",
+          "description": "Optional examples, dictionary, and adapter data for the service."
+        },
+        "settings": {
+          "$ref": "#/definitions/RefOrContextSettings",
+          "title": "Contextual settings",
+          "description": "Optional test-or-mock settings selected by the consuming context."
+        }
+      }
+    },
+    "DefinitionArray": {
+      "title": "Service definitions",
+      "description": "Ordered definition entries that provide the specifications for a service.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/DefinitionEntry",
+        "description": "One source-backed service definition entry."
+      }
+    },
+    "DefinitionEntry": {
+      "title": "Definition entry",
+      "description": "Wrapper containing one source-backed definition value.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definition"
+      ],
+      "properties": {
+        "definition": {
+          "$ref": "#/definitions/DefinitionValue",
+          "title": "Definition value",
+          "description": "Named definition value containing its source and specification list."
+        }
+      }
+    },
+    "DefinitionValue": {
+      "title": "Definition value",
+      "description": "A source plus the specifications loaded from that source.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "specs"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/RefOrSource",
+          "title": "Definition source",
+          "description": "Inline source provider or reference to a named source component."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specifications",
+          "description": "Specifications loaded from the selected source.",
+          "items": {
+            "$ref": "#/definitions/SpecificationDefinition",
+            "description": "One specification path or per-specification override."
+          }
+        }
+      },
+      "examples": [
+        {
+          "source": {
+            "filesystem": {
+              "directory": "contracts"
+            }
+          },
+          "specs": [
+            "orders.yaml"
+          ]
+        }
+      ]
+    },
+    "SpecificationDefinition": {
+      "title": "Specification definition",
+      "description": "A specification path or an object containing that path and optional per-specification overrides.",
+      "type": [ "string", "object" ],
+      "allOf": [
+        {
+          "if": {
+            "type": "string"
+          },
+          "then": {
+            "description": "A resolved specification path."
+          },
+          "else": {
+            "description": "A specification path with optional per-specification overrides.",
+            "additionalProperties": false,
+            "required": [ "spec" ],
+            "properties": {
+              "spec": {
+                "$ref": "#/definitions/SpecificationObject",
+                "title": "Specification override",
+                "description": "Inline specification path and optional per-specification overrides."
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SpecificationObject": {
+      "title": "Specification object",
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "path"
+      ],
+      "description": "Specification-level options. Additional fields are intentional per-specification overrides and are applied to this specification only; they are not arbitrary fields on the surrounding service.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Specification ID",
+          "description": "Optional specification identifier used by per-spec and run-option joins.",
+          "examples": [
+            "orders"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "title": "Specification path",
+          "description": "Resolved path or source-relative location of the specification.",
+          "examples": [
+            "orders.yaml"
+          ]
+        },
+        "urlPathPrefix": {
+          "type": "string",
+          "title": "URL path prefix",
+          "description": "Optional URL path prefix applied to this specification."
+        }
+      },
+      "examples": [
+        {
+          "id": "orders",
+          "path": "orders.yaml",
+          "urlPathPrefix": "/v1"
+        },
+        {
+          "path": "orders.yaml",
+          "x-team": "payments"
+        }
+      ]
+    },
+    "Components": {
+      "title": "Reusable components",
+      "description": "Named component maps. Names are referenced by $ref values and are joined semantically after structural validation.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "object",
+          "title": "Source components",
+          "description": "Named source components. A source is selected by exactly one of git, filesystem, or web.",
+          "additionalProperties": {
+            "$ref": "#/definitions/SourceSchema",
+            "description": "One named source component."
+          }
+        },
+        "services": {
+          "type": "object",
+          "title": "Service components",
+          "description": "Named reusable services whose test/mock context is selected by the consumer.",
+          "additionalProperties": {
+            "$ref": "#/definitions/ContextService",
+            "description": "One named reusable contextual service."
+          }
+        },
+        "runOptions": {
+          "type": "object",
+          "title": "Run-option components",
+          "description": "Named directly typed protocol run-option components. These values require their protocol branch discriminator.",
+          "additionalProperties": {
+            "$ref": "#/definitions/ComponentRunOptions",
+            "description": "One named directly typed protocol run-option component."
+          }
+        },
+        "examples": {
+          "$ref": "#/definitions/ExamplesConfiguration",
+          "title": "Example components",
+          "description": "Named example-directory collections."
+        },
+        "dictionaries": {
+          "type": "object",
+          "title": "Dictionary components",
+          "description": "Named dictionaries available to services and specifications.",
+          "additionalProperties": {
+            "$ref": "#/definitions/DictionaryConfiguration",
+            "description": "One named dictionary component."
+          }
+        },
+        "adapters": {
+          "type": "object",
+          "title": "Adapter components",
+          "description": "Named adapter hook configurations. Only the supported hook names are valid.",
+          "additionalProperties": {
+            "$ref": "#/definitions/AdapterConfiguration",
+            "description": "One named adapter-hook component."
+          }
+        },
+        "certificates": {
+          "type": "object",
+          "title": "Certificate components",
+          "description": "Named TLS/mTLS certificate configurations.",
+          "additionalProperties": {
+            "$ref": "#/definitions/CertConfiguration",
+            "description": "One named certificate component."
+          }
+        },
+        "settings": {
+          "type": "object",
+          "title": "Settings components",
+          "description": "Named settings. The concrete shape is selected from global, test, mock, proxy, or contextual settings.",
+          "additionalProperties": {
+            "$ref": "#/definitions/ContextOrConcreteSettings",
+            "description": "One named concrete or contextual settings component."
+          }
+        }
+      }
+    },
+    "SourceSchema": {
+      "title": "Source",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "git"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitSourceSchema"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "filesystem"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/FileSystemSourceSchema"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "web"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/WebSourceSchema"
+          }
+        }
+      ],
+      "description": "Exactly one source provider is selected: git, filesystem, or web. The selected wrapper determines how specifications are located.",
+      "errorMessage": {
+        "required": "Choose exactly one source provider: git, filesystem, or web."
+      }
+    },
+    "GitSourceSchema": {
+      "title": "Git source",
+      "description": "A source retrieved from Git or resolved from the current monorepo context.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git"
+      ],
+      "properties": {
+        "git": {
+          "$ref": "#/definitions/GitSourceOptions",
+          "title": "Git source options",
+          "description": "Repository and branch settings for this Git source."
+        }
+      }
+    },
+    "GitSourceOptions": {
+      "title": "Git source options",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Git source. URL may be omitted intentionally for monorepo/working-directory resolution.",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "title": "Git repository URL",
+          "description": "Git repository URL. Omit intentionally for monorepo/current-repository mode.",
+          "examples": [
+            "https://github.com/acme/contracts.git"
+          ]
+        },
+        "branch": {
+          "type": "string",
+          "title": "Git branch or ref",
+          "description": "Branch or ref to retrieve."
+        },
+        "matchBranch": {
+          "type": "boolean",
+          "title": "Follow current repository branch",
+          "description": "Follow the current repository branch when resolving this source."
+        },
+        "auth": {
+          "$ref": "#/definitions/GitSourceAuthentication",
+          "title": "Git authentication",
+          "description": "Optional authentication method for the Git source."
+        }
+      },
+      "examples": [
+        {
+          "branch": "main"
+        },
+        {
+          "url": "https://github.com/acme/contracts.git",
+          "branch": "main"
+        }
+      ]
+    },
+    "GitSourceAuthentication": {
+      "title": "Git authentication",
+      "description": "Exactly one supported Git credential source.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "bearerFile"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitBearerFileAuthentication"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "bearerEnvironmentVariable"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitBearerEnvAuthentication"
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "personalAccessToken"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitPersonalAccessTokenAuthentication"
+          }
+        }
+      ]
+    },
+    "GitBearerFileAuthentication": {
+      "title": "Git bearer-file authentication",
+      "description": "Reads the Git bearer token from a file path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bearerFile"
+      ],
+      "properties": {
+        "bearerFile": {
+          "type": "string",
+          "title": "Bearer-token file",
+          "description": "Path to a file containing the Git bearer token."
+        }
+      }
+    },
+    "GitBearerEnvAuthentication": {
+      "title": "Git bearer-environment authentication",
+      "description": "Reads the Git bearer token from a named environment variable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bearerEnvironmentVariable"
+      ],
+      "properties": {
+        "bearerEnvironmentVariable": {
+          "type": "string",
+          "title": "Bearer-token environment variable",
+          "description": "Name of the environment variable containing the Git bearer token."
+        }
+      }
+    },
+    "GitPersonalAccessTokenAuthentication": {
+      "title": "Git personal-access-token authentication",
+      "description": "Uses a resolved personal access token for Git retrieval.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personalAccessToken"
+      ],
+      "properties": {
+        "personalAccessToken": {
+          "type": "string",
+          "title": "Personal access token",
+          "description": "Resolved personal access token used for Git retrieval."
+        }
+      }
+    },
+    "FileSystemSourceSchema": {
+      "title": "Filesystem source",
+      "description": "A source loaded from a local directory.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filesystem"
+      ],
+      "properties": {
+        "filesystem": {
+          "$ref": "#/definitions/FileSystemSourceOptions",
+          "title": "Filesystem source options",
+          "description": "Local directory settings for this filesystem source."
+        }
+      }
+    },
+    "FileSystemSourceOptions": {
+      "title": "Filesystem source options",
+      "description": "Local directory used to resolve source specifications. Omission uses the configuration working directory.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "type": "string",
+          "title": "Source directory",
+          "description": "Directory containing specifications; omission resolves to the configuration working directory."
+        }
+      }
+    },
+    "WebSourceSchema": {
+      "title": "Web source",
+      "description": "A source loaded from a remote URL.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "web"
+      ],
+      "properties": {
+        "web": {
+          "$ref": "#/definitions/WebSourceOptions",
+          "title": "Web source options",
+          "description": "Remote URL settings for this web source."
+        }
+      }
+    },
+    "WebSourceOptions": {
+      "title": "Web source options",
+      "description": "Remote URL used to resolve source specifications.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "title": "Source URL",
+          "description": "Remote specification source URL.",
+          "examples": [
+            "https://api.example.com/openapi.yaml"
+          ]
+        }
+      }
+    },
+    "ProxyEntry": {
+      "title": "Proxy entry",
+      "description": "One named proxy wrapper. Multiple proxy entries are currently allowed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proxy"
+      ],
+      "properties": {
+        "proxy": {
+          "$ref": "#/definitions/ProxyDefinition",
+          "title": "Proxy definition",
+          "description": "Target, listener, adapter, certificate, and recording settings for the proxy."
+        }
+      }
+    },
+    "ProxyDefinition": {
+      "title": "Proxy definition",
+      "description": "Proxy target, listener overrides, optional mock/recording behavior, adapters, and certificate settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "format": "uri",
+          "title": "Upstream target",
+          "description": "Required upstream target for the proxy.",
+          "examples": [
+            "http://localhost:9000"
+          ]
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Proxy base URL",
+          "description": "Base URL exposed by the local proxy."
+        },
+        "timeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Proxy timeout",
+          "description": "Maximum upstream request duration in milliseconds."
+        },
+        "adapters": {
+          "$ref": "#/definitions/RefOrAdapter",
+          "title": "Proxy adapters",
+          "description": "Adapter hooks applied while proxying requests and responses."
+        },
+        "mock": {
+          "type": "array",
+          "title": "Mock specifications",
+          "description": "Specification identifiers or paths to mock while proxying.",
+          "items": {
+            "type": "string",
+            "title": "Mock specification",
+            "description": "Specification identifier or path selected for mocking."
+          }
+        },
+        "cert": {
+          "$ref": "#/definitions/RefOrCert",
+          "title": "Proxy certificate",
+          "description": "TLS certificate settings or a reference to a named certificate."
+        },
+        "recordingsDirectory": {
+          "type": "string",
+          "title": "Recordings directory",
+          "description": "Directory where proxy recordings are stored."
+        }
+      }
+    },
+    "McpDefinition": {
+      "title": "MCP definition",
+      "description": "MCP test configuration. The test section is required.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test"
+      ],
+      "properties": {
+        "test": {
+          "$ref": "#/definitions/McpTestRunOptions",
+          "title": "MCP test run options",
+          "description": "Endpoint and transport settings for MCP tests."
+        }
+      }
+    },
+    "McpTestRunOptions": {
+      "title": "MCP test run options",
+      "description": "MCP endpoint, canonical transport, tool filters, authentication, and resiliency settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseUrl"
+      ],
+      "properties": {
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "MCP server base URL",
+          "description": "MCP server base URL.",
+          "examples": [
+            "http://localhost:3000"
+          ]
+        },
+        "transportKind": {
+          "type": "string",
+          "title": "MCP transport",
+          "description": "Canonical MCP transport. Parser tolerance for alternate spellings is not part of the resolved language.",
+          "enum": [
+            "STREAMABLE_HTTP"
+          ]
+        },
+        "enableResiliencyTests": {
+          "type": "boolean",
+          "title": "Enable resiliency tests",
+          "description": "Run resiliency tests against the MCP server."
+        },
+        "dictionaryFile": {
+          "type": "string",
+          "title": "Dictionary file",
+          "description": "Path to the dictionary file used by MCP tests."
+        },
+        "bearerToken": {
+          "type": "string",
+          "title": "Bearer token",
+          "description": "Bearer token used to authenticate with the MCP server."
+        },
+        "filterTools": {
+          "type": "array",
+          "title": "Included MCP tools",
+          "description": "Tool names to include in MCP tests.",
+          "items": {
+            "type": "string",
+            "title": "MCP tool name",
+            "description": "Name of an MCP tool to include."
+          }
+        },
+        "skipTools": {
+          "type": "array",
+          "title": "Excluded MCP tools",
+          "description": "Tool names to skip during MCP tests.",
+          "items": {
+            "type": "string",
+            "title": "MCP tool name",
+            "description": "Name of an MCP tool to skip."
+          }
+        }
+      }
+    },
+    "SpecmaticDefinition": {
+      "title": "Specmatic settings",
+      "description": "License, governance, and named global settings for the configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "license": {
+          "$ref": "#/definitions/LicenseDefinition",
+          "title": "License",
+          "description": "Path to the Specmatic license file."
+        },
+        "governance": {
+          "$ref": "#/definitions/Governance",
+          "title": "Governance",
+          "description": "Reporting and success-criteria settings."
+        },
+        "settings": {
+          "$ref": "#/definitions/RefOrConcreteSettings",
+          "title": "Global settings",
+          "description": "Global settings or a reference to a reusable settings component."
+        }
+      }
+    },
+    "LicenseDefinition": {
+      "title": "License definition",
+      "description": "Path to the Specmatic license file.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "title": "License file path",
+          "description": "Filesystem path to the license file.",
+          "examples": [
+            "license.txt"
+          ]
+        }
+      }
+    },
+    "Governance": {
+      "title": "Governance configuration",
+      "description": "Reporting output and success criteria for governance checks.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "report": {
+          "$ref": "#/definitions/ReportsDefinition",
+          "title": "Reports",
+          "description": "Report formats and output location."
+        },
+        "successCriteria": {
+          "$ref": "#/definitions/SuccessCriteriaDefinition",
+          "title": "Governance success criteria",
+          "description": "Coverage thresholds and enforcement behavior."
+        }
+      }
+    },
+    "ReportsDefinition": {
+      "title": "Report configuration",
+      "description": "Report formats and output location.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "formats": {
+          "type": "array",
+          "title": "Report formats",
+          "description": "Report formats to generate.",
+          "items": {
+            "type": "string",
+            "title": "Report format",
+            "description": "Supported report format name.",
+            "enum": [
+              "html",
+              "ctrf"
+            ]
+          }
+        },
+        "outputDirectory": {
+          "type": "string",
+          "title": "Report output directory",
+          "description": "Directory where generated reports are written."
+        }
+      },
+      "examples": [
+        {
+          "formats": [
+            "html",
+            "ctrf"
+          ],
+          "outputDirectory": "build/reports"
+        }
+      ]
+    },
+    "SuccessCriteriaDefinition": {
+      "title": "Governance success criteria",
+      "description": "Coverage thresholds and enforcement behavior for governance reporting.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minCoveragePercentage": {
+          "type": "integer",
+          "title": "Minimum coverage percentage",
+          "description": "Minimum coverage percentage required for governance success."
+        },
+        "maxMissedOperationsInSpec": {
+          "type": "integer",
+          "title": "Maximum missed operations",
+          "description": "Maximum number of missed operations allowed in a specification."
+        },
+        "enforce": {
+          "type": "boolean",
+          "title": "Enforce success criteria",
+          "description": "Whether failing the configured thresholds should fail the operation."
+        }
+      }
+    },
+    "RunOptions": {
+      "title": "Run options",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TestRunOptions",
+          "description": "Test protocol run options."
+        },
+        {
+          "$ref": "#/definitions/MockRunOptions",
+          "description": "Mock protocol run options."
+        }
+      ],
+      "description": "Protocol run options. The test/mock context is selected by the consuming service or reference target; target existence and context compatibility are semantic checks.",
+      "examples": [
+        {
+          "openapi": {
+            "baseUrl": "http://localhost:8080"
+          }
+        }
+      ]
+    },
+    "ComponentRunOptions": {
+      "title": "Direct component run options",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Directly typed component run options. Choose a protocol property; its concrete value requires the test/mock type discriminator because this map is bound without a consuming service context.",
+      "properties": {
+        "openapi": {
+          "$ref": "#/definitions/ComponentOpenApiRunOptions",
+          "title": "OpenAPI run options",
+          "description": "Directly typed OpenAPI component options."
+        },
+        "wsdl": {
+          "$ref": "#/definitions/ComponentWsdlRunOptions",
+          "title": "WSDL run options",
+          "description": "Directly typed WSDL component options."
+        },
+        "asyncapi": {
+          "$ref": "#/definitions/ComponentAsyncApiRunOptions",
+          "title": "AsyncAPI run options",
+          "description": "Directly typed AsyncAPI component options."
+        },
+        "graphqlsdl": {
+          "$ref": "#/definitions/ComponentGraphqlSdlRunOptions",
+          "title": "GraphQL SDL run options",
+          "description": "Directly typed GraphQL SDL component options."
+        },
+        "protobuf": {
+          "$ref": "#/definitions/ComponentProtobufRunOptions",
+          "title": "Protobuf run options",
+          "description": "Directly typed Protobuf component options."
+        }
+      }
+    },
+    "ComponentOpenApiRunOptions": {
+      "title": "Direct OpenAPI component options",
+      "description": "Direct component OpenAPI options. Choose the test or mock branch and include its type discriminator.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock",
+            "stateful-mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete OpenAPI test or mock option branch."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/OpenApiTestRunOptions"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "mock",
+                  "stateful-mock"
+                ]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/OpenApiMockRunOptions"
+          }
+        }
+      ]
+    },
+    "ComponentWsdlRunOptions": {
+      "title": "Direct WSDL component options",
+      "description": "Direct component WSDL options. Choose the test or mock branch and include its type discriminator.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete WSDL test or mock option branch."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/WsdlTestRunOptions"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/WsdlMockRunOptions"
+          }
+        }
+      ]
+    },
+    "ComponentAsyncApiRunOptions": {
+      "title": "Direct AsyncAPI component options",
+      "description": "Direct component AsyncAPI options. Choose the test or mock branch and include its type discriminator.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete AsyncAPI test or mock option branch."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/AsyncApiTestRunOptions"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/AsyncApiMockRunOptions"
+          }
+        }
+      ]
+    },
+    "ComponentGraphqlSdlRunOptions": {
+      "title": "Direct GraphQL SDL component options",
+      "description": "Direct component GraphQL SDL options. Choose the test or mock branch and include its type discriminator.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete GraphQL SDL test or mock option branch."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/GraphqlSdlTestRunOptions"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/GraphqlSdlMockRunOptions"
+          }
+        }
+      ]
+    },
+    "ComponentProtobufRunOptions": {
+      "title": "Direct Protobuf component options",
+      "description": "Direct component Protobuf options. Choose the test or mock branch and include its type discriminator.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete Protobuf test or mock option branch."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ProtobufTestRunOptions"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ProtobufMockRunOptions"
+          }
+        }
+      ]
+    },
+    "RefOrTestRunOptions": {
+      "title": "Test run options or reference",
+      "description": "Use inline test run options or a reference to a reusable option set.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable test run options."
+          },
+          "else": {
+            "$ref": "#/definitions/TestRunOptions",
+            "description": "Inline test run options."
+          }
+        }
+      ]
+    },
+    "RefOrMockRunOptions": {
+      "title": "Mock run options or reference",
+      "description": "Use inline mock run options or a reference to a reusable option set.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable mock run options."
+          },
+          "else": {
+            "$ref": "#/definitions/MockRunOptions",
+            "description": "Inline mock run options."
+          }
+        }
+      ]
+    },
+    "RefOrContextRunOptions": {
+      "title": "Contextual run options or reference",
+      "description": "Use inline context-dependent options or a reference; the consuming service selects test or mock context.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable contextual run options."
+          },
+          "else": {
+            "$ref": "#/definitions/ContextRunOptions",
+            "description": "Inline contextual run options."
+          }
+        }
+      ]
+    },
+    "ContextRunOptions": {
+      "title": "Contextual run options",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TestRunOptions",
+          "description": "Test protocol run options."
+        },
+        {
+          "$ref": "#/definitions/MockRunOptions",
+          "description": "Mock protocol run options."
+        }
+      ],
+      "examples": [
+        {
+          "openapi": {
+            "baseUrl": "http://localhost:8080"
+          }
+        },
+        {
+          "protobuf": {
+            "type": "mock",
+            "broker": {
+              "name": "local"
+            }
+          }
+        }
+      ],
+      "description": "Context-selected protocol options. The consuming system-under-test or dependency service determines whether the concrete branch is test or mock; optional type/specs remain valid in this contextual boundary."
+    },
+    "TestRunOptions": {
+      "title": "Test run options",
+      "description": "Protocol-specific options for the system under test. Select one or more protocol branches; concrete settings are protocol-specific.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "openapi": {
+          "$ref": "#/definitions/OpenApiTestRunOptions",
+          "title": "OpenAPI test options",
+          "description": "OpenAPI options for testing the system under test."
+        },
+        "wsdl": {
+          "$ref": "#/definitions/WsdlTestRunOptions",
+          "title": "WSDL test options",
+          "description": "WSDL options for testing the system under test."
+        },
+        "asyncapi": {
+          "$ref": "#/definitions/AsyncApiTestRunOptions",
+          "title": "AsyncAPI test options",
+          "description": "AsyncAPI options for testing the system under test."
+        },
+        "graphqlsdl": {
+          "$ref": "#/definitions/GraphqlSdlTestRunOptions",
+          "title": "GraphQL SDL test options",
+          "description": "GraphQL SDL options for testing the system under test."
+        },
+        "protobuf": {
+          "$ref": "#/definitions/ProtobufTestRunOptions",
+          "title": "Protobuf test options",
+          "description": "Protobuf options for testing the system under test."
+        }
+      }
+    },
+    "MockRunOptions": {
+      "title": "Mock run options",
+      "description": "Protocol-specific options for a mocked dependency. Select one or more protocol branches; concrete settings are protocol-specific.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "openapi": {
+          "$ref": "#/definitions/OpenApiMockRunOptions",
+          "title": "OpenAPI mock options",
+          "description": "OpenAPI options for mocking a dependency."
+        },
+        "wsdl": {
+          "$ref": "#/definitions/WsdlMockRunOptions",
+          "title": "WSDL mock options",
+          "description": "WSDL options for mocking a dependency."
+        },
+        "asyncapi": {
+          "$ref": "#/definitions/AsyncApiMockRunOptions",
+          "title": "AsyncAPI mock options",
+          "description": "AsyncAPI options for mocking a dependency."
+        },
+        "graphqlsdl": {
+          "$ref": "#/definitions/GraphqlSdlMockRunOptions",
+          "title": "GraphQL SDL mock options",
+          "description": "GraphQL SDL options for mocking a dependency."
+        },
+        "protobuf": {
+          "$ref": "#/definitions/ProtobufMockRunOptions",
+          "title": "Protobuf mock options",
+          "description": "Protobuf options for mocking a dependency."
+        }
+      }
+    },
+    "OpenApiTestRunOptions": {
+      "title": "OpenAPI test run options",
+      "description": "OpenAPI options for the system under test, including endpoint selection, workflow, TLS, and per-specification overrides.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "test",
+          "title": "Run mode",
+          "description": "Test branch discriminator for directly typed OpenAPI options."
+        },
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Host used when sending test requests."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Port used when sending test requests."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Service base URL",
+          "description": "Base URL used when sending test requests."
+        },
+        "filter": {
+          "type": "string",
+          "title": "Test filter",
+          "description": "Expression used to select generated tests."
+        },
+        "workflow": {
+          "$ref": "#/definitions/WorkflowConfiguration",
+          "title": "Workflow configuration",
+          "description": "Named workflow extraction and reuse operations."
+        },
+        "swaggerUiBaseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Swagger UI base URL",
+          "description": "Base URL used by the Swagger UI integration."
+        },
+        "swaggerUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Swagger URL",
+          "description": "URL used to expose or locate the Swagger document."
+        },
+        "actuatorUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Actuator URL",
+          "description": "URL of the service actuator endpoint used by test support."
+        },
+        "cert": {
+          "$ref": "#/definitions/RefOrCert",
+          "title": "Test certificate",
+          "description": "TLS certificate settings or a reference to a named certificate."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification run-option overrides, joined by specification ID.",
+          "items": {
+            "$ref": "#/definitions/OpenApiRunOptionSpecificationEntry",
+            "description": "One OpenAPI specification override."
+          }
+        }
+      }
+    },
+    "OpenApiMockRunOptions": {
+      "title": "OpenAPI mock run options",
+      "description": "OpenAPI options for a mocked dependency, including listener, logging, TLS, and per-specification overrides.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "mock",
+            "stateful-mock"
+          ],
+          "title": "Mock mode",
+          "description": "Mock mode discriminator."
+        },
+        "host": {
+          "type": "string",
+          "title": "Mock host",
+          "description": "Host on which the mock service listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Mock port",
+          "description": "Port on which the mock service listens."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Mock base URL",
+          "description": "Base URL on which the mock service listens."
+        },
+        "filter": {
+          "type": "string",
+          "title": "Mock filter",
+          "description": "Expression used to select mocked operations."
+        },
+        "logMode": {
+          "type": "string",
+          "title": "Mock log mode",
+          "description": "Select the mock-service events written to logs.",
+          "enum": [
+            "ALL",
+            "REQUEST_RESPONSE"
+          ]
+        },
+        "logsDirPath": {
+          "type": "string",
+          "title": "Logs directory",
+          "description": "Directory where mock-service logs are written."
+        },
+        "cert": {
+          "$ref": "#/definitions/RefOrCert",
+          "title": "Mock certificate",
+          "description": "TLS certificate settings or a reference to a named certificate."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification run-option overrides, joined by specification ID.",
+          "items": {
+            "$ref": "#/definitions/OpenApiRunOptionSpecificationEntry",
+            "description": "One OpenAPI specification override."
+          }
+        }
+      }
+    },
+    "WsdlTestRunOptions": {
+      "title": "WSDL test run options",
+      "description": "WSDL test options. Additional keys are protocol-specific resolved options supported by the WSDL runtime boundary.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "test",
+          "title": "Run mode",
+          "description": "Test branch discriminator when this object is directly typed."
+        },
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Host used when sending test requests."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Port used when sending test requests."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Service base URL",
+          "description": "Base URL used when sending test requests."
+        },
+        "cert": {
+          "$ref": "#/definitions/RefOrCert",
+          "title": "Test certificate",
+          "description": "TLS certificate settings or a reference to a named certificate."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional WSDL per-specification overrides.",
+          "items": {
+            "$ref": "#/definitions/WsdlRunOptionSpecificationEntry",
+            "description": "One WSDL specification override."
+          }
+        }
+      }
+    },
+    "WsdlMockRunOptions": {
+      "title": "WSDL mock run options",
+      "description": "WSDL mock options. Additional keys are protocol-specific resolved options supported by the WSDL runtime boundary.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "mock",
+          "title": "Mock mode",
+          "description": "Mock branch discriminator when this object is directly typed."
+        },
+        "host": {
+          "type": "string",
+          "title": "Mock host",
+          "description": "Host on which the mock service listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Mock port",
+          "description": "Port on which the mock service listens."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Mock base URL",
+          "description": "Base URL on which the mock service listens."
+        },
+        "cert": {
+          "$ref": "#/definitions/RefOrCert",
+          "title": "Mock certificate",
+          "description": "TLS certificate settings or a reference to a named certificate."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional WSDL per-specification overrides.",
+          "items": {
+            "$ref": "#/definitions/WsdlRunOptionSpecificationEntry",
+            "description": "One WSDL specification override."
+          }
+        }
+      }
+    },
+    "AsyncApiTestRunOptions": {
+      "title": "AsyncAPI test run options",
+      "description": "AsyncAPI test options with protocol-specific resolved option keys; the dynamic keys are the supported AsyncAPI runtime options.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "test",
+          "title": "Run mode",
+          "description": "Test branch discriminator."
+        },
+        "replyTimeout": {
+          "type": "integer",
+          "title": "Reply timeout",
+          "description": "Maximum time in milliseconds to wait for an asynchronous reply."
+        },
+        "subscriberReadinessWaitTime": {
+          "type": "integer",
+          "title": "Subscriber readiness wait time",
+          "description": "Time in milliseconds to wait for an asynchronous subscriber to become ready."
+        },
+        "servers": {
+          "type": "array",
+          "title": "AsyncAPI servers",
+          "description": "Server connection settings used by asynchronous tests.",
+          "items": {
+            "$ref": "#/definitions/AsyncClientServerConfig",
+            "description": "One asynchronous server connection."
+          }
+        },
+        "schemaRegistry": {
+          "$ref": "#/definitions/SchemaRegistryProperties",
+          "title": "Schema registry",
+          "description": "Schema registry settings used by asynchronous tests."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification AsyncAPI overrides.",
+          "items": {
+            "$ref": "#/definitions/RunOptionSpecificationEntry",
+            "description": "One protocol-neutral specification override."
+          }
+        }
+      }
+    },
+    "AsyncApiMockRunOptions": {
+      "title": "AsyncAPI mock run options",
+      "description": "AsyncAPI mock options with protocol-specific resolved option keys; the dynamic keys are the supported AsyncAPI runtime options.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "mock",
+          "title": "Mock mode",
+          "description": "Mock branch discriminator."
+        },
+        "inMemoryBroker": {
+          "$ref": "#/definitions/InMemoryBrokerConfiguration",
+          "title": "In-memory broker",
+          "description": "Optional in-memory broker settings used by asynchronous mocks."
+        },
+        "servers": {
+          "type": "array",
+          "title": "AsyncAPI servers",
+          "description": "Server connection settings used by asynchronous mocks.",
+          "items": {
+            "$ref": "#/definitions/AsyncClientServerConfig",
+            "description": "One asynchronous server connection."
+          }
+        },
+        "schemaRegistry": {
+          "$ref": "#/definitions/SchemaRegistryProperties",
+          "title": "Schema registry",
+          "description": "Schema registry settings used by asynchronous mocks."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification AsyncAPI overrides.",
+          "items": {
+            "$ref": "#/definitions/RunOptionSpecificationEntry",
+            "description": "One protocol-neutral specification override."
+          }
+        }
+      }
+    },
+    "GraphqlSdlTestRunOptions": {
+      "title": "GraphQL SDL test run options",
+      "description": "GraphQL SDL test options with protocol-specific resolved option keys at the intentional extension boundary.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "test",
+          "title": "Run mode",
+          "description": "Test branch discriminator."
+        },
+        "host": {
+          "type": "string",
+          "title": "GraphQL service host",
+          "description": "Host used by the GraphQL test server."
+        },
+        "port": {
+          "type": "integer",
+          "title": "GraphQL service port",
+          "description": "Port used by the GraphQL test server."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification GraphQL SDL overrides.",
+          "items": {
+            "$ref": "#/definitions/RunOptionSpecificationEntry",
+            "description": "One protocol-neutral specification override."
+          }
+        }
+      }
+    },
+    "GraphqlSdlMockRunOptions": {
+      "title": "GraphQL SDL mock run options",
+      "description": "GraphQL SDL mock options with protocol-specific resolved option keys at the intentional extension boundary.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "mock",
+          "title": "Mock mode",
+          "description": "Mock branch discriminator."
+        },
+        "host": {
+          "type": "string",
+          "title": "GraphQL mock host",
+          "description": "Host on which the GraphQL mock listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "GraphQL mock port",
+          "description": "Port on which the GraphQL mock listens."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification GraphQL SDL overrides.",
+          "items": {
+            "$ref": "#/definitions/RunOptionSpecificationEntry",
+            "description": "One protocol-neutral specification override."
+          }
+        }
+      }
+    },
+    "ProtobufTestRunOptions": {
+      "title": "Protobuf test run options",
+      "description": "Protobuf test options with protocol-specific resolved option keys at the intentional extension boundary.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "test",
+          "title": "Run mode",
+          "description": "Test branch discriminator."
+        },
+        "host": {
+          "type": "string",
+          "title": "gRPC service host",
+          "description": "Host used by the gRPC test client."
+        },
+        "port": {
+          "type": "integer",
+          "title": "gRPC service port",
+          "description": "Port used by the gRPC test client."
+        },
+        "importPaths": {
+          "type": "array",
+          "title": "Protobuf import paths",
+          "description": "Directories searched for imported Protobuf definitions.",
+          "items": {
+            "type": "string",
+            "title": "Protobuf import path",
+            "description": "One directory searched for imported Protobuf definitions."
+          }
+        },
+        "protocVersion": {
+          "type": "string",
+          "title": "protoc version",
+          "description": "Version of protoc used to compile Protobuf definitions."
+        },
+        "requestTimeout": {
+          "type": "integer",
+          "title": "gRPC request timeout",
+          "description": "Maximum time in milliseconds to wait for a gRPC request."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification Protobuf overrides.",
+          "items": {
+            "$ref": "#/definitions/RunOptionSpecificationEntry",
+            "description": "One protocol-neutral specification override."
+          }
+        }
+      }
+    },
+    "ProtobufMockRunOptions": {
+      "title": "Protobuf mock run options",
+      "description": "Protobuf mock options with protocol-specific resolved option keys at the intentional extension boundary.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "const": "mock",
+          "title": "Mock mode",
+          "description": "Mock branch discriminator."
+        },
+        "port": {
+          "type": "integer",
+          "title": "gRPC mock port",
+          "description": "Port on which the gRPC mock listens."
+        },
+        "importPaths": {
+          "type": "array",
+          "title": "Protobuf import paths",
+          "description": "Directories searched for imported Protobuf definitions.",
+          "items": {
+            "type": "string",
+            "title": "Protobuf import path",
+            "description": "One directory searched for imported Protobuf definitions."
+          }
+        },
+        "protocVersion": {
+          "type": "string",
+          "title": "protoc version",
+          "description": "Version of protoc used to compile Protobuf definitions."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification Protobuf overrides.",
+          "items": {
+            "$ref": "#/definitions/RunOptionSpecificationEntry",
+            "description": "One protocol-neutral specification override."
+          }
+        }
+      }
+    },
+    "AsyncClientServerConfig": {
+      "title": "AsyncAPI server connection",
+      "description": "Connection settings for one asynchronous server. Additional admin and client values are protocol-specific extension data.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "protocol"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Server host",
+          "description": "Host or connection address of the asynchronous server."
+        },
+        "protocol": {
+          "type": "string",
+          "title": "Server protocol",
+          "description": "Protocol identifier used to select this asynchronous server."
+        },
+        "adminCredentials": {
+          "type": "object",
+          "title": "Admin credentials",
+          "description": "Optional administrative credentials for the asynchronous server.",
+          "additionalProperties": true
+        },
+        "client": {
+          "$ref": "#/definitions/AsyncClientProperties",
+          "title": "Client properties",
+          "description": "Optional consumer and producer client properties."
+        }
+      }
+    },
+    "AsyncClientProperties": {
+      "title": "AsyncAPI client properties",
+      "description": "Optional client properties grouped by consumer and producer.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "consumer": {
+          "type": "object",
+          "title": "Consumer properties",
+          "description": "Consumer client properties passed to the asynchronous runtime.",
+          "additionalProperties": true
+        },
+        "producer": {
+          "type": "object",
+          "title": "Producer properties",
+          "description": "Producer client properties passed to the asynchronous runtime.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "SchemaRegistryProperties": {
+      "title": "Schema registry properties",
+      "description": "Schema registry connection settings for asynchronous protocols.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "title": "Schema registry kind",
+          "description": "Schema registry implementation used by the asynchronous runtime.",
+          "enum": [
+            "CONFLUENT",
+            "DEFAULT"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "title": "Schema registry URL",
+          "description": "URL of the schema registry."
+        },
+        "username": {
+          "type": "string",
+          "title": "Schema registry username",
+          "description": "Username used to access the schema registry."
+        },
+        "password": {
+          "type": "string",
+          "title": "Schema registry password",
+          "description": "Password used to access the schema registry."
+        }
+      }
+    },
+    "InMemoryBrokerConfiguration": {
+      "title": "In-memory broker configuration",
+      "description": "Optional in-memory broker connection settings for asynchronous mocks.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "logDir": {
+          "type": "string",
+          "title": "Broker log directory",
+          "description": "Directory where in-memory broker logs are written."
+        },
+        "host": {
+          "type": "string",
+          "title": "Broker host",
+          "description": "Host on which the in-memory broker listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Broker port",
+          "description": "Port on which the in-memory broker listens."
+        }
+      }
+    },
+    "RunOptionSpecificationEntry": {
+      "title": "Run-option specification entry",
+      "description": "Wrapper containing one generic per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/RunOptionSpecification",
+          "title": "Run-option override",
+          "description": "Per-specification run-option values."
+        }
+      }
+    },
+    "OpenApiRunOptionSpecificationEntry": {
+      "title": "OpenAPI run-option specification entry",
+      "description": "Wrapper containing one OpenAPI per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/OpenApiRunOptionSpecification",
+          "title": "OpenAPI run-option override",
+          "description": "Per-specification OpenAPI run-option values."
+        }
+      }
+    },
+    "WsdlRunOptionSpecificationEntry": {
+      "title": "WSDL run-option specification entry",
+      "description": "Wrapper containing one WSDL per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/WsdlRunOptionSpecification",
+          "title": "WSDL run-option override",
+          "description": "Per-specification WSDL run-option values."
+        }
+      }
+    },
+    "RunOptionSpecification": {
+      "title": "Generic run-option specification override",
+      "description": "Optional per-specification override keyed by the specification identifier. Additional keys are protocol-specific run-option values.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Specification ID",
+          "description": "Specification identifier this override targets. A non-matching identifier is handled as fallback behavior during semantic processing.",
+          "examples": [
+            "orders"
+          ]
+        },
+        "overlayFilePath": {
+          "type": "string",
+          "title": "Overlay file path",
+          "description": "Path to an overlay applied to this specification."
+        },
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Host override for this specification."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Port override for this specification."
+        }
+      }
+    },
+    "OpenApiRunOptionSpecification": {
+      "title": "OpenAPI run-option specification override",
+      "description": "OpenAPI per-specification endpoint, security, overlay, and URL overrides.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Specification ID",
+          "description": "Specification identifier this override targets.",
+          "examples": [
+            "orders"
+          ]
+        },
+        "overlayFilePath": {
+          "type": "string",
+          "title": "Overlay file path",
+          "description": "Path to an overlay applied to this specification."
+        },
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Host override for this specification."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Port override for this specification."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Service base URL",
+          "description": "Base URL override for this specification."
+        },
+        "securitySchemes": {
+          "type": "object",
+          "title": "Security schemes",
+          "description": "Security scheme credentials keyed by their OpenAPI scheme names.",
+          "additionalProperties": {
+            "$ref": "#/definitions/SecuritySchemeConfigurationV3",
+            "description": "Resolved credentials for one named OpenAPI security scheme."
+          }
+        },
+        "swaggerUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Swagger URL",
+          "description": "Swagger document URL override for this specification."
+        },
+        "swaggerUiBaseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Swagger UI base URL",
+          "description": "Swagger UI base URL override for this specification."
+        },
+        "actuatorUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Actuator URL",
+          "description": "Actuator endpoint URL override for this specification."
+        }
+      }
+    },
+    "WsdlRunOptionSpecification": {
+      "title": "WSDL run-option specification override",
+      "description": "WSDL per-specification endpoint and base-URL overrides.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Specification ID",
+          "description": "Specification identifier this override targets."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Service base URL",
+          "description": "Base URL override for this specification."
+        },
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Host override for this specification."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Port override for this specification."
+        }
+      }
+    },
+    "WorkflowConfiguration": {
+      "title": "Workflow configuration",
+      "description": "Named workflow extraction and reuse operations available to test run options.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ids": {
+          "type": "object",
+          "title": "Workflow operations",
+          "description": "Named workflow operations used by the configuration.",
+          "additionalProperties": {
+            "$ref": "#/definitions/WorkflowIDOperation",
+            "description": "Workflow extraction and reuse settings for one workflow ID."
+          }
+        }
+      }
+    },
+    "WorkflowIDOperation": {
+      "title": "Workflow ID operation",
+      "description": "An extraction expression and a reuse expression associated with one workflow identifier.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extract": {
+          "type": "string",
+          "title": "Extraction expression",
+          "description": "Expression that extracts a value from a workflow response."
+        },
+        "use": {
+          "type": "string",
+          "title": "Reuse expression",
+          "description": "Expression that reuses a value in a later workflow request."
+        }
+      }
+    },
+    "SecuritySchemeConfigurationV3": {
+      "title": "V3 security scheme",
+      "description": "Canonical security type and resolved token used by an OpenAPI run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "token"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "title": "Security scheme type",
+          "description": "Security scheme kind.",
+          "enum": [
+            "oauth2",
+            "openIdConnect",
+            "basicAuth",
+            "bearer",
+            "apiKey"
+          ]
+        },
+        "token": {
+          "type": "string",
+          "title": "Security token",
+          "description": "Resolved token or credential value for the security scheme."
+        }
+      }
+    },
+    "DataDefinition": {
+      "title": "Service data",
+      "description": "Optional examples, dictionary, and adapter data associated with a service.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "examples": {
+          "$ref": "#/definitions/RefOrExampleList",
+          "title": "Service examples",
+          "description": "Examples used by this service, inline or through a named reference."
+        },
+        "dictionary": {
+          "$ref": "#/definitions/RefOrDictionary",
+          "title": "Service dictionary",
+          "description": "Dictionary used by this service, inline or through a named reference."
+        },
+        "adapters": {
+          "$ref": "#/definitions/RefOrAdapter",
+          "title": "Service adapters",
+          "description": "Adapter hooks used by this service, inline or through a named reference."
+        }
+      }
+    },
+    "ExamplesConfiguration": {
+      "title": "Example directories",
+      "description": "Test, mock, and common example-directory collections.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "testExamples": {
+          "type": "array",
+          "title": "Test example directories",
+          "description": "Example-directory entries used during tests.",
+          "items": {
+            "$ref": "#/definitions/RefOrExampleDirectories",
+            "description": "One test example-directory entry or reference."
+          }
+        },
+        "mockExamples": {
+          "type": "array",
+          "title": "Mock example directories",
+          "description": "Example-directory entries used by mocks.",
+          "items": {
+            "$ref": "#/definitions/RefOrExampleDirectories",
+            "description": "One mock example-directory entry or reference."
+          }
+        },
+        "commonExamples": {
+          "$ref": "#/definitions/ExampleDirectories",
+          "title": "Common example directories",
+          "description": "Example directories shared by test and mock execution."
+        }
+      },
+      "examples": [
+        {
+          "commonExamples": {
+            "directories": [
+              "examples"
+            ]
+          }
+        }
+      ]
+    },
+    "ExampleDirectories": {
+      "title": "Example directory list",
+      "description": "One or more filesystem directories containing examples.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directories"
+      ],
+      "properties": {
+        "directories": {
+          "type": "array",
+          "title": "Example directories",
+          "description": "Directories searched for example payloads.",
+          "items": {
+            "type": "string",
+            "title": "Example directory",
+            "description": "Filesystem directory searched for example payloads."
+          }
+        }
+      }
+    },
+    "DictionaryConfiguration": {
+      "title": "Dictionary",
+      "description": "A named dictionary loaded from a filesystem path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "title": "Dictionary file path",
+          "description": "Filesystem path to the dictionary file.",
+          "examples": [
+            "data/dictionary.json"
+          ]
+        }
+      }
+    },
+    "AdapterConfiguration": {
+      "title": "Adapter hooks",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Closed set of supported adapter hook names; arbitrary map keys are not part of the V3 configuration language.",
+      "properties": {
+        "preSpecmaticRequestProcessor": {
+          "type": "string",
+          "title": "Pre-request processor",
+          "description": "Hook command run before Specmatic processes an incoming request."
+        },
+        "postSpecmaticResponseProcessor": {
+          "type": "string",
+          "title": "Post-response processor",
+          "description": "Hook command run after Specmatic creates a response."
+        },
+        "preSpecmaticResponseProcessor": {
+          "type": "string",
+          "title": "Pre-response processor",
+          "description": "Hook command run before Specmatic returns a provider response."
+        },
+        "stubLoadContract": {
+          "type": "string",
+          "title": "Stub contract loader",
+          "description": "Hook command used when a contract is loaded for mocking."
+        },
+        "testLoadContract": {
+          "type": "string",
+          "title": "Test contract loader",
+          "description": "Hook command used when a contract is loaded for testing."
+        },
+        "pre_specmatic_request_processor": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Pre-request processor (legacy spelling)",
+          "description": "Legacy snake_case alias for preSpecmaticRequestProcessor.",
+          "deprecationMessage": "Replace with preSpecmaticRequestProcessor."
+        },
+        "post_specmatic_response_processor": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Post-response processor (legacy spelling)",
+          "description": "Legacy snake_case alias for postSpecmaticResponseProcessor.",
+          "deprecationMessage": "Replace with postSpecmaticResponseProcessor."
+        },
+        "pre_specmatic_response_processor": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Pre-response processor (legacy spelling)",
+          "description": "Legacy snake_case alias for preSpecmaticResponseProcessor.",
+          "deprecationMessage": "Replace with preSpecmaticResponseProcessor."
+        },
+        "stub_load_contract": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Stub contract loader (legacy spelling)",
+          "description": "Legacy snake_case alias for stubLoadContract.",
+          "deprecationMessage": "Replace with stubLoadContract."
+        },
+        "test_load_contract": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Test contract loader (legacy spelling)",
+          "description": "Legacy snake_case alias for testLoadContract.",
+          "deprecationMessage": "Replace with testLoadContract."
+        }
+      },
+      "examples": [
+        {
+          "preSpecmaticRequestProcessor": "hooks/pre-request.kts"
+        }
+      ]
+    },
+    "KeyStoreConfiguration": {
+      "title": "Key store",
+      "description": "Exactly one key-store representation: a file or a directory.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "file"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/KeyStoreFileConfiguration",
+            "description": "A key store loaded from one file."
+          },
+          "else": {
+            "$ref": "#/definitions/KeyStoreDirectoryConfiguration",
+            "description": "A key store loaded from a directory."
+          }
+        }
+      ],
+      "errorMessage": {
+        "required": "Specify a key-store file or directory."
+      }
+    },
+    "KeyStoreFileConfiguration": {
+      "title": "Key-store file",
+      "description": "Key store loaded from one file path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "title": "Key-store file",
+          "description": "Path to the key-store file."
+        },
+        "password": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "alias": {
+          "type": "string",
+          "title": "Key-store alias",
+          "description": "Optional key alias to use from the key store."
+        }
+      }
+    },
+    "KeyStoreDirectoryConfiguration": {
+      "title": "Key-store directory",
+      "description": "Key store loaded from a directory path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directory"
+      ],
+      "properties": {
+        "directory": {
+          "type": "string",
+          "title": "Key-store directory",
+          "description": "Path to the directory containing key-store files."
+        },
+        "password": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "alias": {
+          "type": "string",
+          "title": "Key-store alias",
+          "description": "Optional key alias to use from the key store."
+        }
+      }
+    },
+    "CertConfiguration": {
+      "title": "Certificate configuration",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Certificate settings. keyStore is optional so mTLS-only or inherited certificate forms remain valid.",
+      "properties": {
+        "keyStore": {
+          "$ref": "#/definitions/KeyStoreConfiguration",
+          "title": "Key store",
+          "description": "Key store used for TLS credentials."
+        },
+        "keyStorePassword": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "mtlsEnabled": {
+          "type": "boolean",
+          "title": "Enable mutual TLS",
+          "description": "Enable mutual TLS for this certificate configuration."
+        }
+      },
+      "examples": [
+        {
+          "mtlsEnabled": true
+        },
+        {
+          "keyStore": {
+            "file": "server.jks",
+            "password": "change-it"
+          },
+          "mtlsEnabled": true
+        }
+      ]
+    },
+    "RefOrSource": {
+      "title": "Source or reference",
+      "description": "Use an inline source provider or a reference to a named source component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named source component."
+          },
+          "else": {
+            "$ref": "#/definitions/SourceSchema",
+            "description": "An inline source provider."
+          }
+        }
+      ]
+    },
+    "RefOrAdapter": {
+      "title": "Adapter or reference",
+      "description": "Use inline supported adapter hooks or a reference to a named adapter component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named adapter component."
+          },
+          "else": {
+            "$ref": "#/definitions/AdapterConfiguration",
+            "description": "Inline adapter hooks."
+          }
+        }
+      ]
+    },
+    "RefOrDictionary": {
+      "title": "Dictionary or reference",
+      "description": "Use an inline dictionary path or a reference to a named dictionary component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named dictionary component."
+          },
+          "else": {
+            "$ref": "#/definitions/DictionaryConfiguration",
+            "description": "An inline dictionary path."
+          }
+        }
+      ]
+    },
+    "RefOrExampleDirectories": {
+      "title": "Example directories or reference",
+      "description": "Use inline example directories or a reference to a named example-directory component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named example-directory component."
+          },
+          "else": {
+            "$ref": "#/definitions/ExampleDirectories",
+            "description": "Inline example directories."
+          }
+        }
+      ]
+    },
+    "RefOrExampleList": {
+      "title": "Example list or reference",
+      "description": "Use a list of inline/reference example-directory entries or reference a named example list.",
+      "type": ["object", "array"],
+      "if": {
+        "type": "object",
+        "required": ["$ref"]
+      },
+      "then": {
+        "$ref": "#/definitions/Reference",
+        "description": "A reference to a named example list."
+      },
+      "else": {
+        "type": "array",
+        "description": "Inline example-directory entries.",
+        "items": {
+          "$ref": "#/definitions/RefOrExampleDirectories",
+          "description": "One inline or referenced example-directory entry."
+        }
+      }
+    },
+    "RefOrCert": {
+      "title": "Certificate or reference",
+      "description": "Use inline certificate settings or a reference to a named certificate component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named certificate component."
+          },
+          "else": {
+            "$ref": "#/definitions/CertConfiguration",
+            "description": "Inline certificate settings."
+          }
+        }
+      ]
+    },
+    "ContextOrConcreteSettings": {
+      "title": "Contextual or concrete settings",
+      "description": "Inline general/concrete settings or context-dependent test/mock settings. The surrounding consumer determines the applicable context.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ConcreteSettings",
+          "description": "Inline concrete settings."
+        },
+        {
+          "$ref": "#/definitions/ContextSettings",
+          "description": "Inline test-or-mock contextual settings."
+        }
+      ]
+    },
+    "RefOrConcreteSettings": {
+      "title": "Concrete settings or reference",
+      "description": "Use inline global settings or a reference to a named concrete settings component.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named concrete settings component."
+          },
+          "else": {
+            "$ref": "#/definitions/ConcreteSettings",
+            "description": "Inline concrete settings."
+          }
+        }
+      ]
+    },
+    "RefOrTestSettings": {
+      "title": "Test settings or reference",
+      "description": "Use inline test settings or a reference to a named settings component; target compatibility is semantic.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable test settings."
+          },
+          "else": {
+            "$ref": "#/definitions/TestSettings",
+            "description": "Inline test settings."
+          }
+        }
+      ]
+    },
+    "RefOrMockSettings": {
+      "title": "Mock settings or reference",
+      "description": "Use inline mock settings or a reference to a named settings component; target compatibility is semantic.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable mock settings."
+          },
+          "else": {
+            "$ref": "#/definitions/MockSettings",
+            "description": "Inline mock settings."
+          }
+        }
+      ]
+    },
+    "RefOrContextSettings": {
+      "title": "Contextual settings or reference",
+      "description": "Use inline context-dependent settings or a reference; the service consumer selects test or mock reification.",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable contextual settings."
+          },
+          "else": {
+            "$ref": "#/definitions/ContextSettings",
+            "description": "Inline contextual settings."
+          }
+        }
+      ]
+    },
+    "ContextSettings": {
+      "title": "Contextual settings",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TestSettings",
+          "description": "Test settings selected by the consuming context."
+        },
+        {
+          "$ref": "#/definitions/MockSettings",
+          "description": "Mock settings selected by the consuming context."
+        }
+      ],
+      "description": "Context-dependent service settings. The consuming system-under-test or dependency context selects test or mock reification; only fields from those concrete settings shapes are valid.",
+      "examples": [
+        {
+          "timeoutInMilliseconds": 5000
+        },
+        {
+          "generative": true,
+          "strictMode": false
+        }
+      ]
+    },
+    "ConcreteSettings": {
+      "title": "Concrete settings",
+      "description": "Named settings grouped by general, test, mock, proxy, or backward-compatibility concern.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "general": {
+          "$ref": "#/definitions/GeneralSettings",
+          "title": "General settings",
+          "description": "Settings shared across Specmatic operations."
+        },
+        "test": {
+          "$ref": "#/definitions/TestSettings",
+          "title": "Test settings",
+          "description": "Settings for executing tests against the system under test."
+        },
+        "mock": {
+          "$ref": "#/definitions/MockSettings",
+          "title": "Mock settings",
+          "description": "Settings for running mocked dependencies."
+        },
+        "proxy": {
+          "$ref": "#/definitions/ProxySettings",
+          "title": "Proxy settings",
+          "description": "Settings controlling proxy recording and header handling."
+        },
+        "backwardCompatibility": {
+          "$ref": "#/definitions/BackwardCompatibilitySettings",
+          "title": "Backward compatibility settings",
+          "description": "Settings for compatibility comparisons."
+        }
+      }
+    },
+    "TestSettings": {
+      "title": "Test settings",
+      "description": "Execution settings for the system under test, including limits, modes, resiliency, and report output.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaResiliencyTests": {
+          "type": "string",
+          "title": "Schema resiliency tests",
+          "description": "Select all, positive-only, or no schema resiliency tests.",
+          "enum": [
+            "all",
+            "none",
+            "positiveOnly"
+          ]
+        },
+        "resiliencyTests": {
+          "type": "string",
+          "title": "Schema resiliency tests (legacy name)",
+          "enum": [
+            "all",
+            "none",
+            "positiveOnly"
+          ],
+          "deprecated": true,
+          "description": "Legacy alias for schemaResiliencyTests.",
+          "deprecationMessage": "Replace with schemaResiliencyTests."
+        },
+        "timeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Test timeout",
+          "description": "Maximum request duration in milliseconds."
+        },
+        "strictMode": {
+          "type": "boolean",
+          "title": "Strict mode",
+          "description": "Enable strict validation behavior during tests."
+        },
+        "lenientMode": {
+          "type": "boolean",
+          "title": "Lenient mode",
+          "description": "Allow lenient validation behavior during tests."
+        },
+        "parallelism": {
+          "type": "string",
+          "title": "Test parallelism",
+          "description": "Parallel execution setting for generated tests."
+        },
+        "maxTestRequestCombinations": {
+          "type": "integer",
+          "title": "Maximum request combinations",
+          "description": "Maximum request combinations generated for a test."
+        },
+        "junitReportDir": {
+          "type": "string",
+          "title": "JUnit report directory",
+          "description": "Directory where JUnit reports are written."
+        },
+        "maxTestCount": {
+          "type": "integer",
+          "title": "Maximum test count",
+          "description": "Maximum number of tests to execute."
+        }
+      }
+    },
+    "MockSettings": {
+      "title": "Mock settings",
+      "description": "Execution settings for mocked dependencies, including generation, reload, timing, and restart behavior.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generative": {
+          "type": "boolean",
+          "title": "Generative mode",
+          "description": "Generate mock responses when examples do not provide a direct response."
+        },
+        "delayInMilliseconds": {
+          "type": "integer",
+          "title": "Response delay",
+          "description": "Delay generated mock responses by this many milliseconds."
+        },
+        "startTimeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Mock start timeout",
+          "description": "Maximum time in milliseconds allowed for the mock to start."
+        },
+        "hotReload": {
+          "type": "boolean",
+          "title": "Hot reload",
+          "description": "Reload contracts when their source files change."
+        },
+        "strictMode": {
+          "type": "boolean",
+          "title": "Strict mode",
+          "description": "Enable strict validation behavior in the mock."
+        },
+        "gracefulRestartTimeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Graceful restart timeout",
+          "description": "Maximum time in milliseconds allowed for a graceful mock restart."
+        },
+        "lenientMode": {
+          "type": "boolean",
+          "title": "Lenient mode",
+          "description": "Allow lenient validation behavior in the mock."
+        }
+      }
+    },
+    "GeneralSettings": {
+      "title": "General settings",
+      "description": "Settings shared across test, mock, and other Specmatic operations.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disableTelemetry": {
+          "type": "boolean",
+          "title": "Disable telemetry",
+          "description": "Disable telemetry reporting."
+        },
+        "ignoreInlineExamples": {
+          "type": "boolean",
+          "title": "Ignore inline examples",
+          "description": "Ignore examples embedded in specifications."
+        },
+        "ignoreInlineExampleWarnings": {
+          "type": "boolean",
+          "title": "Ignore inline-example warnings",
+          "description": "Suppress warnings about ignored inline examples."
+        },
+        "prettyPrint": {
+          "type": "boolean",
+          "title": "Pretty-print output",
+          "description": "Enable pretty-printed output where supported."
+        },
+        "logging": {
+          "$ref": "#/definitions/LoggingConfiguration",
+          "title": "Logging configuration",
+          "description": "Log level and JSON/text output configuration."
+        },
+        "featureFlags": {
+          "$ref": "#/definitions/FeatureFlags",
+          "title": "Feature flags",
+          "description": "Optional feature switches controlling matching and output behavior."
+        },
+        "specExamplesDirectoryTemplate": {
+          "type": "string",
+          "title": "Specification examples directory template",
+          "description": "Template for the directory containing examples associated with a specification."
+        },
+        "sharedExamplesDirectoryTemplate": {
+          "type": "array",
+          "title": "Shared examples directory templates",
+          "description": "Templates for shared example directories searched across specifications.",
+          "items": {
+            "type": "string",
+            "title": "Directory template",
+            "description": "Template resolving to a shared examples directory."
+          }
+        }
+      }
+    },
+    "FeatureFlags": {
+      "title": "Feature flags",
+      "description": "Boolean switches for matching, schema examples, and SOAP behavior.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fuzzyMatcherForPayloads": {
+          "type": "boolean",
+          "title": "Fuzzy payload matching",
+          "description": "Enable fuzzy matching of payload keys."
+        },
+        "schemaExampleDefault": {
+          "type": "boolean",
+          "title": "Use schema examples as defaults",
+          "description": "Use schema example values as defaults where supported."
+        },
+        "escapeSoapAction": {
+          "type": "boolean",
+          "title": "Escape SOAP actions",
+          "description": "Apply SOAP action escaping behavior."
+        }
+      }
+    },
+    "ProxySettings": {
+      "title": "Proxy settings",
+      "description": "Settings controlling request recording and headers ignored by proxy processing.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordRequests": {
+          "type": "boolean",
+          "title": "Record requests",
+          "description": "Record requests handled by the proxy."
+        },
+        "ignoreHeaders": {
+          "type": "array",
+          "title": "Ignored headers",
+          "description": "Header names excluded from proxy processing.",
+          "items": {
+            "type": "string",
+            "title": "Header name",
+            "description": "Header name ignored by proxy processing."
+          }
+        }
+      }
+    },
+    "BackwardCompatibilitySettings": {
+      "title": "Backward compatibility settings",
+      "description": "Repository, target path, and strictness settings for compatibility checks.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseBranch": {
+          "type": "string",
+          "title": "Base branch",
+          "description": "Branch used as the baseline for compatibility comparison."
+        },
+        "targetPath": {
+          "type": "string",
+          "title": "Compatibility target path",
+          "description": "Path whose compatibility is evaluated."
+        },
+        "repoDirectory": {
+          "type": "string",
+          "title": "Repository directory",
+          "description": "Local repository directory used for compatibility comparison."
+        },
+        "strictMode": {
+          "type": "boolean",
+          "title": "Strict compatibility mode",
+          "description": "Apply strict compatibility rules when comparing repository states."
+        }
+      }
+    },
+    "LoggingConfiguration": {
+      "title": "Logging configuration",
+      "description": "Log level and JSON/text output destinations shared by concrete settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "title": "Log level",
+          "description": "Minimum log level to emit.",
+          "enum": [
+            "INFO",
+            "DEBUG"
+          ]
+        },
+        "json": {
+          "$ref": "#/definitions/LogOutputConfiguration",
+          "title": "JSON log output",
+          "description": "Destination settings for structured JSON logs."
+        },
+        "text": {
+          "$ref": "#/definitions/LogOutputConfiguration",
+          "title": "Text log output",
+          "description": "Destination settings for human-readable text logs."
+        }
+      }
+    },
+    "LogOutputConfiguration": {
+      "title": "Log output",
+      "description": "Destination and naming settings for one log output format.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "type": "string",
+          "title": "Log directory",
+          "description": "Directory where this log output is written."
+        },
+        "console": {
+          "type": "boolean",
+          "title": "Log to console",
+          "description": "Write this log output to the console."
+        },
+        "logFilePrefix": {
+          "type": "string",
+          "title": "Log-file prefix",
+          "description": "Prefix used when naming log files."
+        },
+        "logPrefix": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Log-file prefix (legacy name)",
+          "description": "Legacy alias for logFilePrefix.",
+          "deprecationMessage": "Replace with logFilePrefix."
+        }
+      }
+    }
+  }
+}

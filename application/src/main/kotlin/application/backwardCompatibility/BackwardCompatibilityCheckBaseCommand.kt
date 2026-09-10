@@ -29,8 +29,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     @field:picocli.CommandLine.Mixin
     val options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()
 ): Callable<Int> {
-    protected val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
-    protected val backwardCompConfig = specmaticConfig.getBackwardCompatibilityConfig()
+    protected val specmaticConfig: SpecmaticConfig by lazy { loadSpecmaticConfigIfAvailableElseDefault() }
+    protected val backwardCompConfig by lazy { specmaticConfig.getBackwardCompatibilityConfig() }
     protected val effectiveRepoDir: String by lazy { options.repoDir ?: backwardCompConfig?.repoDirectory ?: "." }
     protected val gitCommand: GitCommand by lazy { SystemGit(workingDirectory = Paths.get(effectiveRepoDir).absolutePathString()) }
     protected val effectiveBaseBranch: String by lazy { options.baseBranch ?: backwardCompConfig?.baseBranch ?: gitCommand.currentRemoteBranch() }
