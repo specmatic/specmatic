@@ -351,7 +351,7 @@ class SpecmaticConfigV3ReferenceValidationTest {
                       definitions: []
                   runOptions: {}
                 """.trimIndent(),
-                instanceLocation = "/components/services/sut/runOptions",
+                instanceLocation = "/systemUnderTest/service/runOptions",
                 message = "Reference '#/components/runOptions/missing' $MISSING_MESSAGE #/components/runOptions/missing",
             ),
             InvalidReferenceCase(

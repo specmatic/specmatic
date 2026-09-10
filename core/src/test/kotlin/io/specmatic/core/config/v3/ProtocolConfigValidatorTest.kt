@@ -3,8 +3,14 @@ package io.specmatic.core.config.v3
 import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.config.validation.ConfigValidationSeverity
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiMockConfig
+import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.RunOptionType
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
+import io.specmatic.core.config.v3.components.services.Definition
+import io.specmatic.core.config.v3.components.services.MockServiceConfig
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.components.settings.MockSettings
+import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -37,6 +43,73 @@ class ProtocolConfigValidatorTest {
         val definition = SpecificationDefinition.StringValue(specification.path)
         AsyncApiMockConfig().validateForSpecFile(specification, definition, context(tempDir, validator))
         assertThat(validator.calls).containsExactly(Call(specification, emptyMap(), "/dependencies/runOptions/asyncapi"))
+    }
+
+    @Test
+    fun `uses default async mock run options when service run options are omitted`(@TempDir tempDir: File) {
+        val validator = RecordingValidator()
+        val specification = tempDir.resolve("events.yaml").apply { writeText("asyncapi: 3.0.0") }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val definition = Definition(
+            Definition.Value(
+                source = RefOrValue.Value(source),
+                specs = listOf(SpecificationDefinition.StringValue(specification.name)),
+            )
+        )
+
+        val service = CommonServiceConfig<MockRunOptions, MockSettings>(definitions = listOf(definition))
+        MockServiceConfig(
+            services = listOf(MockServiceConfig.Value(RefOrValue.Value(service))),
+        ).validate(
+            ValidationContext(
+                location = "/dependencies",
+                protocolConfigValidators = listOf(validator),
+                resolver = SpecmaticConfigV3Resolver(Components(), tempDir.toPath()),
+            )
+        )
+
+        assertThat(validator.calls).containsExactly(
+            Call(specification.canonicalFile, emptyMap(), "/dependencies/services/0/service/runOptions/asyncapi")
+        )
+    }
+
+    @Test
+    fun `keeps inline service ref sibling location when validating run options`(@TempDir tempDir: File) {
+        val validator = RecordingValidator()
+        val specification = tempDir.resolve("events.yaml").apply { writeText("asyncapi: 3.0.0") }
+        val reference = RefOrValue.Reference(
+            ref = "#/components/services/kafkaService",
+            extra = mapOf("runOptions" to emptyMap<String, Any>()),
+        )
+
+        MockServiceConfig(services = listOf(MockServiceConfig.Value(reference))).validate(
+            context = ValidationContext(
+                location = "/dependencies",
+                protocolConfigValidators = listOf(validator),
+                resolver = object : RefOrValueResolver {
+                    override fun resolveRef(reference: String): Any = mapOf(
+                        "definitions" to listOf(
+                            mapOf(
+                                "definition" to mapOf(
+                                    "source" to mapOf(
+                                        "filesystem" to mapOf("directory" to tempDir.canonicalPath),
+                                    ),
+                                    "specs" to listOf(specification.name),
+                                ),
+                            ),
+                        ),
+                    )
+                },
+            )
+        )
+
+        assertThat(validator.calls).containsExactly(
+            Call(
+                configuration = emptyMap(),
+                specification = specification.canonicalFile,
+                location = "/dependencies/services/0/service/runOptions/asyncapi"
+            )
+        )
     }
 
     @Test

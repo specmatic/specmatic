@@ -105,20 +105,22 @@ class ConfigValidationTextRenderer {
         var located = LocatedNode(current)
         if (pointer.isBlank()) return located
 
-        pointer.removePrefix("/").split("/").map(::unescape).forEach { segment ->
-            located = when (current) {
+        for (segment in pointer.removePrefix("/").split("/").map(::unescape)) {
+            when (current) {
                 is MappingNode -> {
-                    val entry = current.value.firstOrNull { (it.keyNode as? ScalarNode)?.value == segment } ?: return null
+                    val entry = current.value.firstOrNull { (it.keyNode as? ScalarNode)?.value == segment } ?: break
                     current = entry.valueNode.unwrap()
-                    LocatedNode(current, entry.keyNode)
+                    located = LocatedNode(current, entry.keyNode)
                 }
 
                 is SequenceNode -> {
-                    current = current.value.getOrNull(segment.toIntOrNull() ?: return null)?.unwrap() ?: return null
-                    LocatedNode(current)
+                    val index = segment.toIntOrNull() ?: break
+                    val value = current.value.getOrNull(index)?.unwrap() ?: break
+                    current = value
+                    located = LocatedNode(current)
                 }
 
-                else -> return null
+                else -> break
             }
         }
 

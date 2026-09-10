@@ -35,7 +35,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
             val serviceContext = context.child("services").child(index).child("service")
             val validateDefinition: (Definition, MockRunOptions?, ValidationContext, ValidationContext) -> List<ConfigValidationOutput> = {
                 definition, runOptions, definitionContext, runOptionsContext ->
-                    definition.validate(runOptions, definitionContext, runOptionsContext)
+                    definition.validate(runOptions ?: MockRunOptions(), definitionContext, runOptionsContext)
             }
 
             val validateRunOptions: (MockRunOptions, ValidationContext) -> List<ConfigValidationOutput> = {

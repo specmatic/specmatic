@@ -12,9 +12,18 @@ import java.util.ServiceLoader
 data class ValidationContext(
     val location: String = "",
     val resolver: RefOrValueResolver,
-    val protocolConfigValidators: List<ProtocolConfigValidator> = ServiceLoader.load(ProtocolConfigValidator::class.java).toList()
+    val protocolConfigValidators: List<ProtocolConfigValidator> = ServiceLoader.load(ProtocolConfigValidator::class.java).toList(),
+    private val inlineLocations: Map<String, String> = emptyMap(),
+    private val preserveReferenceLocation: Boolean = false,
 ) {
-    fun child(segment: String): ValidationContext = copy(location = "$location/$segment")
+    fun child(segment: String): ValidationContext {
+        val inlineLocation = inlineLocations[segment]
+        return copy(
+            inlineLocations = emptyMap(),
+            location = inlineLocation ?: "$location/$segment",
+            preserveReferenceLocation = preserveReferenceLocation || inlineLocation != null,
+        )
+    }
 
     fun child(index: Int): ValidationContext = child(index.toString())
 
@@ -74,6 +83,10 @@ data class ValidationContext(
 
     private fun contextFor(reference: RefOrValue.Reference): ValidationContext {
         val targetLocation = reference.ref.takeIf { it.startsWith("#/") }?.removePrefix("#")
-        return targetLocation?.let { copy(location = it) } ?: this
+        if (preserveReferenceLocation) return this
+        return copy(
+            location = targetLocation ?: location,
+            inlineLocations = reference.extra.keys.associateWith { key -> "$location/$key" },
+        )
     }
 }

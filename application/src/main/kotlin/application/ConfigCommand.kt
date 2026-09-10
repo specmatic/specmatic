@@ -11,6 +11,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion.Companion.getLatestVersio
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.isValidVersion
 import io.specmatic.core.config.getVersion
 import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.config.validation.ConfigValidationMetadata
 import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.config.validation.ConfigValidationResult
 import io.specmatic.core.config.validation.ConfigValidationSeverity
@@ -20,6 +21,7 @@ import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import picocli.CommandLine.*
 import java.io.File
@@ -181,20 +183,8 @@ class ConfigCommand : Callable<Int> {
         }
 
         private fun serializeOutputs(result: ConfigValidationResult): String {
-            return json.encodeToString(
-                value = when (result) {
-                    is ConfigValidationResult.Invalid -> result.output
-                    is ConfigValidationResult.Valid -> listOf(validOutput())
-                }
-            )
+            return json.encodeToString(JsonSchemaDetailedOutput.from(result))
         }
-
-        private fun validOutput() = ConfigValidationOutput(
-            valid = true,
-            keywordLocation = "",
-            instanceLocation = "",
-            severity = ConfigValidationSeverity.INFO,
-        )
 
         private fun defaultSchemaOutput(): ConfigSchemaOutputFormat = when (format) {
             OutputFormat.TEXT -> ConfigSchemaOutputFormat.LIST
@@ -217,7 +207,7 @@ class ConfigCommand : Callable<Int> {
         }
 
         private companion object {
-            val json = Json { prettyPrint = true; prettyPrintIndent = "  "; encodeDefaults = true }
+            val json = Json { prettyPrint = true; prettyPrintIndent = "  "; encodeDefaults = false; explicitNulls = false }
         }
     }
 
@@ -240,5 +230,46 @@ class ConfigCommand : Callable<Int> {
     enum class OutputFormat {
         TEXT,
         JSON,
+    }
+}
+
+@Serializable
+private data class JsonSchemaDetailedOutput(
+    val valid: Boolean,
+    val error: String? = null,
+    val keywordLocation: String,
+    val instanceLocation: String,
+    val absoluteKeywordLocation: String? = null,
+    val severity: ConfigValidationSeverity? = null,
+    val metadata: ConfigValidationMetadata? = null,
+    val errors: List<JsonSchemaDetailedOutput> = emptyList(),
+) {
+    companion object {
+        fun from(result: ConfigValidationResult): JsonSchemaDetailedOutput = when (result) {
+            is ConfigValidationResult.Invalid -> JsonSchemaDetailedOutput(
+                valid = false,
+                keywordLocation = "",
+                instanceLocation = "",
+                errors = result.output.map(::from),
+            )
+
+            is ConfigValidationResult.Valid -> JsonSchemaDetailedOutput(
+                valid = true,
+                keywordLocation = "",
+                instanceLocation = "",
+                severity = ConfigValidationSeverity.INFO,
+            )
+        }
+
+        private fun from(output: ConfigValidationOutput): JsonSchemaDetailedOutput = JsonSchemaDetailedOutput(
+            valid = output.valid,
+            error = output.error,
+            severity = output.severity,
+            metadata = output.metadata,
+            errors = output.details.map(::from),
+            keywordLocation = output.keywordLocation,
+            instanceLocation = output.instanceLocation,
+            absoluteKeywordLocation = output.absoluteKeywordLocation,
+        )
     }
 }

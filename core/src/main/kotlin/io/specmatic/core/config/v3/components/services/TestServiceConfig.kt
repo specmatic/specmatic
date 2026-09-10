@@ -32,7 +32,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         val serviceContext = context.child("service")
         val validateDefinition: (Definition, TestRunOptions?, ValidationContext, ValidationContext) -> List<ConfigValidationOutput> = {
             definition, runOptions, definitionContext, runOptionsContext ->
-                definition.validate(runOptions, definitionContext, runOptionsContext)
+                definition.validate(runOptions ?: TestRunOptions(), definitionContext, runOptionsContext)
         }
 
         val validateRunOptions: (TestRunOptions, ValidationContext) -> List<ConfigValidationOutput> = {

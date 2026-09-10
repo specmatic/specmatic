@@ -14,23 +14,15 @@ import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 data class Definition(val definition: Value) {
-    fun validate(
-        runOptions: MockRunOptions?,
-        context: ValidationContext,
-        runOptionsContext: ValidationContext,
-    ): List<ConfigValidationOutput> {
+    fun validate(runOptions: MockRunOptions, context: ValidationContext, runOptionsContext: ValidationContext): List<ConfigValidationOutput> {
         return definition.validate(context.child("definition"), runOptionsContext) { specType ->
-            runOptions?.getRunOptionsFor(specType)
+            runOptions.getRunOptionsForOrDefault(specType)
         }
     }
 
-    fun validate(
-        runOptions: TestRunOptions?,
-        context: ValidationContext,
-        runOptionsContext: ValidationContext
-    ): List<ConfigValidationOutput> {
+    fun validate(runOptions: TestRunOptions, context: ValidationContext, runOptionsContext: ValidationContext): List<ConfigValidationOutput> {
         return definition.validate(context.child("definition"), runOptionsContext) { specType ->
-            runOptions?.getRunOptionsFor(specType)
+            runOptions.getRunOptionsForOrDefault(specType)
         }
     }
 

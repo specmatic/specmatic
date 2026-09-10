@@ -7,6 +7,7 @@ import io.specmatic.core.config.validation.ConfigValidationSeverity
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.SystemExit
+import kotlinx.serialization.json.Json
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -65,7 +66,7 @@ class ConfigCommandValidateTest {
         }
 
         @Test
-        fun `serializes the backend result directly as json`(@TempDir tempDir: File) {
+        fun `serializes validation errors as a detailed json schema output`(@TempDir tempDir: File) {
             val configFile = tempDir.resolve("invalid.yaml").apply {
                 writeText("version: 2\nreport: invalid\n")
             }
@@ -77,28 +78,31 @@ class ConfigCommandValidateTest {
             }
 
             assertThat(exitCode).isEqualTo(1)
-            assertThat(output).isEqualTo($$"""
-            [
-              {
-                "valid": false,
-                "error": "string found, object expected",
-                "keywordLocation": "/properties/report/$ref",
-                "instanceLocation": "/report",
-                "absoluteKeywordLocation": "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ReportConfigurationDetails",
-                "severity": "ERROR",
-                "metadata": {
-                  "title": "Reporting configuration",
-                  "keyword": "$ref",
-                  "description": "Report types and API-coverage thresholds.",
-                  "deprecated": null,
-                  "deprecationMessage": null
+            assertJsonOutput(output, $$"""
+            {
+              "valid": false,
+              "keywordLocation": "",
+              "instanceLocation": "",
+              "errors": [
+                {
+                  "valid": false,
+                  "keywordLocation": "/properties/report/$ref",
+                  "instanceLocation": "/report",
+                  "absoluteKeywordLocation": "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ReportConfigurationDetails",
+                  "error": "string found, object expected",
+                  "severity": "ERROR",
+                  "metadata": {
+                    "title": "Reporting configuration",
+                    "keyword": "$ref",
+                    "description": "Report types and API-coverage thresholds."
+                  }
                 }
-              }
-            ]""".trimIndent())
+              ]
+            }""".trimIndent())
         }
 
         @Test
-        fun `serializes a valid result as one valid output`(@TempDir tempDir: File) {
+        fun `serializes a valid result as a detailed json schema output`(@TempDir tempDir: File) {
             val configFile = tempDir.resolve("valid.yaml").apply {
                 writeText("version: 3\n")
             }
@@ -111,17 +115,12 @@ class ConfigCommandValidateTest {
 
             assertThat(exitCode).isZero()
             assertThat(output).isEqualTo("""
-            [
-              {
-                "valid": true,
-                "error": null,
-                "keywordLocation": "",
-                "instanceLocation": "",
-                "absoluteKeywordLocation": null,
-                "severity": "INFO",
-                "metadata": null
-              }
-            ]""".trimIndent())
+            {
+              "valid": true,
+              "keywordLocation": "",
+              "instanceLocation": "",
+              "severity": "INFO"
+            }""".trimIndent())
         }
 
         @Test
@@ -249,24 +248,27 @@ class ConfigCommandValidateTest {
             }
 
             assertThat(exitCode).isEqualTo(1)
-            assertThat(output).isEqualTo($$"""
-            [
-              {
-                "valid": false,
-                "error": "string found, object expected",
-                "keywordLocation": "/properties/report/$ref",
-                "instanceLocation": "/report",
-                "absoluteKeywordLocation": "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ReportConfigurationDetails",
-                "severity": "ERROR",
-                "metadata": {
-                  "title": "Reporting configuration",
-                  "keyword": "$ref",
-                  "description": "Report types and API-coverage thresholds.",
-                  "deprecated": null,
-                  "deprecationMessage": null
+            assertJsonOutput(output, $$"""
+            {
+              "valid": false,
+              "keywordLocation": "",
+              "instanceLocation": "",
+              "errors": [
+                {
+                  "valid": false,
+                  "keywordLocation": "/properties/report/$ref",
+                  "instanceLocation": "/report",
+                  "absoluteKeywordLocation": "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ReportConfigurationDetails",
+                  "error": "string found, object expected",
+                  "severity": "ERROR",
+                  "metadata": {
+                    "title": "Reporting configuration",
+                    "keyword": "$ref",
+                    "description": "Report types and API-coverage thresholds."
+                  }
                 }
-              }
-            ]""".trimIndent())
+              ]
+            }""".trimIndent())
         }
 
         @Test
@@ -286,6 +288,28 @@ class ConfigCommandValidateTest {
 
             1 error
             """.trimIndent())
+        }
+
+        @Test
+        fun `uses the nearest source location when instance location is unavailable`() {
+            val source = """
+            version: 3
+            components:
+              services: {}
+            """.trimIndent()
+            val output = ConfigValidationOutput(
+                valid = false,
+                keywordLocation = "/required",
+                instanceLocation = "/components/services/missing",
+                error = "Configuration has an invalid structure.",
+            )
+
+            val rendered = renderer.render("specmatic.yaml", source, ConfigValidationResult.Invalid(null, listOf(output)))
+
+            assertThat(rendered)
+                .contains("specmatic.yaml:3:")
+                .contains("3 |       services: {}")
+                .doesNotContain("specmatic.yaml:/components/services/missing")
         }
 
         @Test
@@ -340,6 +364,10 @@ class ConfigCommandValidateTest {
             1 error
             """.trimIndent())
         }
+    }
+
+    private fun assertJsonOutput(actual: String, expected: String) {
+        assertThat(Json.parseToJsonElement(actual)).isEqualTo(Json.parseToJsonElement(expected))
     }
 
     private fun captureOutput(block: () -> Int): Pair<String, Int> {

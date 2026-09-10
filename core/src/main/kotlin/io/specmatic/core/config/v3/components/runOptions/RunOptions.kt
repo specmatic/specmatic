@@ -131,6 +131,17 @@ data class TestRunOptions(
             SpecType.GRAPHQL -> graphqlsdl
         }
     }
+
+    @JsonIgnore
+    fun getRunOptionsForOrDefault(specType: SpecType): IRunOptions {
+        return getRunOptionsFor(specType) ?: when (specType) {
+            SpecType.OPENAPI -> OpenApiTestConfig()
+            SpecType.WSDL -> WsdlTestConfig()
+            SpecType.ASYNCAPI -> AsyncApiTestConfig()
+            SpecType.GRAPHQL -> GraphQLSdlTestConfig()
+            SpecType.PROTOBUF -> ProtobufTestConfig()
+        }
+    }
 }
 
 data class MockRunOptions(
@@ -193,6 +204,17 @@ data class MockRunOptions(
             SpecType.ASYNCAPI -> asyncapi
             SpecType.PROTOBUF -> protobuf
             SpecType.GRAPHQL -> graphqlsdl
+        }
+    }
+
+    @JsonIgnore
+    fun getRunOptionsForOrDefault(specType: SpecType): IRunOptions {
+        return getRunOptionsFor(specType) ?: when (specType) {
+            SpecType.OPENAPI -> OpenApiMockConfig()
+            SpecType.WSDL -> WsdlMockConfig()
+            SpecType.ASYNCAPI -> AsyncApiMockConfig()
+            SpecType.GRAPHQL -> GraphQLSdlMockConfig()
+            SpecType.PROTOBUF -> ProtobufMockConfig()
         }
     }
 }
