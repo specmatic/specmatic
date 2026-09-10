@@ -1,0 +1,1756 @@
+{
+  "type": "object",
+  "required": [ "version" ],
+  "additionalProperties": false,
+  "title": "Specmatic V2 configuration",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specmatic.io/internal-schema/config-v2-resolved.schema.json",
+  "description": "Concrete Specmatic V2 configuration schema after expression and template resolution.",
+  "properties": {
+    "version": {
+      "const": 2,
+      "title": "Configuration version",
+      "description": "Literal V2 configuration marker; expressions and textual coercions are not accepted at this boundary."
+    },
+    "contracts": {
+      "type": "array",
+      "title": "Contract entries",
+      "description": "An entry may be source-less, which means the current directory is used as the implicit filesystem source.",
+      "items": {
+        "$ref": "#/definitions/ContractConfig",
+        "description": "One V2 contract source and its provided or consumed specifications."
+      }
+    },
+    "auth": {
+      "$ref": "#/definitions/Auth",
+      "title": "Authentication sources",
+      "description": "Credentials and token sources used when contracts are fetched from protected locations like GitHub, GitLab, etc."
+    },
+    "pipeline": {
+      "$ref": "#/definitions/Pipeline",
+      "title": "Pipeline metadata",
+      "description": "Azure pipeline metadata used by integrations and reporting."
+    },
+    "hooks": {
+      "type": "object",
+      "title": "Global adapter hooks",
+      "description": "Named global hook commands. See https://docs.specmatic.io/features/adapters/request_response_adapters#adapters for details.",
+      "additionalProperties": false,
+      "properties": {
+        "preSpecmaticRequestProcessor": {
+          "type": "string",
+          "deprecated": true,
+          "deprecationMessage": "Replace with pre_specmatic_request_processor.",
+          "title": "Legacy pre-request processor",
+          "description": "Receives the incoming request before Specmatic validates it in mock mode or forwards it to the provider in proxy mode."
+        },
+        "postSpecmaticResponseProcessor": {
+          "type": "string",
+          "deprecated": true,
+          "deprecationMessage": "Replace with post_specmatic_response_processor.",
+          "title": "Legacy post-response processor",
+          "description": "Runs only in mock mode, after Specmatic has generated a response for the consumer."
+        },
+        "preSpecmaticResponseProcessor": {
+          "type": "string",
+          "deprecated": true,
+          "deprecationMessage": "Replace with pre_specmatic_response_processor.",
+          "title": "Legacy pre-response processor",
+          "description": "Runs in proxy mode as responses come back from the real provider."
+        },
+        "stubLoadContract": {
+          "type": "string",
+          "deprecated": true,
+          "deprecationMessage": "Replace with stub_load_contract.",
+          "title": "Legacy stub contract loader",
+          "description": "Runs when specification is being loaded for mock, receives the specification path and should return the loaded specification."
+        },
+        "testLoadContract": {
+          "type": "string",
+          "deprecated": true,
+          "deprecationMessage": "Replace with test_load_contract.",
+          "title": "Legacy test contract loader",
+          "description": "Runs when specification is being loaded for test, receives the specification path and should return the loaded specification."
+        },
+        "pre_specmatic_request_processor": {
+          "type": "string",
+          "title": "Pre-request processor",
+          "description": "Receives the incoming request before Specmatic validates it (mock) or forwards it to the provider (proxy)."
+        },
+        "post_specmatic_response_processor": {
+          "type": "string",
+          "title": "Post-response processor",
+          "description": "Runs only in mock mode, after Specmatic has generated a response for the consumer."
+        },
+        "pre_specmatic_response_processor": {
+          "type": "string",
+          "title": "Pre-response processor",
+          "description": "Runs in proxy mode as responses come back from the real provider."
+        },
+        "stub_load_contract": {
+          "type": "string",
+          "title": "Stub contract loader",
+          "description": "Runs when specification is being loaded for mock, receives the specification path and should return the loaded specification."
+        },
+        "test_load_contract": {
+          "type": "string",
+          "title": "Test contract loader",
+          "description": "Runs when specification is being loaded for test, receives the specification path and should return the loaded specification."
+        }
+      },
+      "examples": [
+        {
+          "pre_specmatic_request_processor": "python pre_request_processor.py"
+        }
+      ]
+    },
+    "proxy": {
+      "$ref": "#/definitions/ProxyConfig",
+      "title": "Proxy configuration",
+      "description": "Proxy server configuration; targetUrl identifies the upstream service being proxied."
+    },
+    "repository": {
+      "$ref": "#/definitions/RepositoryInfo",
+      "title": "Repository metadata",
+      "description": "Repository-provider metadata used by repository-aware integrations."
+    },
+    "report": {
+      "$ref": "#/definitions/ReportConfigurationDetails",
+      "title": "Reporting configuration",
+      "description": "Report and API-coverage configuration."
+    },
+    "security": {
+      "$ref": "#/definitions/SecurityConfiguration",
+      "title": "Security configuration",
+      "description": "Security scheme configuration grouped by specification format."
+    },
+    "test": {
+      "$ref": "#/definitions/TestConfiguration",
+      "title": "Test execution configuration",
+      "description": "Test execution settings such as timeouts, filters, directories, and TLS."
+    },
+    "stub": {
+      "$ref": "#/definitions/StubConfiguration",
+      "title": "Stub execution configuration",
+      "description": "Stub/Mock execution settings such as generation, reload, filtering, and TLS."
+    },
+    "backwardCompatibility": {
+      "$ref": "#/definitions/BackwardCompatibilityConfig",
+      "title": "Backward compatibility configuration",
+      "description": "Settings for comparing or validating compatibility against another repository state."
+    },
+    "virtualService": {
+      "$ref": "#/definitions/VirtualServiceConfiguration",
+      "title": "Virtual service configuration",
+      "description": "Virtual-service server and specification settings."
+    },
+    "virtual_service": {
+      "deprecated": true,
+      "$ref": "#/definitions/VirtualServiceConfiguration",
+      "title": "Virtual service configuration (legacy spelling)",
+      "description": "Legacy snake_case spelling for virtualService.",
+      "deprecationMessage": "Replace with virtualService."
+    },
+    "examples": {
+      "type": "array",
+      "title": "Shared example directories",
+      "items": {
+        "type": "string",
+        "description": "Filesystem path to a shared examples directory."
+      },
+      "description": "Paths to directories containing examples shared across specifications."
+    },
+    "workflow": {
+      "$ref": "#/definitions/WorkflowConfiguration",
+      "title": "Workflow configuration",
+      "description": "Named workflow extraction and substitution operations."
+    },
+    "ignoreInlineExamples": {
+      "type": "boolean",
+      "title": "Ignore inline examples",
+      "description": "Ignore examples embedded in the specification while loading the specification."
+    },
+    "ignoreInlineExampleWarnings": {
+      "type": "boolean",
+      "title": "Ignore inline-example warnings",
+      "description": "Suppress warnings about ignored inline examples."
+    },
+    "schemaExampleDefault": {
+      "type": "boolean",
+      "title": "Use schema examples as defaults",
+      "description": "Use schema example values as defaults where the runtime supports them."
+    },
+    "fuzzy": {
+      "type": "boolean",
+      "title": "Fuzzy payload matching",
+      "description": "Enable fuzzy payload key matching."
+    },
+    "extensibleQueryParams": {
+      "type": "boolean",
+      "title": "Extensible query parameters",
+      "description": "Allow extensible query-parameter handling where supported by the contract format."
+    },
+    "escapeSoapAction": {
+      "type": "boolean",
+      "title": "Escape SOAP actions",
+      "description": "Apply SOAP action escaping behavior."
+    },
+    "prettyPrint": {
+      "type": "boolean",
+      "title": "Pretty-print output",
+      "description": "Enable pretty-printed output where supported."
+    },
+    "additionalExampleParamsFilePath": {
+      "type": "string",
+      "title": "Additional example parameters file",
+      "description": "Path to additional parameters used while resolving examples."
+    },
+    "attributeSelectionPattern": {
+      "$ref": "#/definitions/AttributeSelectionPattern",
+      "title": "Attribute selection pattern",
+      "description": "Controls default fields and query-parameter naming when selecting generated attributes."
+    },
+    "attribute_selection_pattern": {
+      "deprecated": true,
+      "$ref": "#/definitions/AttributeSelectionPattern",
+      "title": "Attribute selection pattern (legacy spelling)",
+      "description": "Legacy snake_case spelling for attributeSelectionPattern.",
+      "deprecationMessage": "Replace with attributeSelectionPattern."
+    },
+    "allPatternsMandatory": {
+      "type": "boolean",
+      "title": "Require all pattern attributes",
+      "description": "Enables optional field checks to trigger a warning when a key is absent."
+    },
+    "all_patterns_mandatory": {
+      "type": "boolean",
+      "deprecated": true,
+      "title": "Require all pattern attributes (legacy spelling)",
+      "deprecationMessage": "Replace with allPatternsMandatory.",
+      "description": "Enables optional field checks to trigger a warning when a key is absent."
+    },
+    "defaultPatternValues": {
+      "type": "object",
+      "title": "Default pattern values",
+      "additionalProperties": true,
+      "description": "Map of default values for named pattern attributes; keys are pattern names and values are runtime-resolved JSON values used during generation."
+    },
+    "default_pattern_values": {
+      "type": "object",
+      "deprecated": true,
+      "title": "Default pattern values (legacy spelling)",
+      "additionalProperties": true,
+      "deprecationMessage": "Replace with defaultPatternValues.",
+      "description": "Legacy snake_case alias for defaultPatternValues."
+    },
+    "disableTelemetry": {
+      "type": "boolean",
+      "title": "Disable telemetry",
+      "description": "Disable telemetry reporting."
+    },
+    "disable_telemetry": {
+      "type": "boolean",
+      "deprecated": true,
+      "title": "Disable telemetry (legacy spelling)",
+      "description": "Disable telemetry reporting.",
+      "deprecationMessage": "Replace with disableTelemetry."
+    },
+    "logging": {
+      "$ref": "#/definitions/LoggingConfiguration",
+      "title": "Logging configuration",
+      "description": "Log level and JSON/text output configuration."
+    },
+    "mcp": {
+      "$ref": "#/definitions/McpConfiguration",
+      "title": "MCP configuration",
+      "description": "Model Context Protocol test configuration."
+    },
+    "licensePath": {
+      "type": "string",
+      "title": "License file path",
+      "description": "Path to the Specmatic license file."
+    },
+    "license_path": {
+      "type": "string",
+      "deprecated": true,
+      "title": "License file path (legacy spelling)",
+      "description": "Legacy snake_case spelling for licensePath.",
+      "deprecationMessage": "Replace with licensePath."
+    },
+    "reportDirPath": {
+      "type": "string",
+      "title": "Report directory path",
+      "description": "Path to the directory where reports should be written."
+    },
+    "report_dir_path": {
+      "type": "string",
+      "deprecated": true,
+      "deprecationMessage": "Replace with reportDirPath.",
+      "title": "Report directory path (legacy spelling)",
+      "description": "Legacy snake_case spelling for reportDirPath."
+    },
+    "globalSettings": {
+      "$ref": "#/definitions/SpecmaticGlobalSettings",
+      "title": "Global path settings",
+      "description": "Global path-template settings shared by specification and example resolution."
+    }
+  },
+  "examples": [
+    {
+      "version": 2
+    },
+    {
+      "version": 2,
+      "contracts": [
+        {
+          "filesystem": {
+            "directory": "contracts"
+          },
+          "provides": [
+            "orders.yaml"
+          ]
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "ContractConfig": {
+      "title": "V2 contract entry",
+      "description": "At most one explicit source is allowed. A source-less entry is valid and uses implicit filesystem/current-directory behavior.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "git": {
+          "$ref": "#/definitions/GitContractSource",
+          "title": "Git source",
+          "description": "Optional Git repository source for this contract entry."
+        },
+        "filesystem": {
+          "$ref": "#/definitions/FileSystemContractSource",
+          "title": "Filesystem source",
+          "description": "Optional local directory source for this contract entry."
+        },
+        "web": {
+          "$ref": "#/definitions/WebContractSource",
+          "title": "Web source",
+          "description": "Optional remote URL source for this contract entry."
+        },
+        "provides": {
+          "title": "Provided specifications",
+          "description": "Specifications that this service provides to consumers.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/ProvidesEntry",
+            "description": "One provided specification entry."
+          }
+        },
+        "consumes": {
+          "title": "Consumed specifications",
+          "description": "Specifications that this service consumes from providers.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/ConsumesEntry",
+            "description": "One consumed specification entry."
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "description": "A source-less contract entry using the current directory.",
+          "not": {
+            "description": "No explicit source may be present in this branch.",
+            "anyOf": [
+              {
+                "description": "An explicit Git source is present.",
+                "required": [
+                  "git"
+                ]
+              },
+              {
+                "description": "An explicit filesystem source is present.",
+                "required": [
+                  "filesystem"
+                ]
+              },
+              {
+                "description": "An explicit web source is present.",
+                "required": [
+                  "web"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "description": "A contract entry using only a Git source.",
+          "required": [
+            "git"
+          ],
+          "not": {
+            "description": "No additional explicit source may be present in the Git branch.",
+            "anyOf": [
+              {
+                "description": "An explicit filesystem source is present.",
+                "required": [
+                  "filesystem"
+                ]
+              },
+              {
+                "description": "An explicit web source is present.",
+                "required": [
+                  "web"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "description": "A contract entry using only a filesystem source.",
+          "required": [
+            "filesystem"
+          ],
+          "not": {
+            "description": "No additional explicit source may be present in the filesystem branch.",
+            "anyOf": [
+              {
+                "description": "An explicit Git source is present.",
+                "required": [
+                  "git"
+                ]
+              },
+              {
+                "description": "An explicit web source is present.",
+                "required": [
+                  "web"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "description": "A contract entry using only a web source.",
+          "required": [
+            "web"
+          ],
+          "not": {
+            "description": "No additional explicit source may be present in the web branch.",
+            "anyOf": [
+              {
+                "description": "An explicit Git source is present.",
+                "required": [
+                  "git"
+                ]
+              },
+              {
+                "description": "An explicit filesystem source is present.",
+                "required": [
+                  "filesystem"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "errorMessage": {
+        "oneOf": "Specify zero or one contract source: git, filesystem, or web."
+      },
+      "examples": [
+        {
+          "provides": [
+            "orders.spec"
+          ]
+        },
+        {
+          "filesystem": {
+            "directory": "contracts"
+          },
+          "consumes": [
+            {
+              "basePath": "/api",
+              "specs": [
+                "orders.spec"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "GitContractSource": {
+      "title": "Git contract source",
+      "description": "Optional Git source details. URL may be omitted when the repository is resolved from the current monorepo context.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "title": "Git repository URL",
+          "description": "Git repository URL. Omit for monorepo/current-repository mode.",
+          "examples": [
+            "https://github.com/acme/contracts.git"
+          ]
+        },
+        "branch": {
+          "type": "string",
+          "title": "Git branch or ref",
+          "description": "Branch or ref to use when retrieving the contract source.",
+          "examples": [
+            "main"
+          ]
+        },
+        "matchBranch": {
+          "type": "boolean",
+          "title": "Follow current repository branch",
+          "description": "Whether the source branch should follow the current repository branch."
+        }
+      }
+    },
+    "FileSystemContractSource": {
+      "title": "Filesystem contract source",
+      "description": "Filesystem source. When directory is omitted, the current directory is used.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "type": "string",
+          "title": "Contract directory",
+          "description": "Directory containing the contract files.",
+          "default": ".",
+          "examples": [
+            "contracts"
+          ]
+        }
+      }
+    },
+    "WebContractSource": {
+      "title": "Web contract source",
+      "description": "Remote web source for a contract document.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "title": "Contract URL",
+          "description": "URL from which the contract document is retrieved.",
+          "examples": [
+            "https://api.example.com/openapi.yaml"
+          ]
+        }
+      }
+    },
+    "ProvidesEntry": {
+      "title": "Provided specification entry",
+      "description": "A provided specification path, URL form, or protocol-specific configuration.",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "A resolved specification path or URL."
+        },
+        {
+          "$ref": "#/definitions/FullUrlProvides",
+          "description": "A provided specification entry with a complete base URL."
+        },
+        {
+          "$ref": "#/definitions/PartialUrlProvides",
+          "description": "A provided specification entry with partial host or port information."
+        },
+        {
+          "$ref": "#/definitions/ConfigValue",
+          "description": "A protocol-specific provided specification configuration."
+        }
+      ]
+    },
+    "ConsumesEntry": {
+      "title": "Consumed specification entry",
+      "description": "A consumed specification path, URL form, or protocol-specific configuration.",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "A resolved specification path or URL."
+        },
+        {
+          "$ref": "#/definitions/FullUrlConsumes",
+          "description": "A consumed specification entry with a complete base URL."
+        },
+        {
+          "$ref": "#/definitions/PartialUrlConsumes",
+          "description": "A consumed specification entry with partial URL information."
+        },
+        {
+          "$ref": "#/definitions/ConfigValue",
+          "description": "A protocol-specific consumed specification configuration."
+        }
+      ]
+    },
+    "FullUrlProvides": {
+      "title": "Full URL provides entry",
+      "description": "Provides one or more specifications at a complete service base URL.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseUrl",
+        "specs"
+      ],
+      "properties": {
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Service base URL",
+          "description": "Complete base URL where the provided service is reachable.",
+          "examples": [
+            "http://localhost:8080"
+          ]
+        },
+        "specs": {
+          "$ref": "#/definitions/Specs",
+          "title": "Specifications",
+          "description": "Specifications provided at this service base URL."
+        },
+        "resiliencyTests": {
+          "$ref": "#/definitions/ResiliencyTestsConfig",
+          "title": "Resiliency tests",
+          "description": "Optional resiliency-test selection for the provided specifications."
+        }
+      }
+    },
+    "FullUrlConsumes": {
+      "title": "Full URL consumes entry",
+      "description": "Consumes one or more specifications from a complete service base URL.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseUrl",
+        "specs"
+      ],
+      "properties": {
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Service base URL",
+          "description": "Complete base URL from which the consumed service is reached."
+        },
+        "specs": {
+          "$ref": "#/definitions/Specs",
+          "title": "Specifications",
+          "description": "Specifications consumed at this service base URL."
+        }
+      }
+    },
+    "PartialUrlProvides": {
+      "title": "Partial URL provides entry",
+      "description": "Provides specifications using host and/or port information instead of a complete base URL. At least host or port is required.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "specs"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Optional service host used with the provided port."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Optional service port used with the provided host."
+        },
+        "specs": {
+          "$ref": "#/definitions/Specs",
+          "title": "Specifications",
+          "description": "Specifications provided by this partial URL entry."
+        },
+        "resiliencyTests": {
+          "$ref": "#/definitions/ResiliencyTestsConfig",
+          "title": "Resiliency tests",
+          "description": "Optional resiliency-test selection for the provided specifications."
+        }
+      },
+      "anyOf": [
+        {
+          "description": "A partial provider with a host.",
+          "required": [
+            "host"
+          ]
+        },
+        {
+          "description": "A partial provider with a port.",
+          "required": [
+            "port"
+          ]
+        }
+      ]
+    },
+    "PartialUrlConsumes": {
+      "title": "Partial URL consumes entry",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "specs"
+      ],
+      "description": "A partial consume URL may contain only basePath; host and port are optional independently.",
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Optional service host; may be supplied independently of port."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Optional service port; may be supplied independently of host."
+        },
+        "basePath": {
+          "type": "string",
+          "title": "Base path",
+          "description": "Optional path prefix. A basePath-only consume entry is intentionally valid.",
+          "examples": [
+            "/orders"
+          ]
+        },
+        "specs": {
+          "$ref": "#/definitions/Specs",
+          "title": "Specifications",
+          "description": "Specifications consumed by this partial URL entry."
+        }
+      },
+      "anyOf": [
+        {
+          "description": "A partial consumer with a host.",
+          "required": [
+            "host"
+          ]
+        },
+        {
+          "description": "A partial consumer with a port.",
+          "required": [
+            "port"
+          ]
+        },
+        {
+          "description": "A partial consumer with a base path.",
+          "required": [
+            "basePath"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "basePath": "/orders",
+          "specs": [
+            "orders.spec"
+          ]
+        }
+      ]
+    },
+    "Specs": {
+      "title": "Specification paths",
+      "description": "One or more resolved specification paths associated with an entry.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "title": "Specification path",
+        "description": "Resolved path or URL identifying one specification."
+      }
+    },
+    "ConfigValue": {
+      "title": "Protocol-specific V2 configuration",
+      "description": "A specification type plus a recursively JSON-valued configuration map. Extra configuration keys are intentional extension data interpreted by the selected protocol.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "specs",
+        "specType",
+        "config"
+      ],
+      "properties": {
+        "specs": {
+          "$ref": "#/definitions/Specs",
+          "title": "Specifications",
+          "description": "One or more specifications described by this configuration."
+        },
+        "specType": {
+          "type": "string",
+          "title": "Specification type",
+          "enum": [
+            "openapi",
+            "wsdl",
+            "asyncapi",
+            "protobuf",
+            "graphqlsdl"
+          ],
+          "description": "Protocol or specification format used to interpret config."
+        },
+        "config": {
+          "type": "object",
+          "title": "Protocol configuration",
+          "description": "Protocol-specific configuration map; recognized fields are interpreted by the selected specType and extra keys are intentionally preserved.",
+      "additionalProperties": {
+        "$ref": "#/definitions/ConfigValueNode",
+        "description": "A recursively JSON-valued protocol configuration field."
+          }
+        }
+      },
+      "examples": [
+        {
+          "specs": [
+            "orders.yaml"
+          ],
+          "specType": "openapi",
+          "config": {
+            "baseUrl": "http://localhost:8080",
+            "retries": 2
+          }
+        }
+      ]
+    },
+    "ConfigValueNode": {
+      "title": "JSON configuration value",
+      "description": "A non-null JSON scalar, array, or object used inside an extensible ConfigValue map.",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "A JSON string value."
+        },
+        {
+          "type": "integer",
+          "description": "A JSON integer value."
+        },
+        {
+          "type": "number",
+          "description": "A JSON number value."
+        },
+        {
+          "type": "boolean",
+          "description": "A JSON boolean value."
+        },
+        {
+          "type": "array",
+          "description": "A JSON array whose elements are recursively JSON-valued.",
+          "items": {
+            "$ref": "#/definitions/ConfigValueNode",
+            "description": "A recursively JSON-valued array element."
+          }
+        },
+        {
+          "type": "object",
+          "description": "A JSON object whose values are recursively JSON-valued.",
+          "additionalProperties": {
+            "$ref": "#/definitions/ConfigValueNode",
+            "description": "A recursively JSON-valued object member."
+          }
+        }
+      ]
+    },
+    "ResiliencyTestsConfig": {
+      "title": "Resiliency test mode",
+      "description": "Controls which resiliency tests run. This object is intentionally limited to enable.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "type": "string",
+          "title": "Resiliency-test selection",
+          "description": "Select all resiliency tests, positive-only tests, or none.",
+          "enum": [
+            "all",
+            "positiveOnly",
+            "none"
+          ]
+        }
+      }
+    },
+    "Auth": {
+      "title": "Authentication sources",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Authentication sources used for contract access. bearerFile has a runtime default when omitted.",
+      "properties": {
+        "bearer-file": {
+          "type": "string",
+          "title": "Bearer-token file",
+          "description": "Path to a file containing a bearer token."
+        },
+        "bearer-environment-variable": {
+          "type": "string",
+          "title": "Bearer-token environment variable",
+          "description": "Name of the environment variable containing a bearer token."
+        },
+        "personal-access-token": {
+          "type": "string",
+          "title": "Personal access token",
+          "description": "Personal access token used for authenticated contract retrieval."
+        },
+        "personalAccessToken": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Personal access token (legacy spelling)",
+          "description": "Legacy camelCase alias for personal-access-token.",
+          "deprecationMessage": "Replace with personal-access-token."
+        }
+      }
+    },
+    "Pipeline": {
+      "title": "Pipeline metadata",
+      "description": "Azure DevOps pipeline identifiers used by pipeline-aware integrations.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": "string",
+          "title": "Pipeline provider",
+          "description": "Pipeline provider identifier.",
+          "enum": [
+            "azure"
+          ]
+        },
+        "organization": {
+          "type": "string",
+          "title": "Pipeline organization",
+          "description": "Azure DevOps organization containing the pipeline."
+        },
+        "project": {
+          "type": "string",
+          "title": "Pipeline project",
+          "description": "Azure DevOps project containing the pipeline."
+        },
+        "definitionId": {
+          "type": "integer",
+          "title": "Pipeline definition ID",
+          "description": "Numeric Azure DevOps pipeline definition identifier."
+        }
+      }
+    },
+    "RepositoryInfo": {
+      "title": "Repository metadata",
+      "description": "Provider and collection information for repository-aware integrations.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": "string",
+          "title": "Repository provider",
+          "description": "Repository hosting provider identifier."
+        },
+        "collectionName": {
+          "type": "string",
+          "title": "Repository collection",
+          "description": "Repository collection or organization name."
+        }
+      }
+    },
+    "ReportConfigurationDetails": {
+      "title": "Reporting configuration",
+      "description": "Report types and API-coverage thresholds.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "types": {
+          "$ref": "#/definitions/ReportTypes",
+          "title": "Report types",
+          "description": "Report families and API-coverage settings to generate."
+        }
+      }
+    },
+    "ReportTypes": {
+      "title": "Report types",
+      "description": "Report families enabled for this configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "APICoverage": {
+          "$ref": "#/definitions/APICoverage",
+          "title": "API coverage reports",
+          "description": "API-coverage reports grouped by specification format."
+        }
+      }
+    },
+    "APICoverage": {
+      "title": "API coverage reports",
+      "description": "API-coverage reporting grouped by contract format.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "OpenAPI": {
+          "$ref": "#/definitions/APICoverageConfiguration",
+          "title": "OpenAPI coverage",
+          "description": "API-coverage settings for OpenAPI specifications."
+        }
+      }
+    },
+    "APICoverageConfiguration": {
+      "title": "API coverage configuration",
+      "description": "Coverage thresholds and endpoint exclusions for an API specification.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "successCriteria": {
+          "$ref": "#/definitions/SuccessCriteria",
+          "title": "Coverage success criteria",
+          "description": "Thresholds used to determine whether API coverage passes."
+        }
+      }
+    },
+    "SuccessCriteria": {
+      "title": "Coverage success criteria",
+      "description": "Thresholds used to decide whether API coverage meets the configured policy.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minThresholdPercentage": {
+          "type": "integer",
+          "title": "Minimum coverage percentage",
+          "description": "Minimum percentage of covered operations required for success."
+        },
+        "maxMissedEndpointsInSpec": {
+          "type": "integer",
+          "title": "Maximum missed endpoints",
+          "description": "Maximum number of missed endpoints allowed in a specification."
+        },
+        "enforce": {
+          "type": "boolean",
+          "title": "Enforce success criteria",
+          "description": "Whether failing the configured thresholds should fail the operation."
+        }
+      }
+    },
+    "SecurityConfiguration": {
+      "title": "Security configuration",
+      "description": "Security schemes grouped by supported specification format.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "OpenAPI": {
+          "$ref": "#/definitions/OpenAPISecurityConfiguration",
+          "title": "OpenAPI security",
+          "description": "Security schemes configured for OpenAPI specifications."
+        }
+      }
+    },
+    "OpenAPISecurityConfiguration": {
+      "description": "Security schemes keyed by their names in an OpenAPI document.",
+      "title": "OpenAPI security configuration",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "securitySchemes": {
+          "type": "object",
+          "title": "Security schemes",
+          "description": "Map from security-scheme name to its resolved credentials or token settings.",
+          "additionalProperties": {
+            "$ref": "#/definitions/SecurityScheme",
+            "description": "Resolved credentials for one named security scheme."
+          }
+        }
+      }
+    },
+    "SecurityScheme": {
+      "title": "Security scheme",
+      "description": "Resolved credentials for one OpenAPI security scheme. The scheme type determines how token or value is interpreted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "title": "Security scheme type",
+          "description": "Canonical security scheme kind.",
+          "enum": [
+            "oauth2",
+            "openIdConnect",
+            "basicAuth",
+            "bearer",
+            "apiKey"
+          ]
+        },
+        "token": {
+          "type": "string",
+          "title": "Security token",
+          "description": "Resolved token used by the security scheme."
+        },
+        "value": {
+          "type": "string",
+          "title": "Security value",
+          "description": "Resolved value used by the security scheme."
+        }
+      }
+    },
+    "TestConfiguration": {
+      "title": "Test execution configuration",
+      "description": "V2 test execution behavior, filters, limits, report output, and HTTPS settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resiliencyTests": {
+          "$ref": "#/definitions/ResiliencyTestsConfig",
+          "title": "Resiliency tests",
+          "description": "Selects which resiliency tests run during test execution."
+        },
+        "allowExtensibleSchema": {
+          "type": "boolean",
+          "title": "Allow extensible schemas",
+          "description": "Allow requests and responses to use schema extensions where supported."
+        },
+        "timeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Request timeout",
+          "description": "Maximum request duration in milliseconds."
+        },
+        "strictMode": {
+          "type": "boolean",
+          "title": "Strict mode",
+          "description": "Enable strict validation behavior during tests."
+        },
+        "lenientMode": {
+          "type": "boolean",
+          "title": "Lenient mode",
+          "description": "Allow lenient validation behavior during tests."
+        },
+        "parallelism": {
+          "type": "string",
+          "title": "Test parallelism",
+          "description": "Parallel execution setting for generated tests."
+        },
+        "maxTestRequestCombinations": {
+          "type": "integer",
+          "title": "Maximum request combinations",
+          "description": "Maximum request combinations generated for a test."
+        },
+        "maxTestCount": {
+          "type": "integer",
+          "title": "Maximum test count",
+          "description": "Maximum number of tests to execute."
+        },
+        "testsDirectory": {
+          "type": "string",
+          "title": "Tests directory",
+          "description": "Directory containing additional test configuration or resources."
+        },
+        "swaggerUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Swagger URL",
+          "description": "URL used to expose or locate the Swagger document."
+        },
+        "swaggerUIBaseURL": {
+          "type": "string",
+          "format": "uri",
+          "title": "Swagger UI base URL",
+          "description": "Base URL used by the Swagger UI integration."
+        },
+        "actuatorUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Actuator URL",
+          "description": "URL of the service actuator endpoint used by test support."
+        },
+        "filter": {
+          "type": "string",
+          "title": "Test filter",
+          "description": "Expression used to select generated tests."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Service base URL",
+          "description": "Base URL used when sending test requests."
+        },
+        "filterName": {
+          "type": "string",
+          "title": "Include test names",
+          "description": "Pattern selecting tests by name."
+        },
+        "filterNotName": {
+          "type": "string",
+          "title": "Exclude test names",
+          "description": "Pattern excluding tests by name."
+        },
+        "overlayFilePath": {
+          "type": "string",
+          "title": "Overlay file path",
+          "description": "Path to an overlay applied while loading the specification."
+        },
+        "junitReportDir": {
+          "type": "string",
+          "title": "JUnit report directory",
+          "description": "Directory where JUnit reports are written."
+        },
+        "https": {
+          "$ref": "#/definitions/HttpsConfiguration",
+          "title": "HTTPS configuration",
+          "description": "TLS settings used for test requests."
+        }
+      }
+    },
+    "StubConfiguration": {
+      "title": "Stub execution configuration",
+      "description": "V2 stub behavior, reload and generation controls, filters, output, and HTTPS settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generative": {
+          "type": "boolean",
+          "title": "Generative mode",
+          "description": "Generate stub responses when examples do not provide a direct response."
+        },
+        "delayInMilliseconds": {
+          "type": "integer",
+          "title": "Response delay",
+          "description": "Delay generated stub responses by this many milliseconds."
+        },
+        "dictionary": {
+          "type": "string",
+          "title": "Dictionary path",
+          "description": "Path to a dictionary used when generating stub responses."
+        },
+        "includeMandatoryAndRequestedKeysInResponse": {
+          "type": "boolean",
+          "title": "Include mandatory and requested keys",
+          "description": "Include mandatory and requested keys in generated stub responses."
+        },
+        "startTimeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Stub start timeout",
+          "description": "Maximum time in milliseconds allowed for the stub to start."
+        },
+        "hotReload": {
+          "type": "string",
+          "title": "Hot reload",
+          "description": "Hot-reload behavior for changes to loaded contracts."
+        },
+        "strictMode": {
+          "type": "boolean",
+          "title": "Strict mode",
+          "description": "Enable strict validation behavior in the stub."
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Stub base URL",
+          "description": "Base URL on which the stub listens."
+        },
+        "customImplicitStubBase": {
+          "type": "string",
+          "title": "Custom implicit stub base",
+          "description": "Custom base used for implicitly generated stub endpoints."
+        },
+        "filter": {
+          "type": "string",
+          "title": "Stub filter",
+          "description": "Expression used to select stubbed operations."
+        },
+        "gracefulRestartTimeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Graceful restart timeout",
+          "description": "Maximum time in milliseconds allowed for a graceful stub restart."
+        },
+        "https": {
+          "$ref": "#/definitions/HttpsConfiguration",
+          "title": "HTTPS configuration",
+          "description": "TLS settings used by the stub listener."
+        },
+        "lenientMode": {
+          "type": "boolean",
+          "title": "Lenient mode",
+          "description": "Allow lenient validation behavior in the stub."
+        }
+      }
+    },
+    "ProxyConfig": {
+      "title": "Proxy configuration",
+      "description": "The local proxy listener and its required upstream target.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetUrl"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Proxy host",
+          "description": "Local host on which the proxy listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Proxy port",
+          "description": "Local port on which the proxy listens."
+        },
+        "targetUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Upstream target URL",
+          "description": "Required upstream URL to which proxied traffic is sent.",
+          "examples": [
+            "http://localhost:9000"
+          ]
+        },
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "Proxy base URL",
+          "description": "Base URL exposed by the local proxy."
+        },
+        "timeoutInMilliseconds": {
+          "type": "integer",
+          "title": "Proxy timeout",
+          "description": "Maximum upstream request duration in milliseconds."
+        },
+        "adapters": {
+          "type": "object",
+          "title": "Proxy adapters",
+          "description": "Named adapter commands applied while proxying requests and responses.",
+          "additionalProperties": {
+            "type": "string",
+            "title": "Adapter command",
+            "description": "Command or script used for this adapter hook."
+          }
+        },
+        "consumes": {
+          "type": "array",
+          "title": "Consumed specifications",
+          "description": "Specification paths used by the proxy.",
+          "items": {
+            "type": "string",
+            "title": "Specification path",
+            "description": "Resolved path identifying a specification consumed by the proxy."
+          }
+        },
+        "https": {
+          "$ref": "#/definitions/HttpsConfiguration",
+          "title": "HTTPS configuration",
+          "description": "TLS settings used by the proxy listener."
+        },
+        "outputDirectory": {
+          "type": "string",
+          "title": "Proxy output directory",
+          "description": "Directory where proxy output is written."
+        }
+      }
+    },
+    "VirtualServiceConfiguration": {
+      "title": "Virtual service configuration",
+      "description": "Listener, specification, log, and non-patchable-key settings for a virtual service.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Virtual-service host",
+          "description": "Host on which the virtual service listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Virtual-service port",
+          "description": "Port on which the virtual service listens."
+        },
+        "specs": {
+          "type": "array",
+          "title": "Virtual-service specifications",
+          "description": "Specification paths served by the virtual service.",
+          "items": {
+            "type": "string",
+            "title": "Specification path",
+            "description": "Resolved path identifying a served specification."
+          }
+        },
+        "specsDirPath": {
+          "type": "string",
+          "title": "Specifications directory",
+          "description": "Directory containing virtual-service specifications."
+        },
+        "logsDirPath": {
+          "type": "string",
+          "title": "Logs directory",
+          "description": "Directory where virtual-service logs are written."
+        },
+        "logMode": {
+          "type": "string",
+          "title": "Virtual-service log mode",
+          "description": "Select the virtual-service events written to logs.",
+          "enum": [
+            "ALL",
+            "REQUEST_RESPONSE"
+          ]
+        },
+        "nonPatchableKeys": {
+          "type": "array",
+          "title": "Non-patchable keys",
+          "description": "Keys that virtual-service patching must not modify.",
+          "items": {
+            "type": "string",
+            "title": "Non-patchable key",
+            "description": "Payload key excluded from patching."
+          }
+        }
+      }
+    },
+    "WorkflowConfiguration": {
+      "title": "Workflow configuration",
+      "description": "Named workflow operations used to extract values and reuse them in later requests.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ids": {
+          "type": "object",
+          "title": "Workflow operations",
+          "description": "Named workflow operations used by the configuration.",
+          "additionalProperties": {
+            "$ref": "#/definitions/WorkflowIDOperation",
+            "description": "Workflow extraction and reuse settings for one workflow ID."
+          }
+        }
+      }
+    },
+    "WorkflowIDOperation": {
+      "title": "Workflow ID operation",
+      "description": "Extraction and reuse expressions associated with one workflow identifier.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extract": {
+          "type": "string",
+          "title": "Extraction expression",
+          "description": "Expression that extracts a value from a workflow response."
+        },
+        "use": {
+          "type": "string",
+          "title": "Reuse expression",
+          "description": "Expression that reuses a value in a later workflow request."
+        }
+      }
+    },
+    "AttributeSelectionPattern": {
+      "title": "Attribute selection pattern",
+      "description": "Default fields and query-parameter naming used when selecting attributes from generated requests.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultFields": {
+          "type": "array",
+          "title": "Default fields",
+          "description": "Fields selected by default when attributes are generated.",
+          "items": {
+            "type": "string",
+            "title": "Default field",
+            "description": "Field name selected by default."
+          }
+        },
+        "default_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Default field name selected during attribute generation."
+          },
+          "deprecated": true,
+          "title": "Default fields (legacy spelling)",
+          "description": "Legacy snake_case alias for defaultFields.",
+          "deprecationMessage": "Replace with defaultFields."
+        },
+        "queryParamKey": {
+          "type": "string",
+          "title": "Query-parameter key",
+          "description": "Name of the query parameter used for attribute selection."
+        },
+        "query_param_key": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Query-parameter key (legacy spelling)",
+          "description": "Legacy snake_case alias for queryParamKey.",
+          "deprecationMessage": "Replace with queryParamKey."
+        }
+      }
+    },
+    "BackwardCompatibilityConfig": {
+      "title": "Backward compatibility configuration",
+      "description": "Repository and branch settings used for compatibility comparisons.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseBranch": {
+          "type": "string",
+          "title": "Base branch",
+          "description": "Branch used as the baseline for compatibility comparison."
+        },
+        "targetPath": {
+          "type": "string",
+          "title": "Compatibility target path",
+          "description": "Path whose compatibility is evaluated."
+        },
+        "repoDirectory": {
+          "type": "string",
+          "title": "Repository directory",
+          "description": "Local repository directory used for compatibility comparison."
+        },
+        "strictMode": {
+          "type": "boolean",
+          "title": "Strict compatibility mode",
+          "description": "Apply strict compatibility rules when comparing repository states."
+        }
+      }
+    },
+    "LoggingConfiguration": {
+      "title": "Logging configuration",
+      "description": "Log level and JSON/text output destinations.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "title": "Log level",
+          "description": "Minimum log level to emit.",
+          "enum": [
+            "INFO",
+            "DEBUG"
+          ]
+        },
+        "json": {
+          "$ref": "#/definitions/LogOutputConfig",
+          "title": "JSON log output",
+          "description": "Destination settings for structured JSON logs."
+        },
+        "text": {
+          "$ref": "#/definitions/LogOutputConfig",
+          "title": "Text log output",
+          "description": "Destination settings for human-readable text logs."
+        }
+      }
+    },
+    "LogOutputConfig": {
+      "title": "Log output",
+      "description": "Destination and naming options for one log output format.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "type": "string",
+          "title": "Log directory",
+          "description": "Directory where this log output is written."
+        },
+        "console": {
+          "type": "boolean",
+          "title": "Log to console",
+          "description": "Write this log output to the console."
+        },
+        "logFilePrefix": {
+          "type": "string",
+          "title": "Log-file prefix",
+          "description": "Prefix used when naming log files."
+        },
+        "logPrefix": {
+          "type": "string",
+          "deprecated": true,
+          "title": "Log-file prefix (legacy name)",
+          "description": "Legacy alias for logFilePrefix.",
+          "deprecationMessage": "Replace with logFilePrefix."
+        }
+      }
+    },
+    "McpConfiguration": {
+      "title": "MCP configuration",
+      "description": "Model Context Protocol test configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test"
+      ],
+      "properties": {
+        "test": {
+          "$ref": "#/definitions/McpTestConfiguration",
+          "title": "MCP test settings",
+          "description": "Endpoint and execution settings for MCP tests."
+        }
+      }
+    },
+    "McpTestConfiguration": {
+      "title": "MCP test configuration",
+      "description": "MCP endpoint, transport, filtering, authentication, and resiliency settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseUrl"
+      ],
+      "properties": {
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "title": "MCP server base URL",
+          "description": "MCP server base URL.",
+          "examples": [
+            "http://localhost:3000"
+          ]
+        },
+        "transportKind": {
+          "type": "string",
+          "title": "MCP transport",
+          "description": "Canonical MCP transport supported by this configuration language.",
+          "enum": [
+            "STREAMABLE_HTTP"
+          ]
+        },
+        "enableResiliencyTests": {
+          "type": "boolean",
+          "title": "Enable resiliency tests",
+          "description": "Run resiliency tests against the MCP server."
+        },
+        "dictionaryFile": {
+          "type": "string",
+          "title": "Dictionary file",
+          "description": "Path to the dictionary file used by MCP tests."
+        },
+        "bearerToken": {
+          "type": "string",
+          "title": "Bearer token",
+          "description": "Bearer token used to authenticate with the MCP server."
+        },
+        "filterTools": {
+          "type": "array",
+          "title": "Included MCP tools",
+          "description": "Tool names to include in MCP tests.",
+          "items": {
+            "type": "string",
+            "title": "MCP tool name",
+            "description": "Name of an MCP tool to include."
+          }
+        },
+        "skipTools": {
+          "type": "array",
+          "title": "Excluded MCP tools",
+          "description": "Tool names to skip during MCP tests.",
+          "items": {
+            "type": "string",
+            "title": "MCP tool name",
+            "description": "Name of an MCP tool to skip."
+          }
+        }
+      }
+    },
+    "HttpsConfiguration": {
+      "title": "HTTPS configuration",
+      "description": "TLS and optional mutual-TLS settings for a test or stub listener.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keyStore": {
+          "$ref": "#/definitions/KeyStoreConfiguration",
+          "title": "Key store",
+          "description": "Key store used for TLS credentials."
+        },
+        "keyStorePassword": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "mtlsEnabled": {
+          "type": "boolean",
+          "title": "Enable mutual TLS",
+          "description": "Enable mutual TLS for this listener or client."
+        }
+      }
+    },
+    "KeyStoreConfiguration": {
+      "title": "Key store",
+      "description": "Exactly one key-store representation: a file or a directory.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/KeyStoreFileConfiguration",
+          "description": "A key store loaded from one file."
+        },
+        {
+          "$ref": "#/definitions/KeyStoreDirectoryConfiguration",
+          "description": "A key store loaded from a directory."
+        }
+      ],
+      "errorMessage": {
+        "oneOf": "Specify exactly one key-store form: file or directory."
+      }
+    },
+    "KeyStoreFileConfiguration": {
+      "title": "Key-store file",
+      "description": "Key store loaded from one file path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "title": "Key-store file",
+          "description": "Path to the key-store file."
+        },
+        "password": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "alias": {
+          "type": "string",
+          "title": "Key-store alias",
+          "description": "Optional key alias to use from the key store."
+        }
+      }
+    },
+    "KeyStoreDirectoryConfiguration": {
+      "title": "Key-store directory",
+      "description": "Key store loaded from a directory path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directory"
+      ],
+      "properties": {
+        "directory": {
+          "type": "string",
+          "title": "Key-store directory",
+          "description": "Path to the directory containing the key-store files."
+        },
+        "password": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "alias": {
+          "type": "string",
+          "title": "Key-store alias",
+          "description": "Optional key alias to use from the key store."
+        }
+      }
+    },
+    "SpecmaticGlobalSettings": {
+      "title": "Global path settings",
+      "description": "Templates controlling how specification and shared-example directories are resolved.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "specExamplesDirectoryTemplate": {
+          "type": "string",
+          "title": "Specification examples directory template",
+          "description": "Template for the directory containing examples associated with a specification."
+        },
+        "sharedExamplesDirectoryTemplate": {
+          "type": "array",
+          "title": "Shared examples directory templates",
+          "description": "Templates for shared example directories searched across specifications.",
+          "items": {
+            "type": "string",
+            "title": "Directory template",
+            "description": "Template resolving to a shared examples directory."
+          }
+        }
+      }
+    }
+  }
+}

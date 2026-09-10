@@ -1,9 +1,12 @@
 package io.specmatic.core.config.v3.components
 
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.core.config.v3.mapValue
 import io.specmatic.core.config.ConfigPathMapper
 import java.io.File
+import io.specmatic.core.config.validation.ConfigValidationOutput
 
 class ExampleDirectories(val directories: List<String>) {
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ExampleDirectories {
@@ -19,6 +22,24 @@ data class Examples(
     val mockExamples: List<RefOrValue<ExampleDirectories>>? = null,
     val commonExamples: ExampleDirectories? = null,
 ) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        return buildList {
+            testExamples.orEmpty().forEachIndexed { index, example ->
+                addAll(context.child("testExamples").child(index).check(
+                    reference = example,
+                    resolve = { value, resolver -> value.resolveElseThrow(resolver) },
+                ))
+            }
+
+            mockExamples.orEmpty().forEachIndexed { index, example ->
+                addAll(context.child("mockExamples").child(index).check(
+                    reference = example,
+                    resolve = { value, resolver -> value.resolveElseThrow(resolver) },
+                ))
+            }
+        }
+    }
+
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): Examples = copy(
         commonExamples = commonExamples?.mapPaths(mapper.child("commonExamples"), configDirectory),
         testExamples = testExamples?.mapIndexed { i, value ->

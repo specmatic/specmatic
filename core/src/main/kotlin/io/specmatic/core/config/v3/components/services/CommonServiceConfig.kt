@@ -3,9 +3,11 @@ package io.specmatic.core.config.v3.components.services
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.resolveElseThrow
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
 data class CommonServiceConfig<RunOptions : Any, Settings : Any>(
@@ -46,4 +48,32 @@ data class CommonServiceConfig<RunOptions : Any, Settings : Any>(
 
         return copy(definitions = updatedDefinitions)
     }
+}
+
+inline fun <reified R : Any, reified S : Any> CommonServiceConfig<R, S>.validate(
+    context: ValidationContext,
+    crossinline validateRunOptions: (R, ValidationContext) -> List<ConfigValidationOutput> = { _, _ -> emptyList() },
+): List<ConfigValidationOutput> {
+    val definitionOutput = definitions.flatMapIndexed { index, definition ->
+        definition.validate(context.child("definitions").child(index))
+    }
+
+    val runOptionsOutput = runOptions?.let { reference ->
+        val runOptionsContext = context.child("runOptions")
+        runOptionsContext.check(
+            reference = reference,
+            resolve = { value, resolver -> value.resolveElseThrow<R>(resolver) },
+            validate = { value, valueContext -> validateRunOptions(value, valueContext) },
+        )
+    }.orEmpty()
+
+    val settingsOutput = settings?.let { reference ->
+        context.child("settings").check(
+            reference = reference,
+            resolve = { value, resolver -> value.resolveElseThrow<S>(resolver) },
+        )
+    }.orEmpty()
+
+    val dataOutput = data?.validate(context.child("data")).orEmpty()
+    return definitionOutput + runOptionsOutput + settingsOutput + dataOutput
 }

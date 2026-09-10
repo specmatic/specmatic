@@ -6,9 +6,13 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.v3.resolveElseThrow
+import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.ConfigPathMapper
 import java.io.File
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.core.config.validation.ConfigValidationOutput
 
 interface IRunOptions {
     val specs: List<IRunOptionSpecification>?
@@ -43,6 +47,16 @@ data class RunOptions(
     val graphqlsdl: GraphQLSdlRunOptions? = null,
     val protobuf: ProtobufRunOptions? = null,
 ) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        return listOfNotNull(
+            openapi?.validate(context.child("openapi")),
+            wsdl?.validate(context.child("wsdl")),
+            asyncapi?.validate(context.child("asyncapi")),
+            graphqlsdl?.validate(context.child("graphqlsdl")),
+            protobuf?.validate(context.child("protobuf")),
+        ).flatten()
+    }
+
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): RunOptions = copy(
         wsdl = wsdl?.mapPaths(mapper.child("wsdl"), configDirectory),
         openapi = openapi?.mapPaths(mapper.child("openapi"), configDirectory),
@@ -59,6 +73,16 @@ data class TestRunOptions(
     val graphqlsdl: GraphQLSdlTestConfig? = null,
     val protobuf: ProtobufTestConfig? = null,
 ) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        return listOfNotNull(
+            openapi?.validate(context.child("openapi")),
+            wsdl?.validate(context.child("wsdl")),
+            asyncapi?.validate(context.child("asyncapi")),
+            graphqlsdl?.validate(context.child("graphqlsdl")),
+            protobuf?.validate(context.child("protobuf")),
+        ).flatten()
+    }
+
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): TestRunOptions = copy(
         wsdl = wsdl?.mapPaths(mapper.child("wsdl"), configDirectory),
         openapi = openapi?.mapPaths(mapper.child("openapi"), configDirectory),
@@ -113,6 +137,16 @@ data class MockRunOptions(
     val graphqlsdl: GraphQLSdlMockConfig? = null,
     val protobuf: ProtobufMockConfig? = null,
 ) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        return listOfNotNull(
+            openapi?.validate(context.child("openapi")),
+            wsdl?.validate(context.child("wsdl")),
+            asyncapi?.validate(context.child("asyncapi")),
+            graphqlsdl?.validate(context.child("graphqlsdl")),
+            protobuf?.validate(context.child("protobuf")),
+        ).flatten()
+    }
+
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): MockRunOptions = copy(
         wsdl = wsdl?.mapPaths(mapper.child("wsdl"), configDirectory),
         openapi = openapi?.mapPaths(mapper.child("openapi"), configDirectory),
@@ -174,4 +208,13 @@ private fun <T : IRunOptionSpecification> List<T>?.filterOverrides(): List<T>? {
 
 private fun <T : IRunOptionSpecification> List<T>?.collectSpecIds(): Set<String> {
     return this.orEmpty().mapNotNull(IRunOptionSpecification::getId).toSet()
+}
+
+private fun IRunOptions.validate(context: ValidationContext): List<ConfigValidationOutput> {
+    if (this !is ConfigWithCert) return emptyList()
+    val certOrReference = this.cert ?: return emptyList()
+    return context.child("cert").check(
+        reference = certOrReference,
+        resolve = { value, resolver -> value.resolveElseThrow<HttpsConfiguration>(resolver) },
+    )
 }

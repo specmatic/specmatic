@@ -4,9 +4,15 @@ import io.specmatic.core.ProxyConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.components.Adapter
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
-data class Proxy(val proxy: ProxyConfigV3)
+data class Proxy(val proxy: ProxyConfigV3) {
+    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        return proxy.validate(context.child("proxy"))
+    }
+}
+
 data class ProxyConfigV3(
     val target: String,
     val baseUrl: String? = null,
@@ -16,6 +22,24 @@ data class ProxyConfigV3(
     val cert: RefOrValue<HttpsConfiguration>? = null,
     val recordingsDirectory: String? = null,
 ) {
+    internal fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        val adaptersOutput = adapters?.let { reference ->
+            context.child("adapters").check(
+                reference = reference,
+                resolve = { value, resolver -> value.resolveElseThrow(resolver) },
+            )
+        }.orEmpty()
+
+        val certOutput = cert?.let { reference ->
+            context.child("cert").check(
+                reference = reference,
+                resolve = { value, resolver -> value.resolveElseThrow(resolver) },
+            )
+        }.orEmpty()
+
+        return adaptersOutput + certOutput
+    }
+
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ProxyConfigV3  {
         return copy(
             cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },

@@ -32,6 +32,7 @@ dependencies {
     implementation("com.jayway.jsonpath:json-path:2.10.0")
 
     implementation("io.zenwave360:json-schema-ref-parser-jvm:0.9.12")
+    implementation("com.networknt:json-schema-validator:2.0.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
@@ -52,7 +53,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("org.json:json:20250517")
-    testImplementation("com.networknt:json-schema-validator:2.0.1")
     testImplementation("org.springframework:spring-web:6.2.18")
     testImplementation("io.mockk:mockk-jvm:1.14.11")
     testImplementation("org.assertj:assertj-core:3.27.7")
