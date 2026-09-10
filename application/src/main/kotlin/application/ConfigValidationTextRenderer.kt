@@ -25,7 +25,10 @@ class ConfigValidationTextRenderer {
             add("Configuration is invalid: $fileName")
             add("")
             outputs.forEachIndexed { index, output ->
-                if (index > 0) add(DIAGNOSTIC_SEPARATOR)
+                if (index > 0) {
+                    add("")
+                    add("")
+                }
                 add(renderDiagnostic(fileName, root, output))
             }
             add("")
@@ -46,8 +49,8 @@ class ConfigValidationTextRenderer {
         val current = buildList {
             add(location)
             if (mark != null) add("")
-            add(message)
-            help(output)?.let(::add)
+            add("  $message")
+            help(output)?.let { add("  $it") }
         }.joinToString("\n").indent(indentation)
 
         return buildList {
@@ -128,10 +131,6 @@ class ConfigValidationTextRenderer {
 
     private fun unescape(value: String): String {
         return value.replace("~1", "/").replace("~0", "~")
-    }
-
-    companion object {
-        private const val DIAGNOSTIC_SEPARATOR = "--------------------------------"
     }
 }
 

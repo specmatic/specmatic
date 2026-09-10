@@ -57,8 +57,8 @@ class ConfigCommandValidateTest {
             2 |     report: invalid
               |             ^
 
-            string found, object expected
-            Reporting configuration — Report types and API-coverage thresholds.
+              string found, object expected
+              Reporting configuration — Report types and API-coverage thresholds.
 
             1 error
             """.trimIndent())
@@ -222,14 +222,15 @@ class ConfigCommandValidateTest {
             2 |     logPrefix: specmatic
               |     ^
 
-            Deprecated property.
-            Deprecated: use 'logFilePrefix' instead.
-            --------------------------------
+              Deprecated property.
+              Deprecated: use 'logFilePrefix' instead.
+
+
             specmatic.yaml:3:1
             3 |     banana: true
               |     ^
 
-            Unknown property 'banana'.
+              Unknown property 'banana'.
 
             1 error, 1 warning
             """.trimIndent())
@@ -281,7 +282,7 @@ class ConfigCommandValidateTest {
             Configuration is invalid: specmatic.json
 
             specmatic.json:/components
-            Configuration has an invalid structure.
+              Configuration has an invalid structure.
 
             1 error
             """.trimIndent())
@@ -320,21 +321,21 @@ class ConfigCommandValidateTest {
             2 |     report: invalid
               |             ^
 
-            Value does not match any supported report shape.
+              Value does not match any supported report shape.
 
             Validation details:
               config.yaml:2:9
               2 |     report: invalid
                 |             ^
 
-              string found, object expected
+                string found, object expected
 
               Validation details:
                 config.yaml:2:9
                 2 |     report: invalid
                   |             ^
 
-                report must be an object
+                  report must be an object
 
             1 error
             """.trimIndent())

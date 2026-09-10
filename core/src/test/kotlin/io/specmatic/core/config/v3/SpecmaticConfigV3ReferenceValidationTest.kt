@@ -19,7 +19,7 @@ class SpecmaticConfigV3ReferenceValidationTest {
         @MethodSource("io.specmatic.core.config.v3.SpecmaticConfigV3ReferenceValidationTest#missingTypedReferenceCases")
         fun `reports missing typed references`(testCase: InvalidReferenceCase) {
             assertThat(validator.validate(testCase.configuration))
-                .isEqualTo(invalidAt(testCase.instanceLocation, testCase.message))
+                .isEqualTo(invalidAt(testCase.instanceLocation, testCase.message, testCase.loadError))
         }
 
         @ParameterizedTest(name = "{0}")
@@ -46,7 +46,8 @@ class SpecmaticConfigV3ReferenceValidationTest {
             """.trimIndent())).isEqualTo(
                 invalidAt(
                     instanceLocation = "/systemUnderTest/service",
-                    message = "Reference '#/components/sources/source' could not be resolved as the expected typed value: Failed to convert resolved value to CommonServiceConfig<TestRunOptions, TestSettings>"
+                    message = "Reference '#/components/sources/source' could not be resolved as the expected typed value: Failed to convert resolved value to CommonServiceConfig<TestRunOptions, TestSettings>",
+                    loadError = "Failed to convert resolved value to CommonServiceConfig<TestRunOptions, TestSettings>"
                 )
             )
         }
@@ -66,7 +67,8 @@ class SpecmaticConfigV3ReferenceValidationTest {
             """.trimIndent())).isEqualTo(
                 invalidAt(
                     instanceLocation = "/systemUnderTest/service",
-                    message = "Reference '#/components/services/sut' could not be resolved as the expected typed value: Failed to convert resolved value to CommonServiceConfig<TestRunOptions, TestSettings>"
+                    message = "Reference '#/components/services/sut' could not be resolved as the expected typed value: Failed to convert resolved value to CommonServiceConfig<TestRunOptions, TestSettings>",
+                    loadError = "Failed to convert resolved value to CommonServiceConfig<TestRunOptions, TestSettings>"
                 )
             )
         }
@@ -104,19 +106,35 @@ class SpecmaticConfigV3ReferenceValidationTest {
         }
     }
 
-    private fun invalidAt(instanceLocation: String, message: String) = ConfigValidationResult.Invalid(
-        SpecmaticConfigVersion.VERSION_3,
-        listOf(ConfigValidationOutput(
-            valid = false,
-            keywordLocation = "",
-            instanceLocation = instanceLocation,
-            error = message,
-        ))
+    private fun invalidAt(instanceLocation: String, message: String, loadError: String? = null) = ConfigValidationResult.Invalid(
+        version = SpecmaticConfigVersion.VERSION_3,
+        output = buildList {
+            loadError?.let {
+                add(ConfigValidationOutput(
+                    valid = false,
+                    keywordLocation = "",
+                    instanceLocation = "",
+                    error = "Could not load specification sources: $it",
+                ))
+            }
+            add(ConfigValidationOutput(
+                valid = false,
+                error = message,
+                keywordLocation = "",
+                instanceLocation = instanceLocation,
+            ))
+        }
     )
 
     companion object {
         private const val MISSING_MESSAGE = "could not be resolved as the expected typed value: Component reference does not exist:"
-        data class InvalidReferenceCase(val name: String, val configuration: String, val instanceLocation: String, val message: String) {
+        data class InvalidReferenceCase(
+            val name: String,
+            val message: String,
+            val configuration: String,
+            val instanceLocation: String,
+            val loadError: String? = null,
+        ) {
             override fun toString(): String = name
         }
 
@@ -138,6 +156,7 @@ class SpecmaticConfigV3ReferenceValidationTest {
                 """.trimIndent(),
                 instanceLocation = "/systemUnderTest/service",
                 message = "Reference '#/components/services/missing' $MISSING_MESSAGE #/components/services/missing",
+                loadError = "Component reference does not exist: #/components/services/missing",
             ),
             InvalidReferenceCase(
                 name = "missing source beside a definition",
@@ -155,6 +174,7 @@ class SpecmaticConfigV3ReferenceValidationTest {
                 """.trimIndent(),
                 instanceLocation = "/systemUnderTest/service/definitions/0/definition/source",
                 message = "Reference '#/components/sources/missing' $MISSING_MESSAGE #/components/sources/missing",
+                loadError = "Component reference does not exist: #/components/sources/missing",
             ),
             InvalidReferenceCase(
                 name = "missing settings component",
@@ -170,6 +190,7 @@ class SpecmaticConfigV3ReferenceValidationTest {
                 """.trimIndent(),
                 instanceLocation = "/systemUnderTest/service/settings",
                 message = "Reference '#/components/settings/missing' $MISSING_MESSAGE #/components/settings/missing",
+                loadError = "Component reference does not exist: #/components/settings/missing",
             ),
             InvalidReferenceCase(
                 name = "missing run options component",

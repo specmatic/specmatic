@@ -4,6 +4,7 @@ import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.config.validation.ConfigValidationSeverity
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiMockConfig
 import io.specmatic.core.config.v3.components.runOptions.RunOptionType
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -18,9 +19,10 @@ class ProtocolConfigValidatorTest {
         val specification = tempDir.resolve("events.yaml")
 
         val configuration = mapOf("servers" to listOf(mapOf("host" to "localhost")))
+        val definition = SpecificationDefinition.StringValue(specification.path)
         val output = AsyncApiMockConfig()
             .withConfig(configuration)
-            .validateForSpecFile(specification, context)
+            .validateForSpecFile(specification, definition, context)
 
         assertThat(output).isEmpty()
         assertThat(validator.calls).containsExactly(
@@ -32,16 +34,18 @@ class ProtocolConfigValidatorTest {
     fun `invokes validator for empty async mock config so spec requirements are checked`(@TempDir tempDir: File) {
         val validator = RecordingValidator()
         val specification = tempDir.resolve("events.yaml")
-        AsyncApiMockConfig().validateForSpecFile(specification, context(tempDir, validator))
+        val definition = SpecificationDefinition.StringValue(specification.path)
+        AsyncApiMockConfig().validateForSpecFile(specification, definition, context(tempDir, validator))
         assertThat(validator.calls).containsExactly(Call(specification, emptyMap(), "/dependencies/runOptions/asyncapi"))
     }
 
     @Test
     fun `reports validator failures as configuration errors`(@TempDir tempDir: File) {
         val validator = RecordingValidator(failure = IllegalStateException("invalid broker configuration"))
+        val definition = SpecificationDefinition.StringValue("events.yaml")
         val output = AsyncApiMockConfig()
             .withConfig(mapOf("broker" to "localhost:9092"))
-            .validateForSpecFile(tempDir.resolve("events.yaml"), context(tempDir, validator))
+            .validateForSpecFile(tempDir.resolve("events.yaml"), definition, context(tempDir, validator))
 
         assertThat(output).hasSize(1)
         assertThat(output[0].severity).isEqualTo(ConfigValidationSeverity.ERROR)
@@ -65,7 +69,12 @@ class ProtocolConfigValidatorTest {
             return specType == SpecType.ASYNCAPI && runOptionType == RunOptionType.MOCK
         }
 
-        override fun validate(context: ValidationContext, specification: File, configuration: Map<String, Any>): List<ConfigValidationOutput> {
+        override fun validate(
+            specification: File,
+            context: ValidationContext,
+            configuration: Map<String, Any>,
+            definition: SpecificationDefinition
+        ): List<ConfigValidationOutput> {
             calls += Call(specification, configuration, context.location)
             failure?.let { throw it }
             return emptyList()
