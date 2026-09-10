@@ -3,15 +3,35 @@ package io.specmatic.core.config.v3.components.services
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.v3.components.runOptions.IRunOptions
+import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
+import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.core.config.v3.mapValue
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.validation.ConfigValidationOutput
+import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 data class Definition(val definition: Value) {
-    fun validate(context: ValidationContext): List<ConfigValidationOutput> {
-        return definition.validate(context.child("definition"))
+    fun validate(
+        runOptions: MockRunOptions?,
+        context: ValidationContext,
+        runOptionsContext: ValidationContext,
+    ): List<ConfigValidationOutput> {
+        return definition.validate(context.child("definition"), runOptionsContext) { specType ->
+            runOptions?.getRunOptionsFor(specType)
+        }
+    }
+
+    fun validate(
+        runOptions: TestRunOptions?,
+        context: ValidationContext,
+        runOptionsContext: ValidationContext
+    ): List<ConfigValidationOutput> {
+        return definition.validate(context.child("definition"), runOptionsContext) { specType ->
+            runOptions?.getRunOptionsFor(specType)
+        }
     }
 
     fun mapPaths(
@@ -35,10 +55,16 @@ data class Definition(val definition: Value) {
     }
 
     data class Value(val source: RefOrValue<SourceV3>, val specs: List<SpecificationDefinition>) {
-        fun validate(context: ValidationContext): List<ConfigValidationOutput> {
+        fun validate(context: ValidationContext, runOptionsContext: ValidationContext, getRunOpts: (SpecType) -> IRunOptions?): List<ConfigValidationOutput> {
             return context.child("source").check(
                 reference = source,
                 resolve = { value, resolver -> value.resolveElseThrow(resolver) },
+                validate = { resolvedSource, _ ->
+                    specs.flatMapIndexed { index, definition ->
+                        val specValidationContext = context.child("specs").child(index)
+                        definition.validate(resolvedSource, specValidationContext, runOptionsContext, getRunOpts)
+                    }
+                },
             )
         }
     }

@@ -9,6 +9,7 @@ import io.specmatic.core.config.resolveTemplates
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.config.v3.SpecmaticConfigV3
+import io.specmatic.core.SpecmaticConfig
 import java.io.File
 import java.nio.file.Path
 
@@ -65,16 +66,45 @@ class SpecmaticConfigValidator(private val schemaValidator: ConfigSchemaValidato
             )
         }
 
+        val transformed = bound.transform(origin.toFile())
+        val loadErrors = loadContracts(transformed, origin)
         val semanticErrors = when (bound) {
             is SpecmaticConfigV3 -> bound.validate(origin)
             else -> emptyList()
         }
 
-        return if (semanticErrors.isEmpty()) {
+        val errors = loadErrors + semanticErrors
+        return if (errors.isEmpty()) {
             ConfigValidationResult.Valid(version)
         } else {
-            ConfigValidationResult.Invalid(version, semanticErrors)
+            ConfigValidationResult.Invalid(version, errors)
         }
+    }
+
+    private fun loadContracts(config: SpecmaticConfig, origin: Path): List<ConfigValidationOutput> {
+        val checkoutDirectory = origin.toFile().canonicalFile.parentFile.resolve(".specmatic").canonicalFile
+        return runCatching {
+            config.loadSources(config.getMatchBranchEnabled()).flatMap { source ->
+                source.loadContracts(
+                    configFilePath = origin.toFile().canonicalPath,
+                    selector = { it.testContracts + it.stubContracts },
+                    workingDirectory = checkoutDirectory.canonicalPath,
+                )
+            }
+        }.fold(
+            onSuccess = { emptyList() },
+            onFailure = { failure ->
+                listOf(
+                    element = ConfigValidationOutput(
+                        valid = false,
+                        keywordLocation = "",
+                        instanceLocation = "",
+                        severity = ConfigValidationSeverity.ERROR,
+                        error = "Could not load specification sources: ${failure.message ?: failure::class.simpleName}",
+                    )
+                )
+            }
+        )
     }
 
     private fun parse(content: String): JsonNode? = try {
