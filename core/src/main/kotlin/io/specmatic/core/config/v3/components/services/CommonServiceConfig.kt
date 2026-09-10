@@ -53,14 +53,17 @@ data class CommonServiceConfig<RunOptions : Any, Settings : Any>(
 inline fun <reified R : Any, reified S : Any> CommonServiceConfig<R, S>.validate(
     context: ValidationContext,
     crossinline validateRunOptions: (R, ValidationContext) -> List<ConfigValidationOutput> = { _, _ -> emptyList() },
+    crossinline validateDefinition: (Definition, R?, ValidationContext, ValidationContext) -> List<ConfigValidationOutput> = { _, _, _, _ -> emptyList() },
 ): List<ConfigValidationOutput> {
+    val resolvedRunOpts = runCatching { runOptions?.resolveElseThrow(context.resolver) }.getOrNull()
+    val runOptionsContext = context.child("runOptions").updateWithRefOrValue(runOptions)
     val definitionOutput = definitions.flatMapIndexed { index, definition ->
-        definition.validate(context.child("definitions").child(index))
+        val definitionContext = context.child("definitions").child(index)
+        validateDefinition(definition, resolvedRunOpts, definitionContext, runOptionsContext)
     }
 
     val runOptionsOutput = runOptions?.let { reference ->
-        val runOptionsContext = context.child("runOptions")
-        runOptionsContext.check(
+        context.child("runOptions").check(
             reference = reference,
             resolve = { value, resolver -> value.resolveElseThrow<R>(resolver) },
             validate = { value, valueContext -> validateRunOptions(value, valueContext) },

@@ -10,6 +10,7 @@ import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.ConfigPathMapper
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import java.io.File
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.core.config.validation.ConfigValidationOutput
@@ -19,6 +20,8 @@ interface IRunOptions {
     val config: Map<String, Any>
 
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): IRunOptions
+
+    fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> = emptyList()
 
     @JsonIgnore
     fun gerServerOrigin(): ServerOrigin?

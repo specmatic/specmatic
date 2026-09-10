@@ -30,14 +30,19 @@ import java.io.File
 data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
     fun validate(context: ValidationContext): List<ConfigValidationOutput> {
         val serviceContext = context.child("service")
+        val validateDefinition: (Definition, TestRunOptions?, ValidationContext, ValidationContext) -> List<ConfigValidationOutput> = {
+            definition, runOptions, definitionContext, runOptionsContext ->
+                definition.validate(runOptions, definitionContext, runOptionsContext)
+        }
+
         val validateRunOptions: (TestRunOptions, ValidationContext) -> List<ConfigValidationOutput> = {
             runOptions, runOptionsContext -> runOptions.validate(runOptionsContext)
         }
 
         return serviceContext.check(
             reference = service,
-            validate = { value, valueContext -> value.validate(valueContext, validateRunOptions) },
             resolve = { value, resolver -> value.resolveElseThrow<TestRunOptions, TestSettings>(resolver) },
+            validate = { value, valueContext -> value.validate(valueContext, validateRunOptions, validateDefinition) },
         )
     }
 

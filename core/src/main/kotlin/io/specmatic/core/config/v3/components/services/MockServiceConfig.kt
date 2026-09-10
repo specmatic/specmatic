@@ -33,14 +33,19 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
     fun validate(context: ValidationContext): List<ConfigValidationOutput> {
         val serviceOutput = services.flatMapIndexed { index, entry ->
             val serviceContext = context.child("services").child(index).child("service")
+            val validateDefinition: (Definition, MockRunOptions?, ValidationContext, ValidationContext) -> List<ConfigValidationOutput> = {
+                definition, runOptions, definitionContext, runOptionsContext ->
+                    definition.validate(runOptions, definitionContext, runOptionsContext)
+            }
+
             val validateRunOptions: (MockRunOptions, ValidationContext) -> List<ConfigValidationOutput> = {
                 runOptions, runOptionsContext -> runOptions.validate(runOptionsContext)
             }
 
             serviceContext.check(
                 reference = entry.service,
-                validate = { value, valueContext -> value.validate(valueContext, validateRunOptions) },
                 resolve = { value, resolver -> value.resolveElseThrow<MockRunOptions, MockSettings>(resolver) },
+                validate = { value, valueContext -> value.validate(valueContext, validateRunOptions, validateDefinition) },
             )
         }
 

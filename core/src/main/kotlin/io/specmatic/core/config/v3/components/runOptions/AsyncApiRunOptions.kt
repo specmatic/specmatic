@@ -3,6 +3,10 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.*
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.validation.ConfigValidationOutput
+import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
@@ -53,6 +57,16 @@ data class AsyncApiMockConfig(
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : AsyncApiRunOptions {
     fun withConfig(newConfig: Map<String, Any>): AsyncApiMockConfig = copy(_config = LinkedHashMap(newConfig))
+    override fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> {
+        return validationContext.child("asyncapi").validateProtocolConfig(
+            config = config,
+            specFile = specFile,
+            definition = definition,
+            specType = SpecType.ASYNCAPI,
+            runOptionType = RunOptionType.MOCK,
+        )
+    }
+
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiMockConfig = copy(
         specs = specs?.mapIndexed { index, spec ->
             spec.mapPaths(mapper.child("specs").child(index), configDirectory)

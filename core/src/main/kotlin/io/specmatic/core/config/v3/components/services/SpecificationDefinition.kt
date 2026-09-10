@@ -13,12 +13,34 @@ import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.ConfigPathMapper
+import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.v3.components.runOptions.IRunOptions
+import io.specmatic.core.config.v3.determineSpecTypeFor
+import io.specmatic.core.config.validation.ConfigValidationOutput
+import io.specmatic.core.config.validation.ConfigValidationSeverity
 import io.specmatic.core.utilities.Flags
+import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION, defaultImpl = SpecificationDefinition.StringValue::class)
 sealed interface SpecificationDefinition {
     fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): SpecificationDefinition
+
+    fun validate(source: SourceV3, validationContext: ValidationContext, runOptionsContext: ValidationContext, getRunOpts: (SpecType) -> IRunOptions?): List<ConfigValidationOutput> {
+        val specFile = runCatching { source.resolveSpecification(File(getSpecificationPath())) }.getOrElse { failure ->
+            return listOf(
+                element = validationContext.error(
+                    severity = ConfigValidationSeverity.ERROR,
+                    message = "Could not resolve specification '${getSpecificationPath()}': ${failure.message ?: failure::class.simpleName}",
+                )
+            )
+        }
+
+        val runOptions = determineSpecTypeFor(specFile).mapNotNull { getRunOpts(it) }
+        return runOptions.flatMap {
+            it.validateForSpecFile(specFile = specFile, definition = this, validationContext = runOptionsContext)
+        }
+    }
 
     data class Specification(
         val id: String? = null,
