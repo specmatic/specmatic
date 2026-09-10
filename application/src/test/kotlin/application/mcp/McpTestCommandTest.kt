@@ -57,16 +57,18 @@ class McpTestCommandTest {
             """.trimIndent())
         }
 
-        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { McpTestCommandMock() }
-        val exitCode = cmd.call()
-        assertThat(exitCode).isEqualTo(0)
-        assertThat(cmd.capturedBaseUrl).isEqualTo("http://config-url:8080")
-        assertThat(cmd.capturedTransport).isEqualTo(McpTransport.STREAMABLE_HTTP)
-        assertThat(cmd.capturedEnableResiliency).isTrue()
-        assertThat(cmd.capturedDictionaryFile!!.canonicalPath).isEqualTo(dictFile.canonicalPath)
-        assertThat(cmd.capturedBearerToken).isEqualTo("config-token")
-        assertThat(cmd.capturedFilterTools).containsExactlyInAnyOrder("toolX", "toolY")
-        assertThat(cmd.capturedSkipTools).containsExactly("toolZ")
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = McpTestCommandMock()
+            val exitCode = cmd.call()
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(cmd.capturedBaseUrl).isEqualTo("http://config-url:8080")
+            assertThat(cmd.capturedTransport).isEqualTo(McpTransport.STREAMABLE_HTTP)
+            assertThat(cmd.capturedEnableResiliency).isTrue()
+            assertThat(cmd.capturedDictionaryFile!!.canonicalPath).isEqualTo(dictFile.canonicalPath)
+            assertThat(cmd.capturedBearerToken).isEqualTo("config-token")
+            assertThat(cmd.capturedFilterTools).containsExactlyInAnyOrder("toolX", "toolY")
+            assertThat(cmd.capturedSkipTools).containsExactly("toolZ")
+        }
     }
 
     @Test
@@ -84,18 +86,18 @@ class McpTestCommandTest {
             """.trimIndent())
         }
 
-        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-            McpTestCommandMock().apply {
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = McpTestCommandMock().apply {
                 enableResiliencyTests = true
                 filterTools = listOf("from-cli")
             }
-        }
 
-        cmd.call()
-        assertThat(cmd.capturedBaseUrl).isEqualTo("http://config-url:8080")
-        assertThat(cmd.capturedTransport).isEqualTo(McpTransport.STREAMABLE_HTTP)
-        assertThat(cmd.capturedEnableResiliency).isTrue()
-        assertThat(cmd.capturedFilterTools).containsExactlyInAnyOrder("from-config", "from-cli")
+            cmd.call()
+            assertThat(cmd.capturedBaseUrl).isEqualTo("http://config-url:8080")
+            assertThat(cmd.capturedTransport).isEqualTo(McpTransport.STREAMABLE_HTTP)
+            assertThat(cmd.capturedEnableResiliency).isTrue()
+            assertThat(cmd.capturedFilterTools).containsExactlyInAnyOrder("from-config", "from-cli")
+        }
     }
 
     @Test

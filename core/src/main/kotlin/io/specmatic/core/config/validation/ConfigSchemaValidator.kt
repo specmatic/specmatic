@@ -12,15 +12,29 @@ import com.networknt.schema.path.PathType
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.objectMapper
 
+enum class ConfigSchemaOutputFormat {
+    LIST,
+    HIERARCHICAL,
+}
+
 class ConfigSchemaValidator {
     private val schemas = SpecmaticConfigVersion.entries
         .filter { it != SpecmaticConfigVersion.VERSION_1 }
         .associateWith { version -> loadSchema(version) }
 
-    fun validate(version: SpecmaticConfigVersion, tree: JsonNode): List<ConfigValidationOutput> {
+    fun validate(
+        version: SpecmaticConfigVersion,
+        tree: JsonNode,
+        outputFormat: ConfigSchemaOutputFormat = ConfigSchemaOutputFormat.HIERARCHICAL,
+    ): List<ConfigValidationOutput> {
         val schema = schemas.getValue(version)
-        val output = schema.validate(tree, OutputFormat.LIST)
-        return output.details.orEmpty().map { toStandardOutput(it, schema) }
+        val output = schema.validate(tree, outputFormat.networkOutputFormat)
+        val details = output.details.orEmpty()
+        return when {
+            output.isValid -> emptyList()
+            details.isNotEmpty() -> details.map { toStandardOutput(it, schema) }
+            else -> listOf(toStandardOutput(output, schema))
+        }
     }
 
     private fun loadSchema(version: SpecmaticConfigVersion): Schema {
@@ -56,6 +70,7 @@ class ConfigSchemaValidator {
             metadata = metadata(output, schema),
             keywordLocation = outputPath(output.evaluationPath),
             instanceLocation = outputPath(output.instanceLocation),
+            details = output.details.orEmpty().map { toStandardOutput(it, schema) },
             error = messages.takeIf { it.isNotEmpty() }?.joinToString("; "),
             absoluteKeywordLocation = output.schemaLocation?.takeIf { it.isNotBlank() },
         )
@@ -89,4 +104,10 @@ class ConfigSchemaValidator {
         null, "", "/", "#" -> ""
         else -> path
     }
+
+    private val ConfigSchemaOutputFormat.networkOutputFormat: OutputFormat<OutputUnit>
+        get() = when (this) {
+            ConfigSchemaOutputFormat.LIST -> OutputFormat.LIST
+            ConfigSchemaOutputFormat.HIERARCHICAL -> OutputFormat.HIERARCHICAL
+        }
 }

@@ -1,6 +1,7 @@
 package io.specmatic.core.config.validation
 
 import io.specmatic.core.config.SpecmaticConfigVersion
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 sealed interface ConfigValidationResult {
@@ -16,12 +17,14 @@ data class ConfigValidationOutput(
     val instanceLocation: String,
     val absoluteKeywordLocation: String? = null,
     val severity: ConfigValidationSeverity = ConfigValidationSeverity.ERROR,
-    @kotlinx.serialization.Transient
     val metadata: ConfigValidationMetadata? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val details: List<ConfigValidationOutput> = emptyList(),
 )
 
 @Serializable
 enum class ConfigValidationSeverity {
+    INFO,
     ERROR,
     WARNING,
 }

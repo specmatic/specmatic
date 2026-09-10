@@ -22,11 +22,13 @@ class BackwardCompatibilityCheckBaseCommandTest {
           strictMode: true
         """.trimIndent())
 
-        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { TestBackwardCompatibilityCommand() }
-        assertThat(cmd.repoDir()).isEqualTo(repoDir.toString())
-        assertThat(cmd.baseBranch()).isEqualTo("origin/main")
-        assertThat(cmd.targetPath()).isEqualTo("contracts")
-        assertThat(cmd.strictMode()).isTrue()
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = TestBackwardCompatibilityCommand()
+            assertThat(cmd.repoDir()).isEqualTo(repoDir.toString())
+            assertThat(cmd.baseBranch()).isEqualTo("origin/main")
+            assertThat(cmd.targetPath()).isEqualTo("contracts")
+            assertThat(cmd.strictMode()).isTrue()
+        }
     }
 
     @Test
@@ -72,11 +74,13 @@ class BackwardCompatibilityCheckBaseCommandTest {
           baseBranch: origin/develop
         """.trimIndent())
 
-        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { TestBackwardCompatibilityCommand() }
-        assertThat(cmd.baseBranch()).isEqualTo("origin/develop")
-        assertThat(cmd.repoDir()).isEqualTo(".")
-        assertThat(cmd.targetPath()).isEqualTo("")
-        assertThat(cmd.strictMode()).isFalse()
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = TestBackwardCompatibilityCommand()
+            assertThat(cmd.baseBranch()).isEqualTo("origin/develop")
+            assertThat(cmd.repoDir()).isEqualTo(".")
+            assertThat(cmd.targetPath()).isEqualTo("")
+            assertThat(cmd.strictMode()).isFalse()
+        }
     }
 
     @Test
@@ -91,14 +95,13 @@ class BackwardCompatibilityCheckBaseCommandTest {
           strictMode: true
         """.trimIndent())
 
-        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-            TestBackwardCompatibilityCommand().apply { options.targetPath = "from-cli" }
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = TestBackwardCompatibilityCommand().apply { options.targetPath = "from-cli" }
+            assertThat(cmd.repoDir()).isEqualTo(repoDirFromConfig.canonicalPath.toString())
+            assertThat(cmd.baseBranch()).isEqualTo("origin/main")
+            assertThat(cmd.targetPath()).isEqualTo("from-cli")
+            assertThat(cmd.strictMode()).isTrue()
         }
-
-        assertThat(cmd.repoDir()).isEqualTo(repoDirFromConfig.canonicalPath.toString())
-        assertThat(cmd.baseBranch()).isEqualTo("origin/main")
-        assertThat(cmd.targetPath()).isEqualTo("from-cli")
-        assertThat(cmd.strictMode()).isTrue()
     }
 
     @Test

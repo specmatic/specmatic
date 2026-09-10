@@ -29,15 +29,19 @@ class ValidateCommandOptions {
 class ValidateCommand(
     private val validator: Validator<out Any?> = OpenApiValidator(),
     specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker(),
-    specmaticConfig: io.specmatic.core.SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
+    specmaticConfig: io.specmatic.core.SpecmaticConfig? = null,
     configBackedSpecificationLoader: ConfigBackedSpecificationLoader? = null,
     private val currentDirectoryProvider: () -> File = { File(".").canonicalFile },
     @field:CommandLine.Mixin val validateOptions: ValidateCommandOptions = ValidateCommandOptions()
 ) : Callable<Int> {
-    private val recursiveSpecificationAndExampleClassifier =
-        RecursiveSpecificationAndExampleClassifier(specmaticConfig, specCompatibilityChecker, setOf(".specmatic"))
-    private val effectiveConfigBackedSpecificationLoader =
-        configBackedSpecificationLoader ?: ConfigBackedSpecificationLoader(specmaticConfig, recursiveSpecificationAndExampleClassifier)
+    private val effectiveSpecmaticConfig by lazy { specmaticConfig ?: loadSpecmaticConfigIfAvailableElseDefault() }
+    private val recursiveSpecificationAndExampleClassifier by lazy {
+        RecursiveSpecificationAndExampleClassifier(effectiveSpecmaticConfig, specCompatibilityChecker, setOf(".specmatic"))
+    }
+
+    private val effectiveConfigBackedSpecificationLoader by lazy {
+        configBackedSpecificationLoader ?: ConfigBackedSpecificationLoader(effectiveSpecmaticConfig, recursiveSpecificationAndExampleClassifier)
+    }
 
     override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = validateOptions.debug))

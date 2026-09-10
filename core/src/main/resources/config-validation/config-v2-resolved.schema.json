@@ -360,105 +360,85 @@
           }
         }
       },
-      "oneOf": [
+      "allOf": [
         {
-          "description": "A source-less contract entry using the current directory.",
-          "not": {
-            "description": "No explicit source may be present in this branch.",
-            "anyOf": [
+          "if": {
+            "required": [
+              "git"
+            ]
+          },
+          "then": {
+            "allOf": [
               {
-                "description": "An explicit Git source is present.",
-                "required": [
-                  "git"
-                ]
+                "not": {
+                  "required": [
+                    "filesystem"
+                  ]
+                }
               },
               {
-                "description": "An explicit filesystem source is present.",
-                "required": [
-                  "filesystem"
-                ]
-              },
-              {
-                "description": "An explicit web source is present.",
-                "required": [
-                  "web"
-                ]
+                "not": {
+                  "required": [
+                    "web"
+                  ]
+                }
               }
             ]
           }
         },
         {
-          "description": "A contract entry using only a Git source.",
-          "required": [
-            "git"
-          ],
-          "not": {
-            "description": "No additional explicit source may be present in the Git branch.",
-            "anyOf": [
+          "if": {
+            "required": [
+              "filesystem"
+            ]
+          },
+          "then": {
+            "allOf": [
               {
-                "description": "An explicit filesystem source is present.",
-                "required": [
-                  "filesystem"
-                ]
+                "not": {
+                  "required": [
+                    "git"
+                  ]
+                }
               },
               {
-                "description": "An explicit web source is present.",
-                "required": [
-                  "web"
-                ]
+                "not": {
+                  "required": [
+                    "web"
+                  ]
+                }
               }
             ]
           }
         },
         {
-          "description": "A contract entry using only a filesystem source.",
-          "required": [
-            "filesystem"
-          ],
-          "not": {
-            "description": "No additional explicit source may be present in the filesystem branch.",
-            "anyOf": [
-              {
-                "description": "An explicit Git source is present.",
-                "required": [
-                  "git"
-                ]
-              },
-              {
-                "description": "An explicit web source is present.",
-                "required": [
-                  "web"
-                ]
-              }
+          "if": {
+            "required": [
+              "web"
             ]
-          }
-        },
-        {
-          "description": "A contract entry using only a web source.",
-          "required": [
-            "web"
-          ],
-          "not": {
-            "description": "No additional explicit source may be present in the web branch.",
-            "anyOf": [
+          },
+          "then": {
+            "allOf": [
               {
-                "description": "An explicit Git source is present.",
-                "required": [
-                  "git"
-                ]
+                "not": {
+                  "required": [
+                    "git"
+                  ]
+                }
               },
               {
-                "description": "An explicit filesystem source is present.",
-                "required": [
-                  "filesystem"
-                ]
+                "not": {
+                  "required": [
+                    "filesystem"
+                  ]
+                }
               }
             ]
           }
         }
       ],
       "errorMessage": {
-        "oneOf": "Specify zero or one contract source: git, filesystem, or web."
+        "not": "Specify zero or one contract source: git, filesystem, or web."
       },
       "examples": [
         {
@@ -551,46 +531,106 @@
     "ProvidesEntry": {
       "title": "Provided specification entry",
       "description": "A provided specification path, URL form, or protocol-specific configuration.",
-      "oneOf": [
-        {
-          "type": "string",
-          "description": "A resolved specification path or URL."
+      "type": [
+        "string",
+        "object"
+      ],
+      "if": {
+        "type": "string"
+      },
+      "then": {
+        "type": "string"
+      },
+      "else": {
+        "if": {
+          "required": [
+            "baseUrl"
+          ]
         },
-        {
-          "$ref": "#/definitions/FullUrlProvides",
-          "description": "A provided specification entry with a complete base URL."
+        "then": {
+          "$ref": "#/definitions/FullUrlProvides"
         },
-        {
-          "$ref": "#/definitions/PartialUrlProvides",
-          "description": "A provided specification entry with partial host or port information."
-        },
-        {
-          "$ref": "#/definitions/ConfigValue",
-          "description": "A protocol-specific provided specification configuration."
+        "else": {
+          "if": {
+            "required": [
+              "host"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/PartialUrlProvides"
+          },
+          "else": {
+            "if": {
+              "required": [
+                "port"
+              ]
+            },
+            "then": {
+              "$ref": "#/definitions/PartialUrlProvides"
+            },
+            "else": {
+              "$ref": "#/definitions/ConfigValue"
+            }
+          }
         }
-      ]
+      }
     },
     "ConsumesEntry": {
       "title": "Consumed specification entry",
       "description": "A consumed specification path, URL form, or protocol-specific configuration.",
-      "oneOf": [
-        {
-          "type": "string",
-          "description": "A resolved specification path or URL."
+      "type": [
+        "string",
+        "object"
+      ],
+      "if": {
+        "type": "string"
+      },
+      "then": {
+        "type": "string"
+      },
+      "else": {
+        "if": {
+          "required": [
+            "baseUrl"
+          ]
         },
-        {
-          "$ref": "#/definitions/FullUrlConsumes",
-          "description": "A consumed specification entry with a complete base URL."
+        "then": {
+          "$ref": "#/definitions/FullUrlConsumes"
         },
-        {
-          "$ref": "#/definitions/PartialUrlConsumes",
-          "description": "A consumed specification entry with partial URL information."
-        },
-        {
-          "$ref": "#/definitions/ConfigValue",
-          "description": "A protocol-specific consumed specification configuration."
+        "else": {
+          "if": {
+            "required": [
+              "host"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/PartialUrlConsumes"
+          },
+          "else": {
+            "if": {
+              "required": [
+                "port"
+              ]
+            },
+            "then": {
+              "$ref": "#/definitions/PartialUrlConsumes"
+            },
+            "else": {
+              "if": {
+                "required": [
+                  "basePath"
+                ]
+              },
+              "then": {
+                "$ref": "#/definitions/PartialUrlConsumes"
+              },
+              "else": {
+                "$ref": "#/definitions/ConfigValue"
+              }
+            }
+          }
         }
-      ]
+      }
     },
     "FullUrlProvides": {
       "title": "Full URL provides entry",
@@ -676,20 +716,17 @@
           "description": "Optional resiliency-test selection for the provided specifications."
         }
       },
-      "anyOf": [
-        {
-          "description": "A partial provider with a host.",
-          "required": [
-            "host"
-          ]
-        },
-        {
-          "description": "A partial provider with a port.",
-          "required": [
-            "port"
-          ]
-        }
-      ]
+      "if": {
+        "required": [
+          "host"
+        ]
+      },
+      "then": {},
+      "else": {
+        "required": [
+          "port"
+        ]
+      }
     },
     "PartialUrlConsumes": {
       "title": "Partial URL consumes entry",
@@ -724,26 +761,25 @@
           "description": "Specifications consumed by this partial URL entry."
         }
       },
-      "anyOf": [
-        {
-          "description": "A partial consumer with a host.",
-          "required": [
-            "host"
-          ]
-        },
-        {
-          "description": "A partial consumer with a port.",
+      "if": {
+        "required": [
+          "host"
+        ]
+      },
+      "then": {},
+      "else": {
+        "if": {
           "required": [
             "port"
           ]
         },
-        {
-          "description": "A partial consumer with a base path.",
+        "then": {},
+        "else": {
           "required": [
             "basePath"
           ]
         }
-      ],
+      },
       "examples": [
         {
           "basePath": "/orders",
@@ -796,12 +832,62 @@
           "type": "object",
           "title": "Protocol configuration",
           "description": "Protocol-specific configuration map; recognized fields are interpreted by the selected specType and extra keys are intentionally preserved.",
-      "additionalProperties": {
-        "$ref": "#/definitions/ConfigValueNode",
-        "description": "A recursively JSON-valued protocol configuration field."
+          "additionalProperties": {
+            "$ref": "#/definitions/ConfigValueNode",
+            "description": "A recursively JSON-valued protocol configuration field."
           }
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "specType": {
+                "const": "asyncapi"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/AsyncConfiguration"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "specType": {
+                "const": "graphqlsdl"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/GraphqlConfiguration"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "specType": {
+                "const": "protobuf"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/GrpcConfiguration"
+              }
+            }
+          }
+        }
+      ],
       "examples": [
         {
           "specs": [
@@ -818,40 +904,242 @@
     "ConfigValueNode": {
       "title": "JSON configuration value",
       "description": "A non-null JSON scalar, array, or object used inside an extensible ConfigValue map.",
-      "anyOf": [
+      "type": [
+        "string",
+        "integer",
+        "number",
+        "boolean",
+        "array",
+        "object"
+      ],
+      "allOf": [
         {
-          "type": "string",
-          "description": "A JSON string value."
-        },
-        {
-          "type": "integer",
-          "description": "A JSON integer value."
-        },
-        {
-          "type": "number",
-          "description": "A JSON number value."
-        },
-        {
-          "type": "boolean",
-          "description": "A JSON boolean value."
-        },
-        {
-          "type": "array",
-          "description": "A JSON array whose elements are recursively JSON-valued.",
-          "items": {
-            "$ref": "#/definitions/ConfigValueNode",
-            "description": "A recursively JSON-valued array element."
+          "if": {
+            "type": "array"
+          },
+          "then": {
+            "items": {
+              "$ref": "#/definitions/ConfigValueNode",
+              "description": "A recursively JSON-valued array element."
+            }
           }
         },
         {
-          "type": "object",
-          "description": "A JSON object whose values are recursively JSON-valued.",
-          "additionalProperties": {
-            "$ref": "#/definitions/ConfigValueNode",
-            "description": "A recursively JSON-valued object member."
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "additionalProperties": {
+              "$ref": "#/definitions/ConfigValueNode",
+              "description": "A recursively JSON-valued object member."
+            }
           }
         }
       ]
+    },
+    "AsyncConfiguration": {
+      "title": "AsyncAPI configuration",
+      "description": "Known AsyncAPI test and mock options. Additional protocol-specific options remain allowed.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "replyTimeout": {
+          "type": "integer",
+          "title": "Reply timeout",
+          "description": "Maximum time in milliseconds to wait for an asynchronous reply."
+        },
+        "subscriberReadinessWaitTime": {
+          "type": "integer",
+          "title": "Subscriber readiness wait time",
+          "description": "Time in milliseconds to wait for an asynchronous subscriber to become ready."
+        },
+        "inMemoryBroker": {
+          "$ref": "#/definitions/InMemoryBrokerConfiguration",
+          "title": "In-memory broker",
+          "description": "Optional in-memory broker settings used by asynchronous mocks."
+        },
+        "servers": {
+          "type": "array",
+          "title": "AsyncAPI servers",
+          "description": "Server connection settings used by asynchronous tests and mocks.",
+          "items": {
+            "$ref": "#/definitions/AsyncClientServerConfig",
+            "description": "One asynchronous server connection."
+          }
+        },
+        "schemaRegistry": {
+          "$ref": "#/definitions/SchemaRegistryProperties",
+          "title": "Schema registry",
+          "description": "Schema registry settings used by asynchronous tests and mocks."
+        }
+      }
+    },
+    "GraphqlConfiguration": {
+      "title": "GraphQL configuration",
+      "description": "Known GraphQL test and mock options. Additional protocol-specific options remain allowed.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "GraphQL service host",
+          "description": "Host used by the GraphQL test or mock server."
+        },
+        "port": {
+          "type": "integer",
+          "title": "GraphQL service port",
+          "description": "Port used by the GraphQL test or mock server."
+        }
+      }
+    },
+    "GrpcConfiguration": {
+      "title": "gRPC configuration",
+      "description": "Known gRPC test and mock options. Additional protocol-specific options remain allowed.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "gRPC service host",
+          "description": "Host used by the gRPC test client."
+        },
+        "port": {
+          "type": "integer",
+          "title": "gRPC service port",
+          "description": "Port used by the gRPC test client or mock server."
+        },
+        "importPaths": {
+          "type": "array",
+          "title": "Protobuf import paths",
+          "description": "Directories searched for imported Protobuf definitions.",
+          "items": {
+            "type": "string",
+            "title": "Protobuf import path",
+            "description": "One directory searched for imported Protobuf definitions."
+          }
+        },
+        "protocVersion": {
+          "type": "string",
+          "title": "protoc version",
+          "description": "Version of protoc used to compile Protobuf definitions."
+        },
+        "requestTimeout": {
+          "type": "integer",
+          "title": "gRPC request timeout",
+          "description": "Maximum time in milliseconds to wait for a gRPC request."
+        }
+      }
+    },
+    "AsyncClientServerConfig": {
+      "title": "AsyncAPI server connection",
+      "description": "Connection settings for one asynchronous server. Additional admin and client values are protocol-specific extension data.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "protocol"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Server host",
+          "description": "Host or connection address of the asynchronous server."
+        },
+        "protocol": {
+          "type": "string",
+          "title": "Server protocol",
+          "description": "Protocol identifier used to select this asynchronous server."
+        },
+        "adminCredentials": {
+          "type": "object",
+          "title": "Admin credentials",
+          "description": "Optional administrative credentials for the asynchronous server.",
+          "additionalProperties": true
+        },
+        "client": {
+          "$ref": "#/definitions/AsyncClientProperties",
+          "title": "Client properties",
+          "description": "Optional consumer and producer client properties."
+        }
+      }
+    },
+    "AsyncClientProperties": {
+      "title": "AsyncAPI client properties",
+      "description": "Optional client properties grouped by consumer and producer.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "consumer": {
+          "type": "object",
+          "title": "Consumer properties",
+          "description": "Consumer client properties passed to the asynchronous runtime.",
+          "additionalProperties": true
+        },
+        "producer": {
+          "type": "object",
+          "title": "Producer properties",
+          "description": "Producer client properties passed to the asynchronous runtime.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "SchemaRegistryProperties": {
+      "title": "Schema registry properties",
+      "description": "Schema registry connection settings for asynchronous protocols.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "title": "Schema registry kind",
+          "description": "Schema registry implementation used by the asynchronous runtime.",
+          "enum": [
+            "CONFLUENT",
+            "DEFAULT"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "title": "Schema registry URL",
+          "description": "URL of the schema registry."
+        },
+        "username": {
+          "type": "string",
+          "title": "Schema registry username",
+          "description": "Username used to access the schema registry."
+        },
+        "password": {
+          "type": "string",
+          "title": "Schema registry password",
+          "description": "Password used to access the schema registry."
+        }
+      }
+    },
+    "InMemoryBrokerConfiguration": {
+      "title": "In-memory broker configuration",
+      "description": "Optional in-memory broker connection settings for asynchronous mocks.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "logDir": {
+          "type": "string",
+          "title": "Broker log directory",
+          "description": "Directory where in-memory broker logs are written."
+        },
+        "host": {
+          "type": "string",
+          "title": "Broker host",
+          "description": "Host on which the in-memory broker listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Broker port",
+          "description": "Port on which the in-memory broker listens."
+        }
+      }
     },
     "ResiliencyTestsConfig": {
       "title": "Resiliency test mode",
@@ -1663,18 +1951,31 @@
     "KeyStoreConfiguration": {
       "title": "Key store",
       "description": "Exactly one key-store representation: a file or a directory.",
-      "oneOf": [
-        {
-          "$ref": "#/definitions/KeyStoreFileConfiguration",
-          "description": "A key store loaded from one file."
+      "if": {
+        "required": [
+          "file"
+        ]
+      },
+      "then": {
+        "$ref": "#/definitions/KeyStoreFileConfiguration"
+      },
+      "else": {
+        "if": {
+          "required": [
+            "directory"
+          ]
         },
-        {
-          "$ref": "#/definitions/KeyStoreDirectoryConfiguration",
-          "description": "A key store loaded from a directory."
+        "then": {
+          "$ref": "#/definitions/KeyStoreDirectoryConfiguration"
+        },
+        "else": {
+          "required": [
+            "file"
+          ]
         }
-      ],
+      },
       "errorMessage": {
-        "oneOf": "Specify exactly one key-store form: file or directory."
+        "required": "Specify exactly one key-store form: file or directory."
       }
     },
     "KeyStoreFileConfiguration": {

@@ -15,7 +15,11 @@ import java.nio.file.Path
 class SpecmaticConfigValidator(private val schemaValidator: ConfigSchemaValidator = ConfigSchemaValidator()) {
     fun validate(file: File): ConfigValidationResult = validate(file.readText(), file.toPath())
 
-    fun validate(content: String, origin: Path = Path.of("specmatic.yaml")): ConfigValidationResult {
+    fun validate(
+        content: String,
+        origin: Path = Path.of("specmatic.yaml"),
+        schemaOutputFormat: ConfigSchemaOutputFormat = ConfigSchemaOutputFormat.HIERARCHICAL,
+    ): ConfigValidationResult {
         val authoredTree = parse(content)
             ?: return invalid(null, "/", "Configuration could not be parsed as YAML or JSON.")
 
@@ -25,7 +29,7 @@ class SpecmaticConfigValidator(private val schemaValidator: ConfigSchemaValidato
         return if (version == SpecmaticConfigVersion.VERSION_1) {
             validateV1Binding(authoredTree, version)
         } else {
-            validateResolved(authoredTree, version, origin)
+            validateResolved(authoredTree, version, origin, schemaOutputFormat)
         }
     }
 
@@ -41,14 +45,14 @@ class SpecmaticConfigValidator(private val schemaValidator: ConfigSchemaValidato
         }
     }
 
-    private fun validateResolved(authoredTree: JsonNode, version: SpecmaticConfigVersion, origin: Path): ConfigValidationResult {
+    private fun validateResolved(authoredTree: JsonNode, version: SpecmaticConfigVersion, origin: Path, schemaOutputFormat: ConfigSchemaOutputFormat): ConfigValidationResult {
         val resolvedTree = try {
             resolveTemplates(authoredTree)
         } catch (_: Exception) {
             return invalid(version, "/", "Configuration expressions could not be resolved.")
         }
 
-        val schemaOutput = schemaValidator.validate(version, resolvedTree)
+        val schemaOutput = schemaValidator.validate(version, resolvedTree, schemaOutputFormat)
         if (schemaOutput.isNotEmpty()) {
             return ConfigValidationResult.Invalid(version, schemaOutput)
         }

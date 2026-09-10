@@ -11,17 +11,19 @@ import io.specmatic.core.config.SpecmaticConfigVersion.Companion.getLatestVersio
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.isValidVersion
 import io.specmatic.core.config.getVersion
 import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.config.validation.ConfigValidationOutput
+import io.specmatic.core.config.validation.ConfigValidationResult
+import io.specmatic.core.config.validation.ConfigValidationSeverity
+import io.specmatic.core.config.validation.ConfigSchemaOutputFormat
+import io.specmatic.core.config.validation.SpecmaticConfigValidator
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
-import picocli.CommandLine.Command
-import picocli.CommandLine.Option
+import kotlinx.serialization.json.Json
+import picocli.CommandLine.*
 import java.io.File
 import java.util.concurrent.Callable
-import kotlin.reflect.KClass
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.jvm.isAccessible
 import kotlin.system.exitProcess
 
 private const val SUCCESS_EXIT_CODE = 0
@@ -33,7 +35,8 @@ private const val SPECMATIC_CONFIGURATION = "Specmatic Configuration"
     mixinStandardHelpOptions = true,
     description = ["Manage and configure $SPECMATIC_CONFIGURATION."],
     subcommands = [
-        ConfigCommand.Upgrade::class
+        ConfigCommand.Upgrade::class,
+        ConfigCommand.Validate::class,
     ]
 )
 @Category("Specmatic core")
@@ -124,5 +127,118 @@ class ConfigCommand : Callable<Int> {
             }
             return configFile
         }
+    }
+
+    @Command(
+        name = "validate",
+        mixinStandardHelpOptions = true,
+        description = ["Validate $SPECMATIC_CONFIGURATION against its schema and semantic rules."],
+    )
+    class Validate : Callable<Int> {
+        private val validator = SpecmaticConfigValidator()
+        private val renderer = ConfigValidationTextRenderer()
+        @Option(
+            names = ["--input"],
+            description = ["Path to the $SPECMATIC_CONFIGURATION file. Defaults to the normal config path."],
+        )
+        var inputFile: File? = null
+
+        @Option(
+            names = ["--format"],
+            defaultValue = "text",
+            description = ["Output format: text or json."],
+            converter = [OutputFormatConverter::class],
+        )
+        var format: OutputFormat = OutputFormat.TEXT
+
+        @Option(
+            names = ["--schema-output"],
+            converter = [SchemaOutputFormatConverter::class],
+            description = ["Schema validation output: list or hierarchical. Defaults to list for text and hierarchical for JSON."],
+        )
+        var schemaOutput: ConfigSchemaOutputFormat? = null
+
+        override fun call(): Int {
+            val configFile = inputFile ?: File(getConfigFilePath())
+            val content = try {
+                configFile.readText()
+            } catch (e: Exception) {
+                val result = unreadableFile(configFile, e)
+                print(result, configFile, "")
+                return 1
+            }
+
+            val result = validator.validate(content, configFile.toPath(), schemaOutput ?: defaultSchemaOutput())
+            print(result, configFile, content)
+            return if (result is ConfigValidationResult.Valid) 0 else 1
+        }
+
+        private fun print(result: ConfigValidationResult, configFile: File, content: String) {
+            when (format) {
+                OutputFormat.JSON -> println(serializeOutputs(result))
+                OutputFormat.TEXT -> println(renderer.render(configFile.name, content, result))
+            }
+        }
+
+        private fun serializeOutputs(result: ConfigValidationResult): String {
+            return json.encodeToString(
+                value = when (result) {
+                    is ConfigValidationResult.Invalid -> result.output
+                    is ConfigValidationResult.Valid -> listOf(validOutput())
+                }
+            )
+        }
+
+        private fun validOutput() = ConfigValidationOutput(
+            valid = true,
+            keywordLocation = "",
+            instanceLocation = "",
+            severity = ConfigValidationSeverity.INFO,
+        )
+
+        private fun defaultSchemaOutput(): ConfigSchemaOutputFormat = when (format) {
+            OutputFormat.TEXT -> ConfigSchemaOutputFormat.LIST
+            OutputFormat.JSON -> ConfigSchemaOutputFormat.HIERARCHICAL
+        }
+
+        private fun unreadableFile(file: File, exception: Exception): ConfigValidationResult.Invalid {
+            val message = exception.message?.takeIf { it.isNotBlank() } ?: "The file could not be read."
+            return ConfigValidationResult.Invalid(
+                version = null,
+                output = listOf(
+                    element = ConfigValidationOutput(
+                        valid = false,
+                        keywordLocation = "",
+                        instanceLocation = "",
+                        error = "Could not read ${file.path}: $message",
+                    )
+                ),
+            )
+        }
+
+        private companion object {
+            val json = Json { prettyPrint = true; prettyPrintIndent = "  "; encodeDefaults = true }
+        }
+    }
+
+    class OutputFormatConverter : ITypeConverter<OutputFormat> {
+        override fun convert(value: String): OutputFormat = when (value.lowercase()) {
+            "text" -> OutputFormat.TEXT
+            "json" -> OutputFormat.JSON
+            else -> throw IllegalArgumentException("expected text or json")
+        }
+    }
+
+    class SchemaOutputFormatConverter : ITypeConverter<ConfigSchemaOutputFormat> {
+        override fun convert(value: String): ConfigSchemaOutputFormat = when (value.lowercase()) {
+            "list" -> ConfigSchemaOutputFormat.LIST
+            "hierarchical", "hierarchy" -> ConfigSchemaOutputFormat.HIERARCHICAL
+            else -> throw IllegalArgumentException("expected list or hierarchical")
+        }
+    }
+
+    enum class OutputFormat {
+        TEXT,
+        JSON,
     }
 }

@@ -109,11 +109,8 @@ class ConfigSchemaValidationTest {
               - git: {}
                 filesystem: {}
             """.trimIndent())).isEqualTo(invalidOutput(
-                detail($$"/properties/contracts/items/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ContractConfig", "/contracts/0", "Specify zero or one contract source: git, filesystem, or web."),
-                detail($$"/properties/contracts/items/$ref/oneOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ContractConfig/oneOf/0", "/contracts/0", "must not be valid to the schema {\"description\":\"No explicit source may be present in this branch.\",\"anyOf\":[{\"description\":\"An explicit Git source is present.\",\"required\":[\"git\"]},{\"description\":\"An explicit filesystem source is present.\",\"required\":[\"filesystem\"]},{\"description\":\"An explicit web source is present.\",\"required\":[\"web\"]}]}"),
-                detail($$"/properties/contracts/items/$ref/oneOf/1", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ContractConfig/oneOf/1", "/contracts/0", "must not be valid to the schema {\"description\":\"No additional explicit source may be present in the Git branch.\",\"anyOf\":[{\"description\":\"An explicit filesystem source is present.\",\"required\":[\"filesystem\"]},{\"description\":\"An explicit web source is present.\",\"required\":[\"web\"]}]}"),
-                detail($$"/properties/contracts/items/$ref/oneOf/2", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ContractConfig/oneOf/2", "/contracts/0", "must not be valid to the schema {\"description\":\"No additional explicit source may be present in the filesystem branch.\",\"anyOf\":[{\"description\":\"An explicit Git source is present.\",\"required\":[\"git\"]},{\"description\":\"An explicit web source is present.\",\"required\":[\"web\"]}]}"),
-                detail($$"/properties/contracts/items/$ref/oneOf/3", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ContractConfig/oneOf/3", "/contracts/0", "required property 'web' not found; must not be valid to the schema {\"description\":\"No additional explicit source may be present in the web branch.\",\"anyOf\":[{\"description\":\"An explicit Git source is present.\",\"required\":[\"git\"]},{\"description\":\"An explicit filesystem source is present.\",\"required\":[\"filesystem\"]}]}"),
+                detail($$"/properties/contracts/items/$ref/allOf/0/then/allOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ContractConfig/allOf/0/then/allOf/0", "/contracts/0", "Specify zero or one contract source: git, filesystem, or web."),
+                detail($$"/properties/contracts/items/$ref/allOf/1/then/allOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ContractConfig/allOf/1/then/allOf/0", "/contracts/0", "Specify zero or one contract source: git, filesystem, or web."),
             ))
         }
 
@@ -128,14 +125,7 @@ class ConfigSchemaValidationTest {
                     resiliencyTests:
                       enable: all
             """.trimIndent())).isEqualTo(invalidOutput(
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConsumesEntry", "/contracts/0/consumes/0", "must be valid to one and only one schema, but 0 are valid"),
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/oneOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConsumesEntry/oneOf/0", "/contracts/0/consumes/0", "object found, string expected"),
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/oneOf/1/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/FullUrlConsumes", "/contracts/0/consumes/0", "property 'resiliencyTests' is not defined in the schema and the schema does not allow additional properties"),
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/oneOf/2/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlConsumes", "/contracts/0/consumes/0", "[property 'baseUrl' is not defined in the schema and the schema does not allow additional properties, property 'resiliencyTests' is not defined in the schema and the schema does not allow additional properties]"),
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/oneOf/2/$ref/anyOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlConsumes/anyOf/0", "/contracts/0/consumes/0", "required property 'host' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/oneOf/2/$ref/anyOf/1", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlConsumes/anyOf/1", "/contracts/0/consumes/0", "required property 'port' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/oneOf/2/$ref/anyOf/2", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlConsumes/anyOf/2", "/contracts/0/consumes/0", "required property 'basePath' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/oneOf/3/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValue", "/contracts/0/consumes/0", "[property 'baseUrl' is not defined in the schema and the schema does not allow additional properties, property 'resiliencyTests' is not defined in the schema and the schema does not allow additional properties]; [required property 'specType' not found, required property 'config' not found]"),
+                detail($$"/properties/contracts/items/$ref/properties/consumes/items/$ref/else/then/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/FullUrlConsumes", "/contracts/0/consumes/0", "property 'resiliencyTests' is not defined in the schema and the schema does not allow additional properties"),
             ))
         }
 
@@ -148,13 +138,7 @@ class ConfigSchemaValidationTest {
                   - basePath: /orders
                     specs: [orders.yaml]
             """.trimIndent())).isEqualTo(invalidOutput(
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ProvidesEntry", "/contracts/0/provides/0", "must be valid to one and only one schema, but 0 are valid"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ProvidesEntry/oneOf/0", "/contracts/0/provides/0", "object found, string expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/1/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/FullUrlProvides", "/contracts/0/provides/0", "property 'basePath' is not defined in the schema and the schema does not allow additional properties; required property 'baseUrl' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides", "/contracts/0/provides/0", "property 'basePath' is not defined in the schema and the schema does not allow additional properties"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref/anyOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides/anyOf/0", "/contracts/0/provides/0", "required property 'host' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref/anyOf/1", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides/anyOf/1", "/contracts/0/provides/0", "required property 'port' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValue", "/contracts/0/provides/0", "property 'basePath' is not defined in the schema and the schema does not allow additional properties; [required property 'specType' not found, required property 'config' not found]"),
+                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/else/else/else/else/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValue", "/contracts/0/provides/0", "property 'basePath' is not defined in the schema and the schema does not allow additional properties; [required property 'specType' not found, required property 'config' not found]"),
             ))
         }
 
@@ -166,12 +150,7 @@ class ConfigSchemaValidationTest {
               - provides:
                   - specs: [orders.yaml]
             """.trimIndent())).isEqualTo(invalidOutput(
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ProvidesEntry", "/contracts/0/provides/0", "must be valid to one and only one schema, but 0 are valid"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ProvidesEntry/oneOf/0", "/contracts/0/provides/0", "object found, string expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/1/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/FullUrlProvides", "/contracts/0/provides/0", "required property 'baseUrl' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref/anyOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides/anyOf/0", "/contracts/0/provides/0", "required property 'host' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref/anyOf/1", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides/anyOf/1", "/contracts/0/provides/0", "required property 'port' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValue", "/contracts/0/provides/0", "[required property 'specType' not found, required property 'config' not found]"),
+                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/else/else/else/else/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValue", "/contracts/0/provides/0", "[required property 'specType' not found, required property 'config' not found]"),
             ))
         }
 
@@ -186,18 +165,7 @@ class ConfigSchemaValidationTest {
                     config:
                       token: null
             """.trimIndent())).isEqualTo(invalidOutput(
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ProvidesEntry", "/contracts/0/provides/0", "must be valid to one and only one schema, but 0 are valid"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ProvidesEntry/oneOf/0", "/contracts/0/provides/0", "object found, string expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/1/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/FullUrlProvides", "/contracts/0/provides/0", "[property 'specType' is not defined in the schema and the schema does not allow additional properties, property 'config' is not defined in the schema and the schema does not allow additional properties]; required property 'baseUrl' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides", "/contracts/0/provides/0", "[property 'specType' is not defined in the schema and the schema does not allow additional properties, property 'config' is not defined in the schema and the schema does not allow additional properties]"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref/anyOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides/anyOf/0", "/contracts/0/provides/0", "required property 'host' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/2/$ref/anyOf/1", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/PartialUrlProvides/anyOf/1", "/contracts/0/provides/0", "required property 'port' not found"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref/properties/config/additionalProperties/$ref/anyOf/0", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValueNode/anyOf/0", "/contracts/0/provides/0/config/token", "null found, string expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref/properties/config/additionalProperties/$ref/anyOf/1", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValueNode/anyOf/1", "/contracts/0/provides/0/config/token", "null found, integer expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref/properties/config/additionalProperties/$ref/anyOf/2", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValueNode/anyOf/2", "/contracts/0/provides/0/config/token", "null found, number expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref/properties/config/additionalProperties/$ref/anyOf/3", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValueNode/anyOf/3", "/contracts/0/provides/0/config/token", "null found, boolean expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref/properties/config/additionalProperties/$ref/anyOf/4", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValueNode/anyOf/4", "/contracts/0/provides/0/config/token", "null found, array expected"),
-                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/oneOf/3/$ref/properties/config/additionalProperties/$ref/anyOf/5", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValueNode/anyOf/5", "/contracts/0/provides/0/config/token", "null found, object expected"),
+                detail($$"/properties/contracts/items/$ref/properties/provides/items/$ref/else/else/else/else/$ref/properties/config/additionalProperties/$ref", "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/ConfigValueNode", "/contracts/0/provides/0/config/token", "null found, [string, integer, number, boolean, array, object] expected"),
             ))
         }
 
@@ -213,6 +181,13 @@ class ConfigSchemaValidationTest {
                 keywordLocation = $$"/properties/contracts/items/$ref/properties/web/$ref",
                 absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v2-resolved.schema.json#/definitions/WebContractSource",
             )))
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.config.validation.ConfigSchemaValidationTest#v2ProtocolOptionCases")
+        fun `rejects invalid known V2 protocol options`(testCase: InvalidSchemaCase) {
+            assertThat(schema(testCase.version, testCase.json))
+                .isEqualTo(invalidOutput(detail(testCase)))
         }
     }
 
@@ -322,10 +297,8 @@ class ConfigSchemaValidationTest {
                   git: {}
                   filesystem: {}
             """.trimIndent())).isEqualTo(invalidOutput(
-                detail($$"/properties/components/$ref/properties/sources/additionalProperties/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/SourceSchema", "/components/sources/bad", "Choose exactly one source provider: git, filesystem, or web."),
-                detail($$"/properties/components/$ref/properties/sources/additionalProperties/$ref/oneOf/0/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/GitSourceSchema", "/components/sources/bad", "property 'filesystem' is not defined in the schema and the schema does not allow additional properties"),
-                detail($$"/properties/components/$ref/properties/sources/additionalProperties/$ref/oneOf/1/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/FileSystemSourceSchema", "/components/sources/bad", "property 'git' is not defined in the schema and the schema does not allow additional properties"),
-                detail($$"/properties/components/$ref/properties/sources/additionalProperties/$ref/oneOf/2/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/WebSourceSchema", "/components/sources/bad", "[property 'git' is not defined in the schema and the schema does not allow additional properties, property 'filesystem' is not defined in the schema and the schema does not allow additional properties]; required property 'web' not found"),
+                detail($$"/properties/components/$ref/properties/sources/additionalProperties/$ref/allOf/0/then/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/GitSourceSchema", "/components/sources/bad", "property 'filesystem' is not defined in the schema and the schema does not allow additional properties"),
+                detail($$"/properties/components/$ref/properties/sources/additionalProperties/$ref/allOf/1/then/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/FileSystemSourceSchema", "/components/sources/bad", "property 'git' is not defined in the schema and the schema does not allow additional properties"),
             ))
         }
 
@@ -340,9 +313,7 @@ class ConfigSchemaValidationTest {
                     file: server.jks
                     directory: certs
             """.trimIndent())).isEqualTo(invalidOutput(
-                detail($$"/properties/components/$ref/properties/certificates/additionalProperties/$ref/properties/keyStore/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/KeyStoreConfiguration", "/components/certificates/bad/keyStore", "Specify exactly one key-store form: file or directory."),
-                detail($$"/properties/components/$ref/properties/certificates/additionalProperties/$ref/properties/keyStore/$ref/oneOf/0/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/KeyStoreFileConfiguration", "/components/certificates/bad/keyStore", "property 'directory' is not defined in the schema and the schema does not allow additional properties"),
-                detail($$"/properties/components/$ref/properties/certificates/additionalProperties/$ref/properties/keyStore/$ref/oneOf/1/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/KeyStoreDirectoryConfiguration", "/components/certificates/bad/keyStore", "property 'file' is not defined in the schema and the schema does not allow additional properties"),
+                detail($$"/properties/components/$ref/properties/certificates/additionalProperties/$ref/properties/keyStore/$ref/allOf/0/then/$ref", "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/KeyStoreFileConfiguration", "/components/certificates/bad/keyStore", "property 'directory' is not defined in the schema and the schema does not allow additional properties"),
             ))
         }
 
@@ -361,11 +332,438 @@ class ConfigSchemaValidationTest {
                 absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/McpTestRunOptions/properties/transportKind",
             )))
         }
+
+        @Test
+        fun `selects the test branch before validating component run options`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            components:
+              runOptions:
+                api:
+                  openapi:
+                    type: test
+                    logMode: ALL
+            """.trimIndent())).isEqualTo(invalidOutput(detail(
+                instanceLocation = "/components/runOptions/api/openapi",
+                error = "property 'logMode' is not defined in the schema and the schema does not allow additional properties",
+                keywordLocation = $$"/properties/components/$ref/properties/runOptions/additionalProperties/$ref/properties/openapi/$ref/allOf/0/then/$ref",
+                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/OpenApiTestRunOptions",
+            )))
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.config.validation.ConfigSchemaValidationTest#v3ProtocolOptionCases")
+        fun `rejects invalid known V3 protocol options`(testCase: InvalidSchemaCase) {
+            assertThat(schema(testCase.version, testCase.json))
+                .isEqualTo(invalidOutput(detail(testCase)))
+        }
     }
 
     companion object {
+        private const val REF = $$"$ref"
         data class ValidSchemaCase(val name: String, val json: String) {
             override fun toString(): String = name
+        }
+
+        data class InvalidSchemaCase(
+            val name: String,
+            val json: String,
+            val error: String,
+            val keywordLocation: String,
+            val instanceLocation: String,
+            val version: SpecmaticConfigVersion,
+            val absoluteKeywordLocation: String,
+        ) {
+            override fun toString(): String = name
+        }
+
+        @JvmStatic
+        fun v2ProtocolOptionCases() = listOf(
+            v2OptionCase(
+                name = "AsyncAPI replyTimeout must be an integer",
+                option = "replyTimeout: slow",
+                optionPath = "replyTimeout",
+                expectedType = "integer",
+            ),
+            v2OptionCase(
+                name = "AsyncAPI subscriberReadinessWaitTime must be an integer",
+                option = "subscriberReadinessWaitTime: soon",
+                optionPath = "subscriberReadinessWaitTime",
+                expectedType = "integer",
+            ),
+            v2OptionCase(
+                name = "AsyncAPI inMemoryBroker.port must be an integer",
+                option = "inMemoryBroker: { port: nope }",
+                optionPath = "inMemoryBroker/$REF/properties/port",
+                expectedType = "integer",
+            ),
+            v2OptionCase(
+                name = "AsyncAPI servers must be an array",
+                option = "servers: invalid",
+                optionPath = "servers",
+                expectedType = "array",
+            ),
+            v2OptionCase(
+                name = "AsyncAPI server host must be a string",
+                option = "servers: [{ host: 123, protocol: kafka }]",
+                optionPath = "servers/items/$REF/properties/host",
+                instancePath = "servers/0/host",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+            ),
+            v2OptionCase(
+                name = "AsyncAPI schema registry kind must be supported",
+                option = "schemaRegistry: { kind: unsupported }",
+                optionPath = "schemaRegistry/$REF/properties/kind",
+                errorMessage = "does not have a value in the enumeration [\"CONFLUENT\", \"DEFAULT\"]",
+            ),
+            v2OptionCase(
+                name = "GraphQL host must be a string",
+                specType = "graphqlsdl",
+                option = "host: 123",
+                optionPath = "host",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+            ),
+            v2OptionCase(
+                name = "GraphQL port must be an integer",
+                specType = "graphqlsdl",
+                option = "port: nope",
+                optionPath = "port",
+                expectedType = "integer",
+            ),
+            v2OptionCase(
+                name = "gRPC host must be a string",
+                specType = "protobuf",
+                option = "host: 123",
+                optionPath = "host",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+            ),
+            v2OptionCase(
+                name = "gRPC port must be an integer",
+                specType = "protobuf",
+                option = "port: nope",
+                optionPath = "port",
+                expectedType = "integer",
+            ),
+            v2OptionCase(
+                name = "gRPC importPaths must be an array",
+                specType = "protobuf",
+                option = "importPaths: invalid",
+                optionPath = "importPaths",
+                expectedType = "array",
+            ),
+            v2OptionCase(
+                name = "gRPC protocVersion must be a string",
+                specType = "protobuf",
+                option = "protocVersion: 3",
+                optionPath = "protocVersion",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+            ),
+            v2OptionCase(
+                name = "gRPC requestTimeout must be an integer",
+                specType = "protobuf",
+                option = "requestTimeout: slow",
+                optionPath = "requestTimeout",
+                expectedType = "integer",
+            ),
+        )
+
+        @JvmStatic
+        fun v3ProtocolOptionCases() = listOf(
+            v3OptionCase(
+                name = "AsyncAPI test replyTimeout must be an integer",
+                branch = "asyncTest",
+                option = "replyTimeout: slow",
+                optionPath = "replyTimeout",
+                expectedType = "integer",
+                schema = "AsyncApiTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "AsyncAPI test subscriberReadinessWaitTime must be an integer",
+                branch = "asyncTest",
+                option = "subscriberReadinessWaitTime: soon",
+                optionPath = "subscriberReadinessWaitTime",
+                expectedType = "integer",
+                schema = "AsyncApiTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "AsyncAPI test servers must be an array",
+                branch = "asyncTest",
+                option = "servers: invalid",
+                optionPath = "servers",
+                expectedType = "array",
+                schema = "AsyncApiTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "AsyncAPI server client consumer must be an object",
+                branch = "asyncTest",
+                option = """
+                servers:
+                  - host: localhost:9092
+                    protocol: kafka
+                    client:
+                      consumer: invalid
+                """.trimIndent(),
+                optionPath = "servers/items/$REF/properties/client/$REF/properties/consumer",
+                instancePath = "servers/0/client/consumer",
+                expectedType = "object",
+                schema = "AsyncClientProperties",
+            ),
+            v3OptionCase(
+                name = "AsyncAPI test schema registry must be an object",
+                branch = "asyncTest",
+                option = "schemaRegistry: invalid",
+                optionPath = "schemaRegistry/$REF",
+                expectedType = "object",
+                schema = "SchemaRegistryProperties",
+            ),
+            v3OptionCase(
+                name = "AsyncAPI mock inMemoryBroker.port must be an integer",
+                branch = "asyncMock",
+                option = "inMemoryBroker: { port: nope }",
+                optionPath = "inMemoryBroker/$REF/properties/port",
+                expectedType = "integer",
+                schema = "InMemoryBrokerConfiguration",
+            ),
+            v3OptionCase(
+                name = "AsyncAPI mock servers must be an array",
+                branch = "asyncMock",
+                option = "servers: invalid",
+                optionPath = "servers",
+                expectedType = "array",
+                schema = "AsyncApiMockRunOptions",
+            ),
+            v3OptionCase(
+                name = "AsyncAPI mock schema registry must be an object",
+                branch = "asyncMock",
+                option = "schemaRegistry: invalid",
+                optionPath = "schemaRegistry/$REF",
+                expectedType = "object",
+                schema = "SchemaRegistryProperties",
+            ),
+            v3OptionCase(
+                name = "GraphQL test host must be a string",
+                branch = "graphqlTest",
+                protocol = "graphqlsdl",
+                option = "host: 123",
+                optionPath = "host",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+                schema = "GraphqlSdlTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "GraphQL test port must be an integer",
+                branch = "graphqlTest",
+                protocol = "graphqlsdl",
+                option = "port: nope",
+                optionPath = "port",
+                expectedType = "integer",
+                schema = "GraphqlSdlTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "GraphQL mock host must be a string",
+                branch = "graphqlMock",
+                protocol = "graphqlsdl",
+                option = "host: 123",
+                optionPath = "host",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+                schema = "GraphqlSdlMockRunOptions",
+            ),
+            v3OptionCase(
+                name = "GraphQL mock port must be an integer",
+                branch = "graphqlMock",
+                protocol = "graphqlsdl",
+                option = "port: nope",
+                optionPath = "port",
+                expectedType = "integer",
+                schema = "GraphqlSdlMockRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC test host must be a string",
+                branch = "grpcTest",
+                protocol = "protobuf",
+                option = "host: 123",
+                optionPath = "host",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+                schema = "ProtobufTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC test port must be an integer",
+                branch = "grpcTest",
+                protocol = "protobuf",
+                option = "port: nope",
+                optionPath = "port",
+                expectedType = "integer",
+                schema = "ProtobufTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC test importPaths must be an array",
+                branch = "grpcTest",
+                protocol = "protobuf",
+                option = "importPaths: invalid",
+                optionPath = "importPaths",
+                expectedType = "array",
+                schema = "ProtobufTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC test protocVersion must be a string",
+                branch = "grpcTest",
+                protocol = "protobuf",
+                option = "protocVersion: 3",
+                optionPath = "protocVersion",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+                schema = "ProtobufTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC test requestTimeout must be an integer",
+                branch = "grpcTest",
+                protocol = "protobuf",
+                option = "requestTimeout: slow",
+                optionPath = "requestTimeout",
+                expectedType = "integer",
+                schema = "ProtobufTestRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC mock port must be an integer",
+                branch = "grpcMock",
+                protocol = "protobuf",
+                option = "port: nope",
+                optionPath = "port",
+                expectedType = "integer",
+                schema = "ProtobufMockRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC mock importPaths must be an array",
+                branch = "grpcMock",
+                protocol = "protobuf",
+                option = "importPaths: invalid",
+                optionPath = "importPaths",
+                expectedType = "array",
+                schema = "ProtobufMockRunOptions",
+            ),
+            v3OptionCase(
+                name = "gRPC mock protocVersion must be a string",
+                branch = "grpcMock",
+                protocol = "protobuf",
+                option = "protocVersion: 3",
+                optionPath = "protocVersion",
+                expectedType = "string",
+                errorMessage = "integer found, string expected",
+                schema = "ProtobufMockRunOptions",
+            ),
+        )
+
+        private fun v2OptionCase(
+            name: String,
+            option: String,
+            optionPath: String,
+            instancePath: String? = null,
+            expectedType: String? = null,
+            errorMessage: String? = null,
+            specType: String = "asyncapi",
+        ): InvalidSchemaCase {
+            val branch = when (specType) {
+                "asyncapi" -> 0
+                "graphqlsdl" -> 1
+                "protobuf" -> 2
+                else -> error("Unsupported V2 protocol: $specType")
+            }
+
+            val schemaName = when (specType) {
+                "asyncapi" -> "AsyncConfiguration"
+                "graphqlsdl" -> "GraphqlConfiguration"
+                "protobuf" -> "GrpcConfiguration"
+                else -> error("Unsupported V2 protocol: $specType")
+            }
+
+            val schemaPath = "/properties/contracts/items/$REF/properties/provides/items/$REF/else/else/else/else/$REF"
+            val optionSchemaPath = "$schemaPath/allOf/$branch/then/properties/config/$REF/properties/$optionPath"
+            val config = buildList {
+                add("version: 2")
+                add("contracts:")
+                add("  - provides:")
+                add("      - specs: [events.yaml]")
+                add("        specType: $specType")
+                add("        config:")
+                option.lines().forEach { add("          $it") }
+            }.joinToString("\n")
+
+            return InvalidSchemaCase(
+                name = name,
+                version = SpecmaticConfigVersion.VERSION_2,
+                json = config,
+                keywordLocation = optionSchemaPath,
+                absoluteKeywordLocation = absoluteSchemaLocation(
+                    schema = when {
+                        optionPath.startsWith("inMemoryBroker/") -> "InMemoryBrokerConfiguration"
+                        optionPath.startsWith("schemaRegistry/") -> "SchemaRegistryProperties"
+                        optionPath.startsWith("servers/") -> "AsyncClientServerConfig"
+                        else -> schemaName
+                    },
+                    optionPath = optionPath,
+                    version = 2,
+                ),
+                instanceLocation = "/contracts/0/provides/0/config/${instancePath ?: instanceOptionPath(optionPath)}",
+                error = errorMessage ?: "string found, $expectedType expected",
+            )
+        }
+
+        private fun v3OptionCase(
+            name: String,
+            branch: String,
+            option: String,
+            optionPath: String,
+            instancePath: String? = null,
+            expectedType: String? = null,
+            errorMessage: String? = null,
+            schema: String,
+            protocol: String = "asyncapi",
+        ): InvalidSchemaCase {
+            val mode = if (branch.endsWith("Mock")) "mock" else "test"
+            val branchIndex = if (mode == "test") 0 else 1
+            val schemaPath = "/properties/components/$REF/properties/runOptions/additionalProperties/$REF/properties/$protocol/$REF/allOf/$branchIndex/then/$REF"
+            val optionSchemaPath = "$schemaPath/properties/$optionPath"
+            val config = buildList {
+                add("version: 3")
+                add("components:")
+                add("  runOptions:")
+                add("    $branch:")
+                add("      $protocol:")
+                add("        type: $mode")
+                option.lines().forEach { add("        $it") }
+            }.joinToString("\n")
+
+            return InvalidSchemaCase(
+                name = name,
+                version = SpecmaticConfigVersion.VERSION_3,
+                json = config,
+                keywordLocation = optionSchemaPath,
+                absoluteKeywordLocation = absoluteSchemaLocation(schema, optionPath, version = 3),
+                instanceLocation = "/components/runOptions/$branch/$protocol/${instancePath ?: instanceOptionPath(optionPath)}",
+                error = errorMessage ?: if (optionPath.endsWith("/$REF")) "string found, object expected" else "string found, $expectedType expected",
+            )
+        }
+
+        private fun absoluteSchemaLocation(schema: String, optionPath: String, version: Int): String {
+            val path = when {
+                optionPath.endsWith("/$REF") -> ""
+                optionPath.contains("/$REF/properties/") -> "/properties/${optionPath.substringAfterLast("/properties/")}"
+                else -> "/properties/$optionPath"
+            }
+
+            return "https://specmatic.io/internal-schema/config-v$version-resolved.schema.json#/definitions/$schema$path"
+        }
+
+        private fun instanceOptionPath(optionPath: String): String = when {
+            optionPath.endsWith("/$REF") -> optionPath.removeSuffix("/$REF")
+            optionPath.contains("/$REF/properties/") -> optionPath.substringBefore("/$REF") + "/" + optionPath.substringAfterLast("/properties/")
+            else -> optionPath
         }
 
         @JvmStatic
@@ -425,6 +823,54 @@ class ConfigSchemaValidationTest {
                           enabled: true
                           extra:
                             region: test
+                """.trimIndent(),
+            ),
+            ValidSchemaCase(
+                name = "known AsyncAPI, GraphQL and gRPC options with extensions",
+                json = """
+                version: 2
+                contracts:
+                  - provides:
+                      - specs: [events.yaml]
+                        specType: asyncapi
+                        config:
+                          replyTimeout: 10000
+                          subscriberReadinessWaitTime: 100
+                          inMemoryBroker:
+                            logDir: broker-logs
+                            host: localhost
+                            port: 9092
+                          servers:
+                            - host: localhost:9092
+                              protocol: kafka
+                              adminCredentials:
+                                username: admin
+                              client:
+                                consumer:
+                                  group: tests
+                                producer:
+                                  acks: all
+                          schemaRegistry:
+                            kind: DEFAULT
+                          extension:
+                            enabled: true
+                  - provides:
+                      - specs: [schema.graphql]
+                        specType: graphqlsdl
+                        config:
+                          host: localhost
+                          port: 9001
+                          extension: enabled
+                  - provides:
+                      - specs: [service.proto]
+                        specType: protobuf
+                        config:
+                          host: localhost
+                          port: 9002
+                          importPaths: [proto]
+                          protocVersion: 3.25.0
+                          requestTimeout: 5000
+                          extension: enabled
                 """.trimIndent(),
             ),
         )
@@ -488,11 +934,81 @@ class ConfigSchemaValidationTest {
                   services: []
                 """.trimIndent(),
             ),
+            ValidSchemaCase(
+                name = "known AsyncAPI, GraphQL and gRPC run options with extensions",
+                json = """
+                version: 3
+                components:
+                  runOptions:
+                    asyncTest:
+                      asyncapi:
+                        type: test
+                        replyTimeout: 10000
+                        subscriberReadinessWaitTime: 100
+                        servers:
+                          - host: localhost:9092
+                            protocol: kafka
+                            adminCredentials:
+                              username: admin
+                            client:
+                              consumer:
+                                group: tests
+                              producer:
+                                acks: all
+                        schemaRegistry:
+                          kind: DEFAULT
+                        extension:
+                          enabled: true
+                    asyncMock:
+                      asyncapi:
+                        type: mock
+                        inMemoryBroker:
+                          logDir: broker-logs
+                          host: localhost
+                          port: 9093
+                        servers:
+                          - host: localhost:9093
+                            protocol: kafka
+                        schemaRegistry:
+                          kind: DEFAULT
+                    graphqlTest:
+                      graphqlsdl:
+                        type: test
+                        host: localhost
+                        port: 9001
+                    graphqlMock:
+                      graphqlsdl:
+                        type: mock
+                        host: localhost
+                        port: 9002
+                    grpcTest:
+                      protobuf:
+                        type: test
+                        host: localhost
+                        port: 9003
+                        importPaths: [proto]
+                        protocVersion: 3.25.0
+                        requestTimeout: 5000
+                    grpcMock:
+                      protobuf:
+                        type: mock
+                        port: 9004
+                        importPaths: [proto]
+                        protocVersion: 3.25.0
+                """.trimIndent(),
+            ),
         )
     }
 
     private fun invalidOutput(vararg details: ConfigValidationOutput) = details.toList()
     private fun schema(version: SpecmaticConfigVersion, json: String) = validator.validate(version, objectMapper.readTree(json))
+    private fun detail(testCase: InvalidSchemaCase) = detail(
+        error = testCase.error,
+        keywordLocation = testCase.keywordLocation,
+        instanceLocation = testCase.instanceLocation,
+        absoluteKeywordLocation = testCase.absoluteKeywordLocation,
+    )
+
     private fun detail(
         keywordLocation: String,
         absoluteKeywordLocation: String,

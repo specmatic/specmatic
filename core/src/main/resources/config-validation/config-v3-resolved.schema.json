@@ -162,42 +162,60 @@
     "RefOrTestService": {
       "title": "Test service or reference",
       "description": "Use an inline test service or a reference to a reusable service component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a reusable test service."
-        },
-        {
-          "$ref": "#/definitions/TestService",
-          "description": "An inline test service."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a reusable test service."
+          },
+          "else": {
+            "$ref": "#/definitions/TestService",
+            "description": "An inline test service."
+          }
         }
       ]
     },
     "RefOrMockService": {
       "title": "Mock service or reference",
       "description": "Use an inline mock service or a reference to a reusable service component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a reusable mock service."
-        },
-        {
-          "$ref": "#/definitions/MockService",
-          "description": "An inline mock service."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a reusable mock service."
+          },
+          "else": {
+            "$ref": "#/definitions/MockService",
+            "description": "An inline mock service."
+          }
         }
       ]
     },
     "RefOrContextService": {
       "title": "Contextual service or reference",
       "description": "Use an inline reusable service or a reference; its test/mock context is selected by the consumer.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a reusable contextual service."
-        },
-        {
-          "$ref": "#/definitions/ContextService",
-          "description": "An inline contextual service."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a reusable contextual service."
+          },
+          "else": {
+            "$ref": "#/definitions/ContextService",
+            "description": "An inline contextual service."
+          }
         }
       ]
     },
@@ -375,23 +393,25 @@
     "SpecificationDefinition": {
       "title": "Specification definition",
       "description": "A specification path or an object containing that path and optional per-specification overrides.",
-      "oneOf": [
+      "type": [ "string", "object" ],
+      "allOf": [
         {
-          "type": "string",
-          "description": "A resolved specification path."
-        },
-        {
-          "type": "object",
-          "description": "A specification path with optional per-specification overrides.",
-          "additionalProperties": false,
-          "required": [
-            "spec"
-          ],
-          "properties": {
-            "spec": {
-              "$ref": "#/definitions/SpecificationObject",
-              "title": "Specification override",
-              "description": "Inline specification path and optional per-specification overrides."
+          "if": {
+            "type": "string"
+          },
+          "then": {
+            "description": "A resolved specification path."
+          },
+          "else": {
+            "description": "A specification path with optional per-specification overrides.",
+            "additionalProperties": false,
+            "required": [ "spec" ],
+            "properties": {
+              "spec": {
+                "$ref": "#/definitions/SpecificationObject",
+                "title": "Specification override",
+                "description": "Inline specification path and optional per-specification overrides."
+              }
             }
           }
         }
@@ -518,23 +538,42 @@
     },
     "SourceSchema": {
       "title": "Source",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/GitSourceSchema",
-          "description": "A Git-backed source."
+          "if": {
+            "required": [
+              "git"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitSourceSchema"
+          }
         },
         {
-          "$ref": "#/definitions/FileSystemSourceSchema",
-          "description": "A filesystem-backed source."
+          "if": {
+            "required": [
+              "filesystem"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/FileSystemSourceSchema"
+          }
         },
         {
-          "$ref": "#/definitions/WebSourceSchema",
-          "description": "A web-backed source."
+          "if": {
+            "required": [
+              "web"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/WebSourceSchema"
+          }
         }
       ],
       "description": "Exactly one source provider is selected: git, filesystem, or web. The selected wrapper determines how specifications are located.",
       "errorMessage": {
-        "oneOf": "Choose exactly one source provider: git, filesystem, or web."
+        "required": "Choose exactly one source provider: git, filesystem, or web."
       }
     },
     "GitSourceSchema": {
@@ -597,18 +636,37 @@
     "GitSourceAuthentication": {
       "title": "Git authentication",
       "description": "Exactly one supported Git credential source.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/GitBearerFileAuthentication",
-          "description": "Git authentication using a bearer-token file."
+          "if": {
+            "required": [
+              "bearerFile"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitBearerFileAuthentication"
+          }
         },
         {
-          "$ref": "#/definitions/GitBearerEnvAuthentication",
-          "description": "Git authentication using a bearer-token environment variable."
+          "if": {
+            "required": [
+              "bearerEnvironmentVariable"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitBearerEnvAuthentication"
+          }
         },
         {
-          "$ref": "#/definitions/GitPersonalAccessTokenAuthentication",
-          "description": "Git authentication using a personal access token."
+          "if": {
+            "required": [
+              "personalAccessToken"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/GitPersonalAccessTokenAuthentication"
+          }
         }
       ]
     },
@@ -1052,222 +1110,284 @@
     "ComponentOpenApiRunOptions": {
       "title": "Direct OpenAPI component options",
       "description": "Direct component OpenAPI options. Choose the test or mock branch and include its type discriminator.",
-      "anyOf": [
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock",
+            "stateful-mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete OpenAPI test or mock option branch."
+        }
+      },
+      "allOf": [
         {
-          "description": "OpenAPI test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/OpenApiTestRunOptions",
-              "description": "OpenAPI test run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/OpenApiTestRunOptions"
+          }
         },
         {
-          "description": "OpenAPI test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/OpenApiMockRunOptions",
-              "description": "OpenAPI mock run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "mock",
+                  "stateful-mock"
+                ]
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/OpenApiMockRunOptions"
+          }
         }
       ]
     },
     "ComponentWsdlRunOptions": {
       "title": "Direct WSDL component options",
       "description": "Direct component WSDL options. Choose the test or mock branch and include its type discriminator.",
-      "anyOf": [
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete WSDL test or mock option branch."
+        }
+      },
+      "allOf": [
         {
-          "description": "WSDL test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/WsdlTestRunOptions",
-              "description": "WSDL test run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/WsdlTestRunOptions"
+          }
         },
         {
-          "description": "WSDL test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/WsdlMockRunOptions",
-              "description": "WSDL mock run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/WsdlMockRunOptions"
+          }
         }
       ]
     },
     "ComponentAsyncApiRunOptions": {
       "title": "Direct AsyncAPI component options",
       "description": "Direct component AsyncAPI options. Choose the test or mock branch and include its type discriminator.",
-      "anyOf": [
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete AsyncAPI test or mock option branch."
+        }
+      },
+      "allOf": [
         {
-          "description": "AsyncAPI test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/AsyncApiTestRunOptions",
-              "description": "AsyncAPI test run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/AsyncApiTestRunOptions"
+          }
         },
         {
-          "description": "AsyncAPI test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/AsyncApiMockRunOptions",
-              "description": "AsyncAPI mock run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/AsyncApiMockRunOptions"
+          }
         }
       ]
     },
     "ComponentGraphqlSdlRunOptions": {
       "title": "Direct GraphQL SDL component options",
       "description": "Direct component GraphQL SDL options. Choose the test or mock branch and include its type discriminator.",
-      "anyOf": [
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete GraphQL SDL test or mock option branch."
+        }
+      },
+      "allOf": [
         {
-          "description": "GraphQL SDL test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/GraphqlSdlTestRunOptions",
-              "description": "GraphQL SDL test run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/GraphqlSdlTestRunOptions"
+          }
         },
         {
-          "description": "GraphQL SDL test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/GraphqlSdlMockRunOptions",
-              "description": "GraphQL SDL mock run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/GraphqlSdlMockRunOptions"
+          }
         }
       ]
     },
     "ComponentProtobufRunOptions": {
       "title": "Direct Protobuf component options",
       "description": "Direct component Protobuf options. Choose the test or mock branch and include its type discriminator.",
-      "anyOf": [
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the concrete Protobuf test or mock option branch."
+        }
+      },
+      "allOf": [
         {
-          "description": "Protobuf test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/ProtobufTestRunOptions",
-              "description": "Protobuf test run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/ProtobufTestRunOptions"
+          }
         },
         {
-          "description": "Protobuf test or mock component run options.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/ProtobufMockRunOptions",
-              "description": "Protobuf mock run options."
-            },
-            {
-              "description": "The directly typed component must identify its test or mock branch.",
-              "required": [
-                "type"
-              ]
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
             }
-          ]
+          },
+          "then": {
+            "$ref": "#/definitions/ProtobufMockRunOptions"
+          }
         }
       ]
     },
     "RefOrTestRunOptions": {
       "title": "Test run options or reference",
       "description": "Use inline test run options or a reference to a reusable option set.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to reusable test run options."
-        },
-        {
-          "$ref": "#/definitions/TestRunOptions",
-          "description": "Inline test run options."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable test run options."
+          },
+          "else": {
+            "$ref": "#/definitions/TestRunOptions",
+            "description": "Inline test run options."
+          }
         }
       ]
     },
     "RefOrMockRunOptions": {
       "title": "Mock run options or reference",
       "description": "Use inline mock run options or a reference to a reusable option set.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to reusable mock run options."
-        },
-        {
-          "$ref": "#/definitions/MockRunOptions",
-          "description": "Inline mock run options."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable mock run options."
+          },
+          "else": {
+            "$ref": "#/definitions/MockRunOptions",
+            "description": "Inline mock run options."
+          }
         }
       ]
     },
     "RefOrContextRunOptions": {
       "title": "Contextual run options or reference",
       "description": "Use inline context-dependent options or a reference; the consuming service selects test or mock context.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to reusable contextual run options."
-        },
-        {
-          "$ref": "#/definitions/ContextRunOptions",
-          "description": "Inline contextual run options."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable contextual run options."
+          },
+          "else": {
+            "$ref": "#/definitions/ContextRunOptions",
+            "description": "Inline contextual run options."
+          }
         }
       ]
     },
@@ -1599,6 +1719,30 @@
           "title": "Run mode",
           "description": "Test branch discriminator."
         },
+        "replyTimeout": {
+          "type": "integer",
+          "title": "Reply timeout",
+          "description": "Maximum time in milliseconds to wait for an asynchronous reply."
+        },
+        "subscriberReadinessWaitTime": {
+          "type": "integer",
+          "title": "Subscriber readiness wait time",
+          "description": "Time in milliseconds to wait for an asynchronous subscriber to become ready."
+        },
+        "servers": {
+          "type": "array",
+          "title": "AsyncAPI servers",
+          "description": "Server connection settings used by asynchronous tests.",
+          "items": {
+            "$ref": "#/definitions/AsyncClientServerConfig",
+            "description": "One asynchronous server connection."
+          }
+        },
+        "schemaRegistry": {
+          "$ref": "#/definitions/SchemaRegistryProperties",
+          "title": "Schema registry",
+          "description": "Schema registry settings used by asynchronous tests."
+        },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
@@ -1620,6 +1764,25 @@
           "const": "mock",
           "title": "Mock mode",
           "description": "Mock branch discriminator."
+        },
+        "inMemoryBroker": {
+          "$ref": "#/definitions/InMemoryBrokerConfiguration",
+          "title": "In-memory broker",
+          "description": "Optional in-memory broker settings used by asynchronous mocks."
+        },
+        "servers": {
+          "type": "array",
+          "title": "AsyncAPI servers",
+          "description": "Server connection settings used by asynchronous mocks.",
+          "items": {
+            "$ref": "#/definitions/AsyncClientServerConfig",
+            "description": "One asynchronous server connection."
+          }
+        },
+        "schemaRegistry": {
+          "$ref": "#/definitions/SchemaRegistryProperties",
+          "title": "Schema registry",
+          "description": "Schema registry settings used by asynchronous mocks."
         },
         "specs": {
           "type": "array",
@@ -1643,6 +1806,16 @@
           "title": "Run mode",
           "description": "Test branch discriminator."
         },
+        "host": {
+          "type": "string",
+          "title": "GraphQL service host",
+          "description": "Host used by the GraphQL test server."
+        },
+        "port": {
+          "type": "integer",
+          "title": "GraphQL service port",
+          "description": "Port used by the GraphQL test server."
+        },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
@@ -1664,6 +1837,16 @@
           "const": "mock",
           "title": "Mock mode",
           "description": "Mock branch discriminator."
+        },
+        "host": {
+          "type": "string",
+          "title": "GraphQL mock host",
+          "description": "Host on which the GraphQL mock listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "GraphQL mock port",
+          "description": "Port on which the GraphQL mock listens."
         },
         "specs": {
           "type": "array",
@@ -1687,6 +1870,36 @@
           "title": "Run mode",
           "description": "Test branch discriminator."
         },
+        "host": {
+          "type": "string",
+          "title": "gRPC service host",
+          "description": "Host used by the gRPC test client."
+        },
+        "port": {
+          "type": "integer",
+          "title": "gRPC service port",
+          "description": "Port used by the gRPC test client."
+        },
+        "importPaths": {
+          "type": "array",
+          "title": "Protobuf import paths",
+          "description": "Directories searched for imported Protobuf definitions.",
+          "items": {
+            "type": "string",
+            "title": "Protobuf import path",
+            "description": "One directory searched for imported Protobuf definitions."
+          }
+        },
+        "protocVersion": {
+          "type": "string",
+          "title": "protoc version",
+          "description": "Version of protoc used to compile Protobuf definitions."
+        },
+        "requestTimeout": {
+          "type": "integer",
+          "title": "gRPC request timeout",
+          "description": "Maximum time in milliseconds to wait for a gRPC request."
+        },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
@@ -1709,6 +1922,26 @@
           "title": "Mock mode",
           "description": "Mock branch discriminator."
         },
+        "port": {
+          "type": "integer",
+          "title": "gRPC mock port",
+          "description": "Port on which the gRPC mock listens."
+        },
+        "importPaths": {
+          "type": "array",
+          "title": "Protobuf import paths",
+          "description": "Directories searched for imported Protobuf definitions.",
+          "items": {
+            "type": "string",
+            "title": "Protobuf import path",
+            "description": "One directory searched for imported Protobuf definitions."
+          }
+        },
+        "protocVersion": {
+          "type": "string",
+          "title": "protoc version",
+          "description": "Version of protoc used to compile Protobuf definitions."
+        },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
@@ -1717,6 +1950,117 @@
             "$ref": "#/definitions/RunOptionSpecificationEntry",
             "description": "One protocol-neutral specification override."
           }
+        }
+      }
+    },
+    "AsyncClientServerConfig": {
+      "title": "AsyncAPI server connection",
+      "description": "Connection settings for one asynchronous server. Additional admin and client values are protocol-specific extension data.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "protocol"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "Server host",
+          "description": "Host or connection address of the asynchronous server."
+        },
+        "protocol": {
+          "type": "string",
+          "title": "Server protocol",
+          "description": "Protocol identifier used to select this asynchronous server."
+        },
+        "adminCredentials": {
+          "type": "object",
+          "title": "Admin credentials",
+          "description": "Optional administrative credentials for the asynchronous server.",
+          "additionalProperties": true
+        },
+        "client": {
+          "$ref": "#/definitions/AsyncClientProperties",
+          "title": "Client properties",
+          "description": "Optional consumer and producer client properties."
+        }
+      }
+    },
+    "AsyncClientProperties": {
+      "title": "AsyncAPI client properties",
+      "description": "Optional client properties grouped by consumer and producer.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "consumer": {
+          "type": "object",
+          "title": "Consumer properties",
+          "description": "Consumer client properties passed to the asynchronous runtime.",
+          "additionalProperties": true
+        },
+        "producer": {
+          "type": "object",
+          "title": "Producer properties",
+          "description": "Producer client properties passed to the asynchronous runtime.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "SchemaRegistryProperties": {
+      "title": "Schema registry properties",
+      "description": "Schema registry connection settings for asynchronous protocols.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "title": "Schema registry kind",
+          "description": "Schema registry implementation used by the asynchronous runtime.",
+          "enum": [
+            "CONFLUENT",
+            "DEFAULT"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "title": "Schema registry URL",
+          "description": "URL of the schema registry."
+        },
+        "username": {
+          "type": "string",
+          "title": "Schema registry username",
+          "description": "Username used to access the schema registry."
+        },
+        "password": {
+          "type": "string",
+          "title": "Schema registry password",
+          "description": "Password used to access the schema registry."
+        }
+      }
+    },
+    "InMemoryBrokerConfiguration": {
+      "title": "In-memory broker configuration",
+      "description": "Optional in-memory broker connection settings for asynchronous mocks.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "logDir": {
+          "type": "string",
+          "title": "Broker log directory",
+          "description": "Directory where in-memory broker logs are written."
+        },
+        "host": {
+          "type": "string",
+          "title": "Broker host",
+          "description": "Host on which the in-memory broker listens."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Broker port",
+          "description": "Port on which the in-memory broker listens."
         }
       }
     },
@@ -2135,18 +2479,26 @@
     "KeyStoreConfiguration": {
       "title": "Key store",
       "description": "Exactly one key-store representation: a file or a directory.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/KeyStoreFileConfiguration",
-          "description": "A key store loaded from one file."
-        },
-        {
-          "$ref": "#/definitions/KeyStoreDirectoryConfiguration",
-          "description": "A key store loaded from a directory."
+          "if": {
+            "required": [
+              "file"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/KeyStoreFileConfiguration",
+            "description": "A key store loaded from one file."
+          },
+          "else": {
+            "$ref": "#/definitions/KeyStoreDirectoryConfiguration",
+            "description": "A key store loaded from a directory."
+          }
         }
       ],
       "errorMessage": {
-        "oneOf": "Specify exactly one key-store form: file or directory."
+        "required": "Specify a key-store file or directory."
       }
     },
     "KeyStoreFileConfiguration": {
@@ -2239,88 +2591,121 @@
     "RefOrSource": {
       "title": "Source or reference",
       "description": "Use an inline source provider or a reference to a named source component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a named source component."
-        },
-        {
-          "$ref": "#/definitions/SourceSchema",
-          "description": "An inline source provider."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named source component."
+          },
+          "else": {
+            "$ref": "#/definitions/SourceSchema",
+            "description": "An inline source provider."
+          }
         }
       ]
     },
     "RefOrAdapter": {
       "title": "Adapter or reference",
       "description": "Use inline supported adapter hooks or a reference to a named adapter component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a named adapter component."
-        },
-        {
-          "$ref": "#/definitions/AdapterConfiguration",
-          "description": "Inline adapter hooks."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named adapter component."
+          },
+          "else": {
+            "$ref": "#/definitions/AdapterConfiguration",
+            "description": "Inline adapter hooks."
+          }
         }
       ]
     },
     "RefOrDictionary": {
       "title": "Dictionary or reference",
       "description": "Use an inline dictionary path or a reference to a named dictionary component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a named dictionary component."
-        },
-        {
-          "$ref": "#/definitions/DictionaryConfiguration",
-          "description": "An inline dictionary path."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named dictionary component."
+          },
+          "else": {
+            "$ref": "#/definitions/DictionaryConfiguration",
+            "description": "An inline dictionary path."
+          }
         }
       ]
     },
     "RefOrExampleDirectories": {
       "title": "Example directories or reference",
       "description": "Use inline example directories or a reference to a named example-directory component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a named example-directory component."
-        },
-        {
-          "$ref": "#/definitions/ExampleDirectories",
-          "description": "Inline example directories."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named example-directory component."
+          },
+          "else": {
+            "$ref": "#/definitions/ExampleDirectories",
+            "description": "Inline example directories."
+          }
         }
       ]
     },
     "RefOrExampleList": {
       "title": "Example list or reference",
       "description": "Use a list of inline/reference example-directory entries or reference a named example list.",
-      "oneOf": [
-        {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a named example list."
-        },
-        {
-          "type": "array",
-          "description": "Inline example-directory entries.",
-          "items": {
-            "$ref": "#/definitions/RefOrExampleDirectories",
-            "description": "One inline or referenced example-directory entry."
-          }
+      "type": ["object", "array"],
+      "if": {
+        "type": "object",
+        "required": ["$ref"]
+      },
+      "then": {
+        "$ref": "#/definitions/Reference",
+        "description": "A reference to a named example list."
+      },
+      "else": {
+        "type": "array",
+        "description": "Inline example-directory entries.",
+        "items": {
+          "$ref": "#/definitions/RefOrExampleDirectories",
+          "description": "One inline or referenced example-directory entry."
         }
-      ]
+      }
     },
     "RefOrCert": {
       "title": "Certificate or reference",
       "description": "Use inline certificate settings or a reference to a named certificate component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a named certificate component."
-        },
-        {
-          "$ref": "#/definitions/CertConfiguration",
-          "description": "Inline certificate settings."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named certificate component."
+          },
+          "else": {
+            "$ref": "#/definitions/CertConfiguration",
+            "description": "Inline certificate settings."
+          }
         }
       ]
     },
@@ -2341,56 +2726,80 @@
     "RefOrConcreteSettings": {
       "title": "Concrete settings or reference",
       "description": "Use inline global settings or a reference to a named concrete settings component.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to a named concrete settings component."
-        },
-        {
-          "$ref": "#/definitions/ConcreteSettings",
-          "description": "Inline concrete settings."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to a named concrete settings component."
+          },
+          "else": {
+            "$ref": "#/definitions/ConcreteSettings",
+            "description": "Inline concrete settings."
+          }
         }
       ]
     },
     "RefOrTestSettings": {
       "title": "Test settings or reference",
       "description": "Use inline test settings or a reference to a named settings component; target compatibility is semantic.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to reusable test settings."
-        },
-        {
-          "$ref": "#/definitions/TestSettings",
-          "description": "Inline test settings."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable test settings."
+          },
+          "else": {
+            "$ref": "#/definitions/TestSettings",
+            "description": "Inline test settings."
+          }
         }
       ]
     },
     "RefOrMockSettings": {
       "title": "Mock settings or reference",
       "description": "Use inline mock settings or a reference to a named settings component; target compatibility is semantic.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to reusable mock settings."
-        },
-        {
-          "$ref": "#/definitions/MockSettings",
-          "description": "Inline mock settings."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable mock settings."
+          },
+          "else": {
+            "$ref": "#/definitions/MockSettings",
+            "description": "Inline mock settings."
+          }
         }
       ]
     },
     "RefOrContextSettings": {
       "title": "Contextual settings or reference",
       "description": "Use inline context-dependent settings or a reference; the service consumer selects test or mock reification.",
-      "oneOf": [
+      "type": "object",
+      "allOf": [
         {
-          "$ref": "#/definitions/Reference",
-          "description": "A reference to reusable contextual settings."
-        },
-        {
-          "$ref": "#/definitions/ContextSettings",
-          "description": "Inline contextual settings."
+          "if": {
+            "required": ["$ref"]
+          },
+          "then": {
+            "$ref": "#/definitions/Reference",
+            "description": "A reference to reusable contextual settings."
+          },
+          "else": {
+            "$ref": "#/definitions/ContextSettings",
+            "description": "Inline contextual settings."
+          }
         }
       ]
     },

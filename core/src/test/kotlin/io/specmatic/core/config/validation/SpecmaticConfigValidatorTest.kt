@@ -125,7 +125,7 @@ class SpecmaticConfigValidatorTest {
 
             assertThat(output.single().metadata).isEqualTo(metadata)
             assertThat(outputJson.encodeToString(output)).isEqualTo(
-                """[{"valid":false,"error":"invalid","keywordLocation":"","instanceLocation":"/report","absoluteKeywordLocation":"urn:specmatic:config:v2","severity":"ERROR"}]"""
+                """[{"valid":false,"error":"invalid","keywordLocation":"","instanceLocation":"/report","absoluteKeywordLocation":"urn:specmatic:config:v2","severity":"ERROR","metadata":{"title":"Report","keyword":"required","description":"Report configuration","deprecated":true,"deprecationMessage":"Replace with replacement."}}]"""
             )
         }
     }
