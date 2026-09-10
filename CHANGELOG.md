@@ -30,6 +30,12 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+### Changed
+
+- Example validation now passes the full parsed example into `AfterLoadingStaticExamples`, including transient identity from `"transient": true` or `"http-stub-id"`, so hooks can distinguish transient and persistent examples.
+
 ## 2.54.1 (2026-09-07)
 
 ### Changed
