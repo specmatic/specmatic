@@ -193,7 +193,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     }
 
     fun callLifecycleHook(feature: Feature, examples: List<ExampleFromFile>): Result {
-        val scenarioStubs = examples.map { ScenarioStub(request = it.request, filePath = it.file.path) }
+        val scenarioStubs = examples.map { it.scenarioStub }
         return LifecycleHooks.afterLoadingStaticExamples.call(
             ExamplesUsedFor.Validation,
             listOf(Pair(feature, scenarioStubs))

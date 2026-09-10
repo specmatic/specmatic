@@ -3,6 +3,9 @@ package io.specmatic.core.examples.module
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.core.lifecycle.AfterLoadingStaticExamples
+import io.specmatic.core.lifecycle.LifecycleHooks
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.JSONObjectValue
@@ -10,7 +13,6 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.StandardRuleViolation
-import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
@@ -778,6 +780,71 @@ class ExampleValidationModuleTest {
                 }
             )
         }
+    }
+
+    @Test
+    fun `callLifecycleHook preserves stubToken and filePath for transient and persistent examples`(@TempDir tempDir: File) {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
+            .toFeature()
+
+        val persistentFile = tempDir.resolve("persistent.json")
+        persistentFile.writeText(
+            """
+            {
+              "http-request": { "method": "POST", "path": "/documents", "body": { "type": "document", "title": "Doc" } },
+              "http-response": { "status": 200, "body": { "id": "1" } }
+            }
+            """.trimIndent()
+        )
+        val transientFile = tempDir.resolve("transient.json")
+        transientFile.writeText(
+            """
+            {
+              "transient": true,
+              "http-request": { "method": "POST", "path": "/documents", "body": { "type": "document", "title": "Doc" } },
+              "http-response": { "status": 200, "body": { "id": "2" } }
+            }
+            """.trimIndent()
+        )
+        val stubIdFile = tempDir.resolve("stub-id.json")
+        stubIdFile.writeText(
+            """
+            {
+              "http-stub-id": "token-1",
+              "http-request": { "method": "POST", "path": "/documents", "body": { "type": "document", "title": "Doc" } },
+              "http-response": { "status": 200, "body": { "id": "3" } }
+            }
+            """.trimIndent()
+        )
+
+        val captured = mutableListOf<ScenarioStub>()
+        val hook = AfterLoadingStaticExamples { _, examples ->
+            captured += examples.flatMap { it.second }
+            Result.Success()
+        }
+        LifecycleHooks.afterLoadingStaticExamples.register(hook)
+        try {
+            val result = exampleValidationModule.callLifecycleHook(
+                feature,
+                listOf(
+                    ExampleFromFile(persistentFile, strictMode = false),
+                    ExampleFromFile(transientFile, strictMode = false),
+                    ExampleFromFile(stubIdFile, strictMode = false),
+                )
+            )
+            assertThat(result.isSuccess()).isTrue()
+        } finally {
+            LifecycleHooks.afterLoadingStaticExamples.remove(hook)
+        }
+
+        assertThat(captured).hasSize(3)
+        assertThat(captured[0].stubToken).isNull()
+        assertThat(captured[0].filePath).isEqualTo(persistentFile.path)
+        assertThat(captured[1].stubToken).isNotNull()
+        assertThat(captured[1].filePath).isEqualTo(transientFile.path)
+        assertThat(captured[2].stubToken).isEqualTo("token-1")
+        assertThat(captured[2].filePath).isEqualTo(stubIdFile.path)
     }
 
     private fun ScenarioStub.toPartialExample(tempDir: File): File {
