@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/tasks",
+    "body": {
+      "taskType": "card",
+      "taskId": 101
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "accepted": true
+    }
+  },
+  "name": "top-level card task"
+}
