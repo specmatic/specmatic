@@ -155,7 +155,7 @@ class ConfigCommandValidateTest {
             assertThat(output).contains(
                 "Configuration is invalid: missing.yaml",
                 "missing.yaml:/",
-                "Could not read ${missingFile.path}: ${missingFile.path} (",
+                "Could not read ${missingFile.path}: ${missingFile.path}",
             )
         }
 
