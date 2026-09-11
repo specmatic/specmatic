@@ -1040,6 +1040,16 @@
         "protocol"
       ],
       "properties": {
+        "type": {
+          "type": "string",
+          "default": "external",
+          "enum": [
+            "external",
+            "in-memory"
+          ],
+          "title": "Server type",
+          "description": "Specifies whether the asynchronous server is external or in-memory."
+        },
         "host": {
           "type": "string",
           "title": "Server host",
