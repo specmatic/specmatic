@@ -1729,30 +1729,21 @@
           "title": "Subscriber readiness wait time",
           "description": "Time in milliseconds to wait for an asynchronous subscriber to become ready."
         },
-        "servers": {
-          "type": "array",
-          "title": "AsyncAPI servers",
-          "description": "Server connection settings used by asynchronous tests.",
-          "items": {
-            "$ref": "#/definitions/AsyncClientServerConfig",
-            "description": "One asynchronous server connection."
-          }
-        },
-        "schemaRegistry": {
-          "$ref": "#/definitions/SchemaRegistryProperties",
-          "title": "Schema registry",
-          "description": "Schema registry settings used by asynchronous tests."
-        },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
           "description": "Optional per-specification AsyncAPI overrides.",
           "items": {
-            "$ref": "#/definitions/RunOptionSpecificationEntry",
-            "description": "One protocol-neutral specification override."
+            "$ref": "#/definitions/AsyncApiTestRunOptionSpecificationEntry",
+            "description": "One AsyncAPI specification override."
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/AsyncApiCommonRunOptions"
+        }
+      ]
     },
     "AsyncApiMockRunOptions": {
       "title": "AsyncAPI mock run options",
@@ -1766,34 +1757,27 @@
           "description": "Mock branch discriminator."
         },
         "inMemoryBroker": {
+          "deprecated": true,
           "$ref": "#/definitions/InMemoryBrokerConfiguration",
           "title": "In-memory broker",
-          "description": "Optional in-memory broker settings used by asynchronous mocks."
-        },
-        "servers": {
-          "type": "array",
-          "title": "AsyncAPI servers",
-          "description": "Server connection settings used by asynchronous mocks.",
-          "items": {
-            "$ref": "#/definitions/AsyncClientServerConfig",
-            "description": "One asynchronous server connection."
-          }
-        },
-        "schemaRegistry": {
-          "$ref": "#/definitions/SchemaRegistryProperties",
-          "title": "Schema registry",
-          "description": "Schema registry settings used by asynchronous mocks."
+          "description": "Deprecated optional in-memory broker settings used by asynchronous mocks.",
+          "deprecationMessage": "Replace inMemoryBroker with a server entry within servers with 'type' set to 'in-memory'."
         },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
           "description": "Optional per-specification AsyncAPI overrides.",
           "items": {
-            "$ref": "#/definitions/RunOptionSpecificationEntry",
-            "description": "One protocol-neutral specification override."
+            "$ref": "#/definitions/AsyncApiMockRunOptionSpecificationEntry",
+            "description": "One AsyncAPI specification override."
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/AsyncApiCommonRunOptions"
+        }
+      ]
     },
     "GraphqlSdlTestRunOptions": {
       "title": "GraphQL SDL test run options",
@@ -1806,26 +1790,21 @@
           "title": "Run mode",
           "description": "Test branch discriminator."
         },
-        "host": {
-          "type": "string",
-          "title": "GraphQL service host",
-          "description": "Host used by the GraphQL test server."
-        },
-        "port": {
-          "type": "integer",
-          "title": "GraphQL service port",
-          "description": "Port used by the GraphQL test server."
-        },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
           "description": "Optional per-specification GraphQL SDL overrides.",
           "items": {
-            "$ref": "#/definitions/RunOptionSpecificationEntry",
-            "description": "One protocol-neutral specification override."
+            "$ref": "#/definitions/GraphqlSdlTestRunOptionSpecificationEntry",
+            "description": "One GraphQL SDL specification override."
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/GraphqlSdlCommonRunOptions"
+        }
+      ]
     },
     "GraphqlSdlMockRunOptions": {
       "title": "GraphQL SDL mock run options",
@@ -1838,32 +1817,31 @@
           "title": "Mock mode",
           "description": "Mock branch discriminator."
         },
-        "host": {
-          "type": "string",
-          "title": "GraphQL mock host",
-          "description": "Host on which the GraphQL mock listens."
-        },
-        "port": {
-          "type": "integer",
-          "title": "GraphQL mock port",
-          "description": "Port on which the GraphQL mock listens."
-        },
         "specs": {
           "type": "array",
           "title": "Specification overrides",
           "description": "Optional per-specification GraphQL SDL overrides.",
           "items": {
-            "$ref": "#/definitions/RunOptionSpecificationEntry",
-            "description": "One protocol-neutral specification override."
+            "$ref": "#/definitions/GraphqlSdlMockRunOptionSpecificationEntry",
+            "description": "One GraphQL SDL specification override."
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/GraphqlSdlCommonRunOptions"
+        }
+      ]
     },
     "ProtobufTestRunOptions": {
       "title": "Protobuf test run options",
       "description": "Protobuf test options with protocol-specific resolved option keys at the intentional extension boundary.",
       "type": "object",
       "additionalProperties": true,
+      "required": [
+        "host",
+        "port"
+      ],
       "properties": {
         "type": {
           "const": "test",
@@ -1875,26 +1853,6 @@
           "title": "gRPC service host",
           "description": "Host used by the gRPC test client."
         },
-        "port": {
-          "type": "integer",
-          "title": "gRPC service port",
-          "description": "Port used by the gRPC test client."
-        },
-        "importPaths": {
-          "type": "array",
-          "title": "Protobuf import paths",
-          "description": "Directories searched for imported Protobuf definitions.",
-          "items": {
-            "type": "string",
-            "title": "Protobuf import path",
-            "description": "One directory searched for imported Protobuf definitions."
-          }
-        },
-        "protocVersion": {
-          "type": "string",
-          "title": "protoc version",
-          "description": "Version of protoc used to compile Protobuf definitions."
-        },
         "requestTimeout": {
           "type": "integer",
           "title": "gRPC request timeout",
@@ -1905,11 +1863,16 @@
           "title": "Specification overrides",
           "description": "Optional per-specification Protobuf overrides.",
           "items": {
-            "$ref": "#/definitions/RunOptionSpecificationEntry",
-            "description": "One protocol-neutral specification override."
+            "$ref": "#/definitions/ProtobufTestRunOptionSpecificationEntry",
+            "description": "One Protobuf specification override."
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ProtobufCommonRunOptions"
+        }
+      ]
     },
     "ProtobufMockRunOptions": {
       "title": "Protobuf mock run options",
@@ -1922,10 +1885,69 @@
           "title": "Mock mode",
           "description": "Mock branch discriminator."
         },
+        "specs": {
+          "type": "array",
+          "title": "Specification overrides",
+          "description": "Optional per-specification Protobuf overrides.",
+          "items": {
+            "$ref": "#/definitions/ProtobufMockRunOptionSpecificationEntry",
+            "description": "One Protobuf specification override."
+          }
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ProtobufCommonRunOptions"
+        }
+      ]
+    },
+    "AsyncApiCommonRunOptions": {
+      "title": "Common AsyncAPI run options",
+      "description": "AsyncAPI run-option properties shared by test and mock modes.",
+      "type": "object",
+      "properties": {
+        "servers": {
+          "type": "array",
+          "title": "AsyncAPI servers",
+          "description": "Server connection settings used by asynchronous tests and mocks.",
+          "items": {
+            "$ref": "#/definitions/AsyncClientServerConfig",
+            "description": "One asynchronous server connection."
+          }
+        },
+        "schemaRegistry": {
+          "$ref": "#/definitions/SchemaRegistryProperties",
+          "title": "Schema registry",
+          "description": "Schema registry settings used by asynchronous tests and mocks."
+        }
+      }
+    },
+    "GraphqlSdlCommonRunOptions": {
+      "title": "Common GraphQL SDL run options",
+      "description": "GraphQL SDL run-option properties shared by test and mock modes.",
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": "GraphQL service host",
+          "description": "Host used by the GraphQL service."
+        },
         "port": {
           "type": "integer",
-          "title": "gRPC mock port",
-          "description": "Port on which the gRPC mock listens."
+          "title": "GraphQL service port",
+          "description": "Port used by the GraphQL service."
+        }
+      }
+    },
+    "ProtobufCommonRunOptions": {
+      "title": "Common Protobuf run options",
+      "description": "Protobuf run-option properties shared by test and mock modes.",
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "integer",
+          "title": "gRPC service port",
+          "description": "Port used by the gRPC service."
         },
         "importPaths": {
           "type": "array",
@@ -1941,15 +1963,6 @@
           "type": "string",
           "title": "protoc version",
           "description": "Version of protoc used to compile Protobuf definitions."
-        },
-        "specs": {
-          "type": "array",
-          "title": "Specification overrides",
-          "description": "Optional per-specification Protobuf overrides.",
-          "items": {
-            "$ref": "#/definitions/RunOptionSpecificationEntry",
-            "description": "One protocol-neutral specification override."
-          }
         }
       }
     },
@@ -1963,6 +1976,16 @@
         "protocol"
       ],
       "properties": {
+        "type": {
+          "type": "string",
+          "default": "external",
+          "enum": [
+            "external",
+            "in-memory"
+          ],
+          "title": "Server type",
+          "description": "Specifies whether the asynchronous server is external or in-memory."
+        },
         "host": {
           "type": "string",
           "title": "Server host",
@@ -2064,9 +2087,9 @@
         }
       }
     },
-    "RunOptionSpecificationEntry": {
-      "title": "Run-option specification entry",
-      "description": "Wrapper containing one generic per-specification run-option override.",
+    "AsyncApiTestRunOptionSpecificationEntry": {
+      "title": "AsyncAPI test run-option specification entry",
+      "description": "Wrapper containing one AsyncAPI test per-specification run-option override.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2074,9 +2097,89 @@
       ],
       "properties": {
         "spec": {
-          "$ref": "#/definitions/RunOptionSpecification",
-          "title": "Run-option override",
-          "description": "Per-specification run-option values."
+          "$ref": "#/definitions/AsyncApiTestRunOptionSpecification",
+          "title": "AsyncAPI test run-option override",
+          "description": "Per-specification AsyncAPI test run-option values."
+        }
+      }
+    },
+    "AsyncApiMockRunOptionSpecificationEntry": {
+      "title": "AsyncAPI mock run-option specification entry",
+      "description": "Wrapper containing one AsyncAPI mock per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/AsyncApiMockRunOptionSpecification",
+          "title": "AsyncAPI mock run-option override",
+          "description": "Per-specification AsyncAPI mock run-option values."
+        }
+      }
+    },
+    "GraphqlSdlTestRunOptionSpecificationEntry": {
+      "title": "GraphQL SDL test run-option specification entry",
+      "description": "Wrapper containing one GraphQL SDL test per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/GraphqlSdlTestRunOptionSpecification",
+          "title": "GraphQL SDL test run-option override",
+          "description": "Per-specification GraphQL SDL test run-option values."
+        }
+      }
+    },
+    "GraphqlSdlMockRunOptionSpecificationEntry": {
+      "title": "GraphQL SDL mock run-option specification entry",
+      "description": "Wrapper containing one GraphQL SDL mock per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/GraphqlSdlMockRunOptionSpecification",
+          "title": "GraphQL SDL mock run-option override",
+          "description": "Per-specification GraphQL SDL mock run-option values."
+        }
+      }
+    },
+    "ProtobufTestRunOptionSpecificationEntry": {
+      "title": "Protobuf test run-option specification entry",
+      "description": "Wrapper containing one Protobuf test per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/ProtobufTestRunOptionSpecification",
+          "title": "Protobuf test run-option override",
+          "description": "Per-specification Protobuf test run-option values."
+        }
+      }
+    },
+    "ProtobufMockRunOptionSpecificationEntry": {
+      "title": "Protobuf mock run-option specification entry",
+      "description": "Wrapper containing one Protobuf mock per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/ProtobufMockRunOptionSpecification",
+          "title": "Protobuf mock run-option override",
+          "description": "Per-specification Protobuf mock run-option values."
         }
       }
     },
@@ -2112,16 +2215,16 @@
         }
       }
     },
-    "RunOptionSpecification": {
-      "title": "Generic run-option specification override",
-      "description": "Optional per-specification override keyed by the specification identifier. Additional keys are protocol-specific run-option values.",
+    "AsyncApiRunOptionSpecificationCommon": {
+      "title": "Common AsyncAPI run-option specification values",
+      "description": "AsyncAPI run-option specification values shared by test and mock modes.",
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string",
           "title": "Specification ID",
-          "description": "Specification identifier this override targets. A non-matching identifier is handled as fallback behavior during semantic processing.",
+          "description": "Specification identifier this override targets.",
           "examples": [
             "orders"
           ]
@@ -2130,6 +2233,94 @@
           "type": "string",
           "title": "Overlay file path",
           "description": "Path to an overlay applied to this specification."
+        },
+        "replyTimeout": {
+          "type": "integer",
+          "title": "Reply timeout",
+          "description": "Maximum time in milliseconds to wait for an asynchronous reply."
+        },
+        "subscriberReadinessWaitTime": {
+          "type": "integer",
+          "title": "Subscriber readiness wait time",
+          "description": "Time in milliseconds to wait for an asynchronous subscriber to become ready."
+        },
+        "inMemoryBroker": {
+          "deprecated": true,
+          "$ref": "#/definitions/InMemoryBrokerConfiguration",
+          "title": "In-memory broker",
+          "description": "Deprecated optional in-memory broker settings used by asynchronous mocks.",
+          "deprecationMessage": "Replace inMemoryBroker with a server entry within servers with 'type' set to 'in-memory'."
+        },
+        "servers": {
+          "type": "array",
+          "title": "AsyncAPI servers",
+          "description": "Server connection settings used by asynchronous tests and mocks.",
+          "items": {
+            "$ref": "#/definitions/AsyncClientServerConfig",
+            "description": "One asynchronous server connection."
+          }
+        },
+        "schemaRegistry": {
+          "$ref": "#/definitions/SchemaRegistryProperties",
+          "title": "Schema registry",
+          "description": "Schema registry settings used by asynchronous tests and mocks."
+        }
+      }
+    },
+    "AsyncApiTestRunOptionSpecification": {
+      "title": "AsyncAPI test run-option specification override",
+      "description": "AsyncAPI test per-specification run-option override.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AsyncApiRunOptionSpecificationCommon"
+        },
+        {
+          "not": {
+            "required": [
+              "inMemoryBroker"
+            ]
+          }
+        }
+      ]
+    },
+    "AsyncApiMockRunOptionSpecification": {
+      "title": "AsyncAPI mock run-option specification override",
+      "description": "AsyncAPI mock per-specification run-option override.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AsyncApiRunOptionSpecificationCommon"
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "replyTimeout"
+                ]
+              },
+              {
+                "required": [
+                  "subscriberReadinessWaitTime"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "GraphqlSdlRunOptionSpecificationCommon": {
+      "title": "Common GraphQL SDL run-option specification values",
+      "description": "GraphQL SDL run-option specification values shared by test and mock modes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Specification ID",
+          "description": "Specification identifier this override targets.",
+          "examples": [
+            "orders"
+          ]
         },
         "host": {
           "type": "string",
@@ -2142,6 +2333,99 @@
           "description": "Port override for this specification."
         }
       }
+    },
+    "GraphqlSdlTestRunOptionSpecification": {
+      "title": "GraphQL SDL test run-option specification override",
+      "description": "GraphQL SDL test per-specification run-option override.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/GraphqlSdlRunOptionSpecificationCommon"
+        }
+      ]
+    },
+    "GraphqlSdlMockRunOptionSpecification": {
+      "title": "GraphQL SDL mock run-option specification override",
+      "description": "GraphQL SDL mock per-specification run-option override.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/GraphqlSdlRunOptionSpecificationCommon"
+        }
+      ]
+    },
+    "ProtobufRunOptionSpecificationCommon": {
+      "title": "Common Protobuf run-option specification values",
+      "description": "Protobuf run-option specification values shared by test and mock modes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Specification ID",
+          "description": "Specification identifier this override targets.",
+          "examples": [
+            "orders"
+          ]
+        },
+        "host": {
+          "type": "string",
+          "title": "Service host",
+          "description": "Host override for this specification."
+        },
+        "port": {
+          "type": "integer",
+          "title": "Service port",
+          "description": "Port override for this specification."
+        },
+        "importPaths": {
+          "type": "array",
+          "title": "Protobuf import paths",
+          "description": "Directories searched for imported Protobuf definitions.",
+          "items": {
+            "type": "string",
+            "title": "Protobuf import path",
+            "description": "One directory searched for imported Protobuf definitions."
+          }
+        },
+        "protocVersion": {
+          "type": "string",
+          "title": "protoc version",
+          "description": "Version of protoc used to compile Protobuf definitions."
+        },
+        "requestTimeout": {
+          "type": "integer",
+          "title": "gRPC request timeout",
+          "description": "Maximum time in milliseconds to wait for a gRPC request."
+        }
+      }
+    },
+    "ProtobufTestRunOptionSpecification": {
+      "title": "Protobuf test run-option specification override",
+      "description": "Protobuf test per-specification run-option override.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ProtobufRunOptionSpecificationCommon"
+        }
+      ]
+    },
+    "ProtobufMockRunOptionSpecification": {
+      "title": "Protobuf mock run-option specification override",
+      "description": "Protobuf mock per-specification run-option override.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ProtobufRunOptionSpecificationCommon"
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "requestTimeout"
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     "OpenApiRunOptionSpecification": {
       "title": "OpenAPI run-option specification override",

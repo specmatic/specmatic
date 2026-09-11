@@ -235,7 +235,7 @@ class ConfigSchemaValidationTest {
                   "api": { "openapi": { "type": "test", "cert": { "mtlsEnabled": true } } },
                   "asyncapi": { "asyncapi": { "type": "test" } },
                   "graphql": { "graphqlsdl": { "type": "mock" } },
-                  "protobuf": { "protobuf": { "type": "test" } }
+                  "protobuf": { "protobuf": { "type": "test", "host": "localhost", "port": 9000 } }
                 },
                 "examples": {
                   "testExamples": [{ "directories": ["test-examples"] }],
@@ -351,6 +351,56 @@ class ConfigSchemaValidationTest {
             )))
         }
 
+        @Test
+        fun `requires host and port for gRPC test run options`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            components:
+              runOptions:
+                grpcTest:
+                  protobuf:
+                    type: test
+            """.trimIndent())).isEqualTo(invalidOutput(detail(
+                instanceLocation = "/components/runOptions/grpcTest/protobuf",
+                error = "[required property 'host' not found, required property 'port' not found]",
+                keywordLocation = $$"/properties/components/$ref/properties/runOptions/additionalProperties/$ref/properties/protobuf/$ref/allOf/0/then/$ref",
+                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ProtobufTestRunOptions",
+            )))
+        }
+
+        @Nested
+        inner class ProtocolRunOptionsDataClasses {
+            @Nested
+            inner class AsyncApi {
+                @ParameterizedTest(name = "{0}")
+                @MethodSource("io.specmatic.core.config.validation.ConfigSchemaValidationTest#asyncApiDataClassCases")
+                fun `accepts the AsyncAPI test and mock data class shapes`(testCase: ValidSchemaCase) {
+                    assertThat(schema(SpecmaticConfigVersion.VERSION_3, testCase.json))
+                        .isEqualTo(validOutput)
+                }
+            }
+
+            @Nested
+            inner class GraphQL {
+                @ParameterizedTest(name = "{0}")
+                @MethodSource("io.specmatic.core.config.validation.ConfigSchemaValidationTest#graphQlDataClassCases")
+                fun `accepts the GraphQL test and mock data class shapes`(testCase: ValidSchemaCase) {
+                    assertThat(schema(SpecmaticConfigVersion.VERSION_3, testCase.json))
+                        .isEqualTo(validOutput)
+                }
+            }
+
+            @Nested
+            inner class Grpc {
+                @ParameterizedTest(name = "{0}")
+                @MethodSource("io.specmatic.core.config.validation.ConfigSchemaValidationTest#grpcDataClassCases")
+                fun `accepts the gRPC test and mock data class shapes`(testCase: ValidSchemaCase) {
+                    assertThat(schema(SpecmaticConfigVersion.VERSION_3, testCase.json))
+                        .isEqualTo(validOutput)
+                }
+            }
+        }
+
         @ParameterizedTest(name = "{0}")
         @MethodSource("io.specmatic.core.config.validation.ConfigSchemaValidationTest#v3ProtocolOptionCases")
         fun `rejects invalid known V3 protocol options`(testCase: InvalidSchemaCase) {
@@ -410,6 +460,14 @@ class ConfigSchemaValidationTest {
                 instancePath = "servers/0/host",
                 expectedType = "string",
                 errorMessage = "integer found, string expected",
+            ),
+            v2OptionCase(
+                expectedType = "string",
+                instancePath = "servers/0/type",
+                name = "AsyncAPI server type must be supported",
+                optionPath = "servers/items/$REF/properties/type",
+                option = "servers: [{ host: localhost:9092, protocol: kafka, type: invalid }]",
+                errorMessage = "does not have a value in the enumeration [\"external\", \"in-memory\"]",
             ),
             v2OptionCase(
                 name = "AsyncAPI schema registry kind must be supported",
@@ -472,6 +530,165 @@ class ConfigSchemaValidationTest {
         )
 
         @JvmStatic
+        fun asyncApiDataClassCases() = listOf(
+            ValidSchemaCase(
+                name = "AsyncAPI test configuration",
+                json = """
+                version: 3
+                components:
+                  runOptions:
+                    asyncTest:
+                      asyncapi:
+                        type: test
+                        replyTimeout: 10000
+                        subscriberReadinessWaitTime: 100
+                        servers:
+                          - host: localhost:9092
+                            protocol: kafka
+                            type: external
+                        schemaRegistry:
+                          kind: DEFAULT
+                        specs:
+                          - spec:
+                              id: events
+                              overlayFilePath: overlays/events.yaml
+                              replyTimeout: 10000
+                              subscriberReadinessWaitTime: 100
+                              servers:
+                                - host: localhost:9092
+                                  protocol: kafka
+                                  type: external
+                              schemaRegistry:
+                                kind: DEFAULT
+                """.trimIndent(),
+            ),
+            ValidSchemaCase(
+                name = "AsyncAPI mock configuration",
+                json = """
+                version: 3
+                components:
+                  runOptions:
+                    asyncMock:
+                      asyncapi:
+                        type: mock
+                        inMemoryBroker:
+                          logDir: broker-logs
+                          host: localhost
+                          port: 9093
+                        servers:
+                          - host: localhost:9093
+                            protocol: kafka
+                            type: in-memory
+                        schemaRegistry:
+                          kind: DEFAULT
+                        specs:
+                          - spec:
+                              id: events
+                              overlayFilePath: overlays/events-mock.yaml
+                              inMemoryBroker:
+                                logDir: broker-logs
+                                host: localhost
+                                port: 9093
+                              servers:
+                                - host: localhost:9093
+                                  protocol: kafka
+                                  type: in-memory
+                              schemaRegistry:
+                                kind: DEFAULT
+                """.trimIndent(),
+            ),
+        )
+
+        @JvmStatic
+        fun graphQlDataClassCases() = listOf(
+            ValidSchemaCase(
+                name = "GraphQL test configuration",
+                json = """
+                version: 3
+                components:
+                  runOptions:
+                    graphqlTest:
+                      graphqlsdl:
+                        type: test
+                        host: localhost
+                        port: 9001
+                        specs:
+                          - spec:
+                              id: schema
+                              host: localhost
+                              port: 9005
+                """.trimIndent(),
+            ),
+            ValidSchemaCase(
+                name = "GraphQL mock configuration",
+                json = """
+                version: 3
+                components:
+                  runOptions:
+                    graphqlMock:
+                      graphqlsdl:
+                        type: mock
+                        host: localhost
+                        port: 9002
+                        specs:
+                          - spec:
+                              id: schema
+                              host: localhost
+                              port: 9007
+                """.trimIndent(),
+            ),
+        )
+
+        @JvmStatic
+        fun grpcDataClassCases() = listOf(
+            ValidSchemaCase(
+                name = "gRPC test configuration",
+                json = """
+                version: 3
+                components:
+                  runOptions:
+                    grpcTest:
+                      protobuf:
+                        type: test
+                        host: localhost
+                        port: 9003
+                        importPaths: [proto]
+                        protocVersion: 3.25.0
+                        requestTimeout: 5000
+                        specs:
+                          - spec:
+                              id: service
+                              host: localhost
+                              port: 9006
+                              importPaths: [proto]
+                              protocVersion: 3.25.0
+                              requestTimeout: 5000
+                """.trimIndent(),
+            ),
+            ValidSchemaCase(
+                name = "gRPC mock configuration",
+                json = """
+                version: 3
+                components:
+                  runOptions:
+                    grpcMock:
+                      protobuf:
+                        type: mock
+                        port: 9004
+                        importPaths: [proto]
+                        protocVersion: 3.25.0
+                        specs:
+                          - spec:
+                              id: service
+                              host: localhost
+                              port: 9008
+                              importPaths: [proto]
+                              protocVersion: 3.25.0
+                """.trimIndent(),
+            ),
+        )
+
+        @JvmStatic
         fun v3ProtocolOptionCases() = listOf(
             v3OptionCase(
                 name = "AsyncAPI test replyTimeout must be an integer",
@@ -496,6 +713,16 @@ class ConfigSchemaValidationTest {
                 optionPath = "servers",
                 expectedType = "array",
                 schema = "AsyncApiTestRunOptions",
+            ),
+            v3OptionCase(
+                branch = "asyncTest",
+                expectedType = "string",
+                instancePath = "servers/0/type",
+                schema = "AsyncClientServerConfig",
+                name = "AsyncAPI server type must be supported",
+                optionPath = "servers/items/$REF/properties/type",
+                option = "servers: [{ host: localhost:9092, protocol: kafka, type: invalid }]",
+                errorMessage = "does not have a value in the enumeration [\"external\", \"in-memory\"]",
             ),
             v3OptionCase(
                 name = "AsyncAPI server client consumer must be an object",
@@ -728,7 +955,25 @@ class ConfigSchemaValidationTest {
             val mode = if (branch.endsWith("Mock")) "mock" else "test"
             val branchIndex = if (mode == "test") 0 else 1
             val schemaPath = "/properties/components/$REF/properties/runOptions/additionalProperties/$REF/properties/$protocol/$REF/allOf/$branchIndex/then/$REF"
-            val optionSchemaPath = "$schemaPath/properties/$optionPath"
+            val commonSchema = when (protocol) {
+                "asyncapi" -> "AsyncApiCommonRunOptions"
+                "graphqlsdl" -> "GraphqlSdlCommonRunOptions"
+                "protobuf" -> "ProtobufCommonRunOptions"
+                else -> null
+            }
+            val commonOptions = when (protocol) {
+                "asyncapi" -> setOf("servers", "schemaRegistry")
+                "graphqlsdl" -> setOf("host", "port")
+                "protobuf" -> setOf("port", "importPaths", "protocVersion")
+                else -> emptySet()
+            }
+            val optionRoot = optionPath.substringBefore('/')
+            val isCommonOption = optionRoot in commonOptions
+            val optionSchemaPath = if (isCommonOption) {
+                "$schemaPath/allOf/0/$REF/properties/$optionPath"
+            } else {
+                "$schemaPath/properties/$optionPath"
+            }
             val config = buildList {
                 add("version: 3")
                 add("components:")
@@ -736,6 +981,10 @@ class ConfigSchemaValidationTest {
                 add("    $branch:")
                 add("      $protocol:")
                 add("        type: $mode")
+                if (branch == "grpcTest") {
+                    if (optionRoot != "host") add("        host: localhost")
+                    if (optionRoot != "port") add("        port: 9000")
+                }
                 option.lines().forEach { add("        $it") }
             }.joinToString("\n")
 
@@ -744,7 +993,11 @@ class ConfigSchemaValidationTest {
                 version = SpecmaticConfigVersion.VERSION_3,
                 json = config,
                 keywordLocation = optionSchemaPath,
-                absoluteKeywordLocation = absoluteSchemaLocation(schema, optionPath, version = 3),
+                absoluteKeywordLocation = absoluteSchemaLocation(
+                    schema = if (isCommonOption && optionPath == optionRoot) commonSchema ?: schema else schema,
+                    optionPath = optionPath,
+                    version = 3,
+                ),
                 instanceLocation = "/components/runOptions/$branch/$protocol/${instancePath ?: instanceOptionPath(optionPath)}",
                 error = errorMessage ?: if (optionPath.endsWith("/$REF")) "string found, object expected" else "string found, $expectedType expected",
             )
@@ -843,6 +1096,7 @@ class ConfigSchemaValidationTest {
                           servers:
                             - host: localhost:9092
                               protocol: kafka
+                              type: in-memory
                               adminCredentials:
                                 username: admin
                               client:
@@ -948,6 +1202,7 @@ class ConfigSchemaValidationTest {
                         servers:
                           - host: localhost:9092
                             protocol: kafka
+                            type: external
                             adminCredentials:
                               username: admin
                             client:
@@ -957,6 +1212,18 @@ class ConfigSchemaValidationTest {
                                 acks: all
                         schemaRegistry:
                           kind: DEFAULT
+                        specs:
+                          - spec:
+                              id: events
+                              overlayFilePath: overlays/events.yaml
+                              replyTimeout: 10000
+                              subscriberReadinessWaitTime: 100
+                              servers:
+                                - host: localhost:9092
+                                  protocol: kafka
+                                  type: external
+                              schemaRegistry:
+                                kind: DEFAULT
                         extension:
                           enabled: true
                     asyncMock:
@@ -967,20 +1234,45 @@ class ConfigSchemaValidationTest {
                           host: localhost
                           port: 9093
                         servers:
-                          - host: localhost:9093
-                            protocol: kafka
+                            - host: localhost:9093
+                              protocol: kafka
+                              type: in-memory
                         schemaRegistry:
                           kind: DEFAULT
+                        specs:
+                          - spec:
+                              id: events
+                              overlayFilePath: overlays/events-mock.yaml
+                              inMemoryBroker:
+                                logDir: broker-logs
+                                host: localhost
+                                port: 9093
+                              servers:
+                                - host: localhost:9093
+                                  protocol: kafka
+                                  type: in-memory
+                              schemaRegistry:
+                                kind: DEFAULT
                     graphqlTest:
                       graphqlsdl:
                         type: test
                         host: localhost
                         port: 9001
+                        specs:
+                          - spec:
+                              id: schema
+                              host: localhost
+                              port: 9005
                     graphqlMock:
                       graphqlsdl:
                         type: mock
                         host: localhost
                         port: 9002
+                        specs:
+                          - spec:
+                              id: schema
+                              host: localhost
+                              port: 9007
                     grpcTest:
                       protobuf:
                         type: test
@@ -989,12 +1281,26 @@ class ConfigSchemaValidationTest {
                         importPaths: [proto]
                         protocVersion: 3.25.0
                         requestTimeout: 5000
+                        specs:
+                          - spec:
+                              id: service
+                              host: localhost
+                              port: 9006
+                              importPaths: [proto]
+                              protocVersion: 3.25.0
+                              requestTimeout: 5000
                     grpcMock:
                       protobuf:
                         type: mock
                         port: 9004
                         importPaths: [proto]
                         protocVersion: 3.25.0
+                        specs:
+                          - spec:
+                              id: service
+                              port: 9008
+                              importPaths: [proto]
+                              protocVersion: 3.25.0
                 """.trimIndent(),
             ),
         )
