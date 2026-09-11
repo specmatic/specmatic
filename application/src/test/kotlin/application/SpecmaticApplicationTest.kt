@@ -1,14 +1,26 @@
 package application
 
+import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.SystemExitException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.PrintStream
+import picocli.CommandLine
 
 class SpecmaticApplicationTest {
+    @Test
+    fun `can configure the command line with an invalid default configuration`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: [") }
+        Flags.using(CONFIG_FILE_PATH to configFile.path) {
+            CommandLine(SpecmaticCommand()).also(SpecmaticCoreSubcommands::configure)
+        }
+    }
 
     @Test
     fun `should redirect stdout to stderr when arguments are mcp server`() {
