@@ -565,6 +565,23 @@ paths:
                 emptyExamplesDir.deleteRecursively()
             }
         }
+
+        @Test
+        fun `should not log unable to parse when the extension is not valid openapi extension when validating specs-dir`(@TempDir tempDir: File) {
+            File("src/test/resources/examples/only_specs/products/spec.yaml").copyTo(tempDir.resolve("api.yaml"))
+            tempDir.resolve("config.toml").createNewFile()
+            tempDir.resolve("package.json").createNewFile()
+            tempDir.resolve("dictionary.yaml").createNewFile()
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                cli.execute("--specs-dir", tempDir.canonicalPath)
+            }
+
+            println(stdOut)
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(stdOut).contains("1. Validating examples associated to 'api.yaml'")
+            assertThat(stdOut).doesNotContain("Could not parse", "config.toml", "package.json", "dictionary.yaml")
+        }
     }
 
     @Nested
