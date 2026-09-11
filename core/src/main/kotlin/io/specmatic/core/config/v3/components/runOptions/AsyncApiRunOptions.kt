@@ -58,13 +58,28 @@ data class AsyncApiMockConfig(
 ) : AsyncApiRunOptions {
     fun withConfig(newConfig: Map<String, Any>): AsyncApiMockConfig = copy(_config = LinkedHashMap(newConfig))
     override fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> {
-        return validationContext.child("asyncapi").validateProtocolConfig(
-            config = config,
-            specFile = specFile,
-            definition = definition,
-            specType = SpecType.ASYNCAPI,
-            runOptionType = RunOptionType.MOCK,
-        )
+        val baseContext = validationContext.child("asyncapi")
+        val validateConfiguration: (Map<String, Any>, ValidationContext) -> List<ConfigValidationOutput> = { effectiveConfig, effectiveContext ->
+            effectiveContext.validateProtocolConfig(
+                config = effectiveConfig,
+                specFile = specFile,
+                definition = definition,
+                specType = SpecType.ASYNCAPI,
+                runOptionType = RunOptionType.MOCK,
+            )
+        }
+
+        val matchingOverride = definition.getSpecificationId()
+            ?.let(::getMatchingSpecificationWithIndex)
+            ?.takeIf { it.value.getConfig().isNotEmpty() }
+
+        return when (matchingOverride) {
+            null -> validateConfiguration(config, baseContext)
+            else -> {
+                val (index, specification) = matchingOverride
+                validateConfiguration(specification.getConfig(), baseContext.child("specs").child(index))
+            }
+        }
     }
 
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiMockConfig = copy(

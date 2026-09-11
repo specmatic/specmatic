@@ -31,6 +31,11 @@ interface IRunOptions {
         return specs?.firstOrNull { it.getId() == id }
     }
 
+    @JsonIgnore
+    fun getMatchingSpecificationWithIndex(id: String): IndexedValue<IRunOptionSpecification>? {
+        return specs?.withIndex()?.firstOrNull { it.value.getId() == id }
+    }
+
     fun toSpecmaticSpecConfig(specId: String?): SpecmaticSpecConfig {
         val matching = if (specId != null) getMatchingSpecification(specId) else null
         return SpecmaticSpecConfig(gerServerOrigin()?.baseUrl, matching, config)

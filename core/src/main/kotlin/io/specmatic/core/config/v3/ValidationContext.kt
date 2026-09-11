@@ -14,14 +14,12 @@ data class ValidationContext(
     val resolver: RefOrValueResolver,
     val protocolConfigValidators: List<ProtocolConfigValidator> = ServiceLoader.load(ProtocolConfigValidator::class.java).toList(),
     private val inlineLocations: Map<String, String> = emptyMap(),
-    private val preserveReferenceLocation: Boolean = false,
 ) {
     fun child(segment: String): ValidationContext {
         val inlineLocation = inlineLocations[segment]
         return copy(
             inlineLocations = emptyMap(),
-            location = inlineLocation ?: "$location/$segment",
-            preserveReferenceLocation = preserveReferenceLocation || inlineLocation != null,
+            location = inlineLocation ?: appendLocation(segment),
         )
     }
 
@@ -83,10 +81,17 @@ data class ValidationContext(
 
     private fun contextFor(reference: RefOrValue.Reference): ValidationContext {
         val targetLocation = reference.ref.takeIf { it.startsWith("#/") }?.removePrefix("#")
-        if (preserveReferenceLocation) return this
         return copy(
             location = targetLocation ?: location,
-            inlineLocations = reference.extra.keys.associateWith { key -> "$location/$key" },
+            inlineLocations = reference.extra.keys.associateWith { key -> appendLocation(key) },
         )
+    }
+
+    private fun appendLocation(segment: String): String {
+        return "$location/${segment.escapeJsonPointerSegment()}"
+    }
+
+    private fun String.escapeJsonPointerSegment(): String {
+        return replace("~", "~0").replace("/", "~1")
     }
 }
