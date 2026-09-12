@@ -56,6 +56,8 @@ import java.io.File
 import java.nio.file.Files
 import java.security.KeyStore
 import java.util.*
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.function.Consumer
 import java.util.stream.Stream
 
@@ -145,6 +147,66 @@ paths:
 
             val secondResponse = stub.client.execute(HttpRequest("GET", "/data"))
             assertThat(secondResponse.headers["X-Specmatic-Type"]).isEqualTo("random")
+        }
+    }
+
+    @Test
+    fun `only one concurrent HTTP request should receive a transient response`() {
+        val contract = OpenApiSpecification.fromYAML("""
+openapi: 3.0.0
+info:
+  title: Concurrent transient API
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      responses:
+        '200':
+          description: Data
+          content:
+            text/plain:
+              schema:
+                type: string
+        """.trimIndent(), "").toFeature()
+
+        HttpStub(contract).use { stub ->
+            stub.setExpectation("""
+                {
+                    "http-request": {"method": "GET", "path": "/data"},
+                    "http-response": {"status": 200, "body": "persistent"}
+                }
+            """.trimIndent())
+            stub.setExpectation("""
+                {
+                    "http-stub-id": "one-shot",
+                    "transient": true,
+                    "http-request": {"method": "GET", "path": "/data"},
+                    "http-response": {"status": 200, "body": "transient"}
+                }
+            """.trimIndent())
+
+            val requestCount = 50
+            val ready = CountDownLatch(requestCount)
+            val start = CountDownLatch(1)
+            val executor = Executors.newFixedThreadPool(requestCount)
+
+            val responses = try {
+                List(requestCount) {
+                    executor.submit<String> {
+                        ready.countDown()
+                        start.await()
+                        stub.client.execute(HttpRequest("GET", "/data")).body.toStringLiteral()
+                    }
+                }.also {
+                    ready.await()
+                    start.countDown()
+                }.map { it.get() }
+            } finally {
+                executor.shutdownNow()
+            }
+
+            assertThat(responses.count { it == "transient" }).isOne
+            assertThat(responses.count { it == "persistent" }).isEqualTo(requestCount - 1)
         }
     }
 

@@ -17,32 +17,43 @@ class ThreadSafeListOfStubs(
     private val specToBaseUrlMap: Map<String, String>,
     private val strictMode: Boolean = false,
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    private val lock: Any = Any(),
+    private val sourceStubs: MutableList<HttpStubData>? = null,
 ) {
     val size: Int
         get() {
-            return httpStubs.size
+            synchronized(lock) { return httpStubs.size }
         }
 
     fun stubAssociatedTo(baseUrl: String, defaultBaseUrl: String, urlPath: String): ThreadSafeListOfStubs {
         val baseUrlToListOfStubsMap = baseUrlToListOfStubsMap(defaultBaseUrl).mapKeys { URI(it.key) }
         val resolvedUrls = setOf(baseUrl, defaultBaseUrl).map { it.plus(urlPath) }.map(::URI)
 
-        return resolvedUrls.firstNotNullOfOrNull { resolvedUrl ->
+        val associatedStubs = resolvedUrls.firstNotNullOfOrNull { resolvedUrl ->
             specmaticConfig.mostSpecificMatchingBaseUrl(
                 resolvedUrl,
                 baseUrlToListOfStubsMap.keys
             )?.let(baseUrlToListOfStubsMap::get)
-        } ?: emptyStubs()
+        } ?: return emptyStubs()
+
+        return ThreadSafeListOfStubs(
+            associatedStubs.httpStubs,
+            specToBaseUrlMap,
+            strictMode,
+            specmaticConfig,
+            lock,
+            sourceStubs ?: httpStubs,
+        )
     }
 
     private fun matchResults(fn: (List<HttpStubData>) -> List<Pair<Result, HttpStubData>>): List<Pair<Result, HttpStubData>> {
-        synchronized(this) {
+        synchronized(lock) {
             return fn(httpStubs.toList())
         }
     }
 
     fun addToStub(result: Pair<Result, HttpStubData?>, stub: ScenarioStub) {
-        synchronized(this) {
+        synchronized(lock) {
             result.second.let {
                 if(it != null)
                     httpStubs.add(0, it.copy(scenarioStub = stub))
@@ -51,13 +62,14 @@ class ThreadSafeListOfStubs(
     }
 
     fun remove(element: HttpStubData) {
-        synchronized(this) {
+        synchronized(lock) {
             httpStubs.remove(element)
+            sourceStubs?.remove(element)
         }
     }
 
     fun removeWithToken(token: String?) {
-        synchronized(this) {
+        synchronized(lock) {
             httpStubs.mapIndexed { index, httpStubData ->
                 if (httpStubData.stubToken == token) index else null
             }.filterNotNull().reversed().map { index ->
@@ -67,14 +79,30 @@ class ThreadSafeListOfStubs(
     }
 
     fun matchingTransientStub(httpRequest: HttpRequest): Pair<HttpStubData, List<Pair<Result, HttpStubData>>>? {
+        synchronized(lock) {
+            val availableStubs = sourceStubs?.let { source ->
+                httpStubs.filter { it in source }
+            } ?: httpStubs.toList()
+            val match = findMatchingTransientStub(httpRequest, availableStubs) ?: return null
+            val selectedStub = match.first
+            if (selectedStub.utilize()) {
+                httpStubs.remove(selectedStub)
+                sourceStubs?.remove(selectedStub)
+            }
+            return match
+        }
+    }
+
+    private fun findMatchingTransientStub(
+        httpRequest: HttpRequest,
+        stubs: List<HttpStubData>
+    ): Pair<HttpStubData, List<Pair<Result, HttpStubData>>>? {
         val expectedResponseCode = httpRequest.expectedResponseCode()
 
-        val queueMatchResults: List<Pair<Result, HttpStubData>> = matchResults { stubs ->
-            stubs.filter {
-                hasExpectedResponseCode(it, expectedResponseCode)
-            }.map {
-                Pair(it.matches(httpRequest), it)
-            }
+        val queueMatchResults = stubs.filter {
+            hasExpectedResponseCode(it, expectedResponseCode)
+        }.map {
+            Pair(it.matches(httpRequest), it)
         }
 
         val preferredMatch = queueMatchResults.findLast { (result, stubData) ->
@@ -157,7 +185,7 @@ class ThreadSafeListOfStubs(
     }
 
     private fun baseUrlToListOfStubsMap(defaultBaseUrl: String): Map<String, ThreadSafeListOfStubs> {
-        synchronized(this) {
+        synchronized(lock) {
             return httpStubs.groupBy {
                 specToBaseUrlMap[it.contractPath] ?: defaultBaseUrl
             }.mapValues { (_, stubs) ->
