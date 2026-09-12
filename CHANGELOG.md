@@ -32,6 +32,10 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Changed
+
+- Transient (one-shot) mocks are now consumed when they are selected, so concurrent requests and retries after a delayed disconnect cannot receive the same one-shot response more than once.
+
 ### Added
 
 - Added the `specmatic config validate` command for validating configuration files, and performing protocol-aware semantic checks. The command supports text or JSON diagnostics, source locations, and validation-specific exit codes for CLI and CI use.

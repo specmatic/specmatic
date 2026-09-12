@@ -53,9 +53,14 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.net.ServerSocket
+import java.net.Socket
+import java.net.URI
 import java.nio.file.Files
 import java.security.KeyStore
 import java.util.*
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.function.Consumer
 import java.util.stream.Stream
 
@@ -145,6 +150,125 @@ paths:
 
             val secondResponse = stub.client.execute(HttpRequest("GET", "/data"))
             assertThat(secondResponse.headers["X-Specmatic-Type"]).isEqualTo("random")
+        }
+    }
+
+    @Test
+    fun `only one concurrent HTTP request should receive a transient response`() {
+        val contract = OpenApiSpecification.fromYAML("""
+openapi: 3.0.0
+info:
+  title: Concurrent transient API
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      responses:
+        '200':
+          description: Data
+          content:
+            text/plain:
+              schema:
+                type: string
+        """.trimIndent(), "").toFeature()
+
+        HttpStub(contract).use { stub ->
+            stub.setExpectation("""
+                {
+                    "http-request": {"method": "GET", "path": "/data"},
+                    "http-response": {"status": 200, "body": "persistent"}
+                }
+            """.trimIndent())
+            stub.setExpectation("""
+                {
+                    "http-stub-id": "one-shot",
+                    "transient": true,
+                    "http-request": {"method": "GET", "path": "/data"},
+                    "http-response": {"status": 200, "body": "transient"}
+                }
+            """.trimIndent())
+
+            val requestCount = 50
+            val ready = CountDownLatch(requestCount)
+            val start = CountDownLatch(1)
+            val executor = Executors.newFixedThreadPool(requestCount)
+
+            val responses = try {
+                List(requestCount) {
+                    executor.submit<String> {
+                        ready.countDown()
+                        start.await()
+                        stub.client.execute(HttpRequest("GET", "/data")).body.toStringLiteral()
+                    }
+                }.also {
+                    ready.await()
+                    start.countDown()
+                }.map { it.get() }
+            } finally {
+                executor.shutdownNow()
+            }
+
+            assertThat(responses.count { it == "transient" }).isOne
+            assertThat(responses.count { it == "persistent" }).isEqualTo(requestCount - 1)
+        }
+    }
+
+    @Test
+    fun `a delayed transient response should remain consumed when the client disconnects before it is written`() {
+        val contract = OpenApiSpecification.fromYAML("""
+openapi: 3.0.0
+info:
+  title: Delayed transient API
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      responses:
+        '200':
+          description: Data
+          content:
+            text/plain:
+              schema:
+                type: string
+        """.trimIndent(), "").toFeature()
+
+        val port = ServerSocket(0).use { it.localPort }
+        HttpStub(contract, port = port).use { stub ->
+            stub.setExpectation("""
+                {
+                    "name": "SUCCESSFUL_RESPONSE_AFTER_TIMEOUT",
+                    "id": "successful_response_after_timeout",
+                    "http-request": {"method": "GET", "path": "/data"},
+                    "http-response": {"status": 200, "body": "persistent"}
+                }
+            """.trimIndent())
+            stub.setExpectation("""
+                {
+                    "name": "DELAYED_TRANSIENT_RESPONSE",
+                    "id": "delayed_transient_response",
+                    "transient": true,
+                    "delay-in-milliseconds": 700,
+                    "http-request": {"method": "GET", "path": "/data"},
+                    "http-response": {"status": 200, "body": "transient"}
+                }
+            """.trimIndent())
+
+            val endpoint = URI(stub.endPoint)
+            Socket(endpoint.host, endpoint.port).use { socket ->
+                socket.getOutputStream().bufferedWriter().apply {
+                    write("GET /data HTTP/1.1\r\nHost: ${endpoint.host}:${endpoint.port}\r\nConnection: close\r\n\r\n")
+                    flush()
+                }
+
+                val deadline = System.nanoTime() + 1_000_000_000
+                while (stub.transientStubCount != 0 && System.nanoTime() < deadline)
+                    Thread.sleep(10)
+                assertThat(stub.transientStubCount).isZero()
+            }
+
+            val retryResponse = stub.client.execute(HttpRequest("GET", "/data"))
+
+            assertThat(retryResponse.body.toStringLiteral()).isEqualTo("persistent")
         }
     }
 

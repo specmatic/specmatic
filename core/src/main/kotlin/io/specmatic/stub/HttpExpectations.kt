@@ -8,7 +8,8 @@ import io.specmatic.mock.ScenarioStub
 class HttpExpectations private constructor (
     private val static: ThreadSafeListOfStubs,
     private val transient: ThreadSafeListOfStubs,
-    private val dynamic: ThreadSafeListOfStubs
+    private val dynamic: ThreadSafeListOfStubs,
+    private val transientAssociation: StubBaseUrlAssociation? = null,
 ) {
     constructor(
         static: MutableList<HttpStubData>,
@@ -25,12 +26,6 @@ class HttpExpectations private constructor (
     val stubCount: Int get() { return static.size }
     val transientStubCount: Int get() { return transient.size }
 
-    fun utilizeMock(httpStubData: HttpStubData) {
-        val shouldBeRemovedFromTransient = httpStubData.utilize()
-        if (!shouldBeRemovedFromTransient) return
-        transient.remove(httpStubData)
-    }
-
     fun removeWithToken(token: String?) {
         transient.removeWithToken(token)
     }
@@ -46,12 +41,14 @@ class HttpExpectations private constructor (
     fun associatedTo(baseUrl: String, defaultBaseUrl: String, urlPath: String): HttpExpectations {
         return HttpExpectations(
             static.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath),
-            transient.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath),
-            dynamic.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath))
+            transient,
+            dynamic.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath),
+            StubBaseUrlAssociation(baseUrl, defaultBaseUrl, urlPath),
+        )
     }
 
     fun matchingStub(httpRequest: HttpRequest): Pair<HttpStubData?, List<Pair<Result, HttpStubData>>> {
-        val transientMatch = transient.matchingTransientStub(httpRequest)
+        val transientMatch = transient.matchingTransientStub(httpRequest, transientAssociation)
         if(transientMatch != null)
             return transientMatch
 
