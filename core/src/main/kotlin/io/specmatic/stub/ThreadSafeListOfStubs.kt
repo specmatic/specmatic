@@ -64,9 +64,13 @@ class ThreadSafeListOfStubs(
         }
     }
 
-    fun matchingTransientStub(
+    fun matchingTransientStub(httpRequest: HttpRequest): Pair<HttpStubData, List<Pair<Result, HttpStubData>>>? {
+        return matchingTransientStub(httpRequest, null)
+    }
+
+    internal fun matchingTransientStub(
         httpRequest: HttpRequest,
-        association: StubBaseUrlAssociation? = null,
+        association: StubBaseUrlAssociation?,
     ): Pair<HttpStubData, List<Pair<Result, HttpStubData>>>? {
         synchronized(this) {
             val candidates = if (association == null) {
