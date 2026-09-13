@@ -50,10 +50,6 @@ class HttpStubHandlers(
         mockHandler.removeWithToken(token)
     }
 
-    fun utilize(handler: HttpStubHandler, mock: HttpStubData) {
-        if (handler !is HttpStubHandler.Default) return
-        handler.utilizeMock(mock)
-    }
 
     private fun featuresForMode(candidateFeatures: List<Feature>, mode: MockMode): List<Feature> {
         if (statefulMockHandler == null) return candidateFeatures

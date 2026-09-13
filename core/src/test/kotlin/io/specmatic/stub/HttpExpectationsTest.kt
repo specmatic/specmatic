@@ -10,6 +10,8 @@ import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
 
 class HttpExpectationsTest {
     private val request = HttpRequest("POST", "/products", body = parsedJSONObject("""{"name": "Specific Value"}"""))
@@ -102,5 +104,44 @@ class HttpExpectationsTest {
 
         val jsonResponse = expectedResponse.response.body as JSONObjectValue
         assertThat(jsonResponse.findFirstChildByName("id")?.toStringLiteral()).isEqualTo("20")
+    }
+
+    @Test
+    fun `a transient expectation should be selected only once by concurrent requests`() {
+        val transientStub = staticStubData.copy(
+            scenarioStub = ScenarioStub(
+                request = request,
+                response = staticStubData.response,
+                stubToken = "transient-stub"
+            )
+        )
+        val concurrentExpectations = HttpExpectations(
+            static = mutableListOf(),
+            transient = mutableListOf(transientStub),
+            specToBaseUrlMap = mapOf("test.yaml" to "http://localhost:8080")
+        )
+        val associatedExpectations = List(2) {
+            concurrentExpectations.associatedTo(
+                "http://localhost:8080",
+                "http://localhost:8080",
+                "/products"
+            )
+        }
+        val bothRequestsAreReady = CyclicBarrier(2)
+        val executor = Executors.newFixedThreadPool(2)
+
+        val selections = try {
+            associatedExpectations.map { expectationsForRequest ->
+                executor.submit<HttpStubData?> {
+                    bothRequestsAreReady.await()
+                    expectationsForRequest.matchingStub(request).first
+                }
+            }.map { it.get() }
+        } finally {
+            executor.shutdownNow()
+        }
+
+        assertThat(selections.filterNotNull()).containsExactly(transientStub)
+        assertThat(concurrentExpectations.transientStubCount).isZero()
     }
 }
