@@ -50,7 +50,6 @@ class HttpStubHandlers(
         mockHandler.removeWithToken(token)
     }
 
-
     private fun featuresForMode(candidateFeatures: List<Feature>, mode: MockMode): List<Feature> {
         if (statefulMockHandler == null) return candidateFeatures
         return candidateFeatures.filter { modeForFeature(it) == mode }

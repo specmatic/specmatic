@@ -51,7 +51,6 @@ internal class DefaultHttpStubHandler(private val context: HttpStubHandlerContex
         }
     }
 
-
     override fun removeWithToken(token: String?) {
         httpExpectations.removeWithToken(token)
     }
