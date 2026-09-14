@@ -1,6 +1,7 @@
 package io.specmatic.test
 
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Result
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Scenario
@@ -116,6 +117,82 @@ class SpecmaticJunitSupportTest {
     @Test
     fun `httpClientLog does not use dontPrintToConsole when agentMode is false`() {
         assertThat(httpClientLog(agentMode = false)).isNotSameAs(dontPrintToConsole)
+    }
+
+    @Test
+    fun `agentMode suppresses HttpClient traffic dumps when running contract tests`(@TempDir tempDir: File) {
+        MockHttpServer().use { server ->
+            server.on("/orders", "GET") {
+                respond(HttpResponse(status = 200, body = NoBodyValue))
+            }
+            server.serveSwagger("/orders")
+
+            val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.canonicalPath,
+                    testBaseURL = server.baseUrl,
+                    agentMode = true,
+                )
+            )
+
+            try {
+                val originalOut = System.out
+                val outputStream = ByteArrayOutputStream()
+                System.setOut(PrintStream(outputStream))
+                try {
+                    SpecmaticJUnitSupport().contractTest().forEach { dynamicTest ->
+                        runCatching { dynamicTest.executable.execute() }
+                    }
+                } finally {
+                    System.out.flush()
+                    System.setOut(originalOut)
+                }
+
+                val output = outputStream.toString()
+                assertThat(output).doesNotContain("Request to ${server.baseUrl}")
+                assertThat(output).doesNotContain("Request to http://")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `without agentMode HttpClient traffic dumps still appear`(@TempDir tempDir: File) {
+        MockHttpServer().use { server ->
+            server.on("/orders", "GET") {
+                respond(HttpResponse(status = 200, body = NoBodyValue))
+            }
+            server.serveSwagger("/orders")
+
+            val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.canonicalPath,
+                    testBaseURL = server.baseUrl,
+                    agentMode = false,
+                )
+            )
+
+            try {
+                val originalOut = System.out
+                val outputStream = ByteArrayOutputStream()
+                System.setOut(PrintStream(outputStream))
+                try {
+                    SpecmaticJUnitSupport().contractTest().forEach { dynamicTest ->
+                        runCatching { dynamicTest.executable.execute() }
+                    }
+                } finally {
+                    System.out.flush()
+                    System.setOut(originalOut)
+                }
+
+                assertThat(outputStream.toString()).contains("Request to ${server.baseUrl}")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
     }
 
     @Test
