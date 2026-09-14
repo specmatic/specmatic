@@ -52,18 +52,17 @@ interface IRunOptions {
 
 fun IRunOptions.validateProtocolConfigForSpecFile(
     specFile: File,
+    runOptionType: RunOptionType,
     definition: SpecificationDefinition,
     validationContext: ValidationContext,
 ): List<ConfigValidationOutput> {
     val specificationId = definition.getSpecificationId()
-    val matchingOverride = specificationId
-        ?.let(::getMatchingSpecificationWithIndex)
-        ?.takeUnless { it.value.isNoOpOverride() }
-
+    val matchingOverride = specificationId?.let(::getMatchingSpecificationWithIndex)
     val runOptions = ValueWithContext(value = this, context = validationContext)
     val specOverrideConfig = matchingOverride?.let { (index, specification) ->
         ApplicableProtocolConfig.Override(
             runOptions = runOptions,
+            runOptionType = runOptionType,
             specOverride = ValueWithContext(
                 value = specification,
                 context = validationContext.child("specs").child(index),
@@ -74,7 +73,10 @@ fun IRunOptions.validateProtocolConfigForSpecFile(
     return validationContext.validateProtocolConfig(
         specFile = specFile,
         definition = definition,
-        configuration = specOverrideConfig ?: ApplicableProtocolConfig.Global(runOptions = runOptions),
+        configuration = specOverrideConfig ?: ApplicableProtocolConfig.Global(
+            runOptions = runOptions,
+            runOptionType = runOptionType,
+        ),
     )
 }
 

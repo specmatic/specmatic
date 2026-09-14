@@ -44,7 +44,10 @@ abstract class TypedProtocolConfigValidator<Global : IRunOptions, Override : IRu
         configuration: ApplicableProtocolConfig.Global<*>,
     ): ApplicableProtocolConfig<Global, Override>? {
         val runOptions = configuration.runOptions.castTo(globalType) ?: return null
-        return ApplicableProtocolConfig.Global(runOptions = runOptions)
+        return ApplicableProtocolConfig.Global(
+            runOptions = runOptions,
+            runOptionType = configuration.runOptionType,
+        )
     }
 
     private fun typedOverride(
@@ -52,7 +55,11 @@ abstract class TypedProtocolConfigValidator<Global : IRunOptions, Override : IRu
     ): ApplicableProtocolConfig<Global, Override>? {
         val runOptions = configuration.runOptions.castTo(globalType) ?: return null
         val specOverride = configuration.specOverride.castTo(overrideType) ?: return null
-        return ApplicableProtocolConfig.Override(runOptions = runOptions, specOverride = specOverride)
+        return ApplicableProtocolConfig.Override(
+            runOptions = runOptions,
+            specOverride = specOverride,
+            runOptionType = configuration.runOptionType,
+        )
     }
 
     private fun <T : Any> ValueWithContext<*>.castTo(type: KClass<T>): ValueWithContext<T>? {

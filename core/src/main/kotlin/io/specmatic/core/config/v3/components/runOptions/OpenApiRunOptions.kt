@@ -78,6 +78,7 @@ data class OpenApiMockConfig(
         return validateProtocolConfigForSpecFile(
             specFile = specFile,
             definition = definition,
+            runOptionType = type ?: RunOptionType.MOCK,
             validationContext = validationContext.child("openapi"),
         )
     }

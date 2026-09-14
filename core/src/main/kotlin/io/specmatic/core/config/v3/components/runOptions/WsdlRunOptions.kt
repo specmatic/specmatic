@@ -68,6 +68,7 @@ data class WsdlMockConfig(
         return validateProtocolConfigForSpecFile(
             specFile = specFile,
             definition = definition,
+            runOptionType = type ?: RunOptionType.MOCK,
             validationContext = validationContext.child("wsdl"),
         )
     }

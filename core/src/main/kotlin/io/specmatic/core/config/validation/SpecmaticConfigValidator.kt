@@ -73,7 +73,7 @@ class SpecmaticConfigValidator(private val schemaValidator: ConfigSchemaValidato
             else -> emptyList()
         }
 
-        val errors = loadErrors + semanticErrors
+        val errors = loadErrors + semanticErrors.distinct()
         return if (errors.isEmpty()) {
             ConfigValidationResult.Valid(version)
         } else {

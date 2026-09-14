@@ -63,6 +63,7 @@ data class ProtobufMockConfig(
         return validateProtocolConfigForSpecFile(
             specFile = specFile,
             definition = definition,
+            runOptionType = type ?: RunOptionType.MOCK,
             validationContext = validationContext.child("protobuf"),
         )
     }

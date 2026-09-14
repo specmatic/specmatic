@@ -61,13 +61,8 @@ data class ValidationContext(
             runCatching {
                 validator.validate(definition = definition, configuration = configuration, specification = specFile)
             }.getOrElse { failure ->
-                val errorContext = when (configuration) {
-                    is ApplicableProtocolConfig.Global -> configuration.runOptions.context
-                    is ApplicableProtocolConfig.Override -> configuration.specOverride.context
-                }
-
                 listOf(
-                    element = errorContext.error(
+                    element = configuration.context.error(
                         severity = ConfigValidationSeverity.ERROR,
                         message = "Protocol validation failed for '${specFile.path}': ${failure.message ?: failure::class.simpleName}",
                     )

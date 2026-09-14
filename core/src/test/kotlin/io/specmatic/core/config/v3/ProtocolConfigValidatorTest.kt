@@ -10,6 +10,7 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
 import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.ProtobufMockConfig
 import io.specmatic.core.config.v3.components.runOptions.RunOptionsSpecifications
+import io.specmatic.core.config.v3.components.runOptions.RunOptionType
 import io.specmatic.core.config.v3.components.runOptions.WsdlRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.WsdlMockConfig
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
@@ -50,6 +51,7 @@ class ProtocolConfigValidatorTest {
                 ApplicableCall(
                     specification = specification,
                     source = ApplicableSource.GLOBAL,
+                    runOptionType = RunOptionType.MOCK,
                     valueType = protocol.runOptions::class,
                     runOptionsType = protocol.runOptions::class,
                     location = "/dependencies/runOptions/${protocol.configName}",
@@ -83,6 +85,7 @@ class ProtocolConfigValidatorTest {
                     valueType = overrideType,
                     specification = specification,
                     source = ApplicableSource.OVERRIDE,
+                    runOptionType = RunOptionType.MOCK,
                     runOptionsType = protocol.runOptions::class,
                     location = "/dependencies/runOptions/${protocol.configName}/specs/0",
                     runOptionsLocation = "/dependencies/runOptions/${protocol.configName}",
@@ -274,7 +277,7 @@ class ProtocolConfigValidatorTest {
     }
 
     @Test
-    fun `uses top-level async mock configuration and location when matching specification override is empty`(@TempDir tempDir: File) {
+    fun `passes an overlay-only async mock specification override to the SPI`(@TempDir tempDir: File) {
         val validator = RecordingValidator()
         val specification = tempDir.resolve("events.yaml").apply { writeText("asyncapi: 3.0.0") }
         val definition = SpecificationDefinition.ObjectValue(SpecificationDefinition.Specification(id = "kafka", path = specification.path))
@@ -283,7 +286,7 @@ class ProtocolConfigValidatorTest {
         val runOptions = AsyncApiMockConfig(
             specs = listOf(
                 RunOptionsSpecifications(
-                    RunOptionsSpecifications.Value(id = "kafka"),
+                    RunOptionsSpecifications.Value(id = "kafka", overlayFilePath = "overlay.yaml"),
                 ),
             ),
         ).withConfig(baseConfiguration)
@@ -292,8 +295,8 @@ class ProtocolConfigValidatorTest {
         assertThat(validator.calls).containsExactly(
             Call(
                 specification = specification,
-                configuration = baseConfiguration,
-                location = "/dependencies/runOptions/asyncapi",
+                configuration = emptyMap(),
+                location = "/dependencies/runOptions/asyncapi/specs/0",
             ),
         )
     }
@@ -351,6 +354,7 @@ class ProtocolConfigValidatorTest {
                 source = ApplicableSource.GLOBAL,
                 configuration = mapOf("broker" to "global"),
                 configurationType = AsyncApiMockConfig::class,
+                contextLocation = "/dependencies/runOptions/asyncapi",
                 location = "/dependencies/runOptions/asyncapi",
                 runOptionsConfiguration = mapOf("broker" to "global"),
                 runOptionsLocation = "/dependencies/runOptions/asyncapi",
@@ -359,6 +363,7 @@ class ProtocolConfigValidatorTest {
                 source = ApplicableSource.OVERRIDE,
                 configuration = mapOf("broker" to "override"),
                 configurationType = RunOptionsSpecifications::class,
+                contextLocation = "/dependencies/runOptions/asyncapi/specs/0",
                 runOptionsConfiguration = mapOf("broker" to "global"),
                 location = "/dependencies/runOptions/asyncapi/specs/0",
                 runOptionsLocation = "/dependencies/runOptions/asyncapi",
@@ -376,6 +381,29 @@ class ProtocolConfigValidatorTest {
             validationContext = context(tempDir, validator),
         )
 
+        assertThat(validator.calls).isEmpty()
+    }
+
+    @Test
+    fun `typed validator ignores an incompatible specification override`(@TempDir tempDir: File) {
+        val validator = TypedRecordingValidator()
+        val specification = tempDir.resolve("events.yaml")
+        val context = context(tempDir, validator)
+
+        val output = validator.validate(
+            specification = specification,
+            definition = SpecificationDefinition.StringValue(specification.path),
+            configuration = ApplicableProtocolConfig.Override(
+                runOptionType = RunOptionType.MOCK,
+                runOptions = ValueWithContext(value = AsyncApiMockConfig(), context = context),
+                specOverride = ValueWithContext(
+                    context = context.child("specs").child(0),
+                    value = OpenApiRunOptionsSpecifications(OpenApiRunOptionsSpecifications.Value(id = "events", port = 8080)),
+                ),
+            ),
+        )
+
+        assertThat(output).isEmpty()
         assertThat(validator.calls).isEmpty()
     }
 
@@ -611,6 +639,7 @@ class ProtocolConfigValidatorTest {
         val location: String,
         val specification: File,
         val source: ApplicableSource,
+        val runOptionType: RunOptionType,
         val runOptionsLocation: String,
         val valueType: kotlin.reflect.KClass<*>,
         val runOptionsType: kotlin.reflect.KClass<*>,
@@ -630,6 +659,7 @@ class ProtocolConfigValidatorTest {
         val location: String,
         val source: ApplicableSource,
         val configuration: Map<String, Any>,
+        val contextLocation: String,
         val runOptionsLocation: String = "",
         val configurationType: kotlin.reflect.KClass<*>,
         val runOptionsConfiguration: Map<String, Any> = emptyMap(),
@@ -645,6 +675,7 @@ class ProtocolConfigValidatorTest {
                     applicableCalls += ApplicableCall(
                         specification = specification,
                         source = ApplicableSource.GLOBAL,
+                        runOptionType = configuration.runOptionType,
                         valueType = configuration.runOptions.value::class,
                         location = configuration.runOptions.context.location,
                         runOptionsType = configuration.runOptions.value::class,
@@ -657,6 +688,7 @@ class ProtocolConfigValidatorTest {
                     applicableCalls += ApplicableCall(
                         specification = specification,
                         source = ApplicableSource.OVERRIDE,
+                        runOptionType = configuration.runOptionType,
                         valueType = configuration.specOverride.value::class,
                         location = configuration.specOverride.context.location,
                         runOptionsType = configuration.runOptions.value::class,
@@ -686,6 +718,7 @@ class ProtocolConfigValidatorTest {
             calls += when (configuration) {
                 is ApplicableProtocolConfig.Global -> TypedCall(
                     source = ApplicableSource.GLOBAL,
+                    contextLocation = configuration.context.location,
                     location = configuration.runOptions.context.location,
                     configuration = configuration.runOptions.value.config,
                     configurationType = configuration.runOptions.value::class,
@@ -695,6 +728,7 @@ class ProtocolConfigValidatorTest {
 
                 is ApplicableProtocolConfig.Override -> TypedCall(
                     source = ApplicableSource.OVERRIDE,
+                    contextLocation = configuration.context.location,
                     location = configuration.specOverride.context.location,
                     configurationType = configuration.specOverride.value::class,
                     configuration = configuration.specOverride.value.getConfig(),
@@ -706,4 +740,5 @@ class ProtocolConfigValidatorTest {
             return emptyList()
         }
     }
+
 }
