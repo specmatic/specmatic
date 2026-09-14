@@ -4,8 +4,11 @@ import com.fasterxml.jackson.annotation.*
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.mapValue
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
@@ -61,6 +64,14 @@ data class WsdlMockConfig(
     override val specs: List<WsdlRunOptionsSpecifications>? = null,
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : WsdlRunOptions, ConfigWithCert {
+    override fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> {
+        return validateProtocolConfigForSpecFile(
+            specFile = specFile,
+            definition = definition,
+            validationContext = validationContext.child("wsdl"),
+        )
+    }
+
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): WsdlMockConfig = copy(
         cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },
     )

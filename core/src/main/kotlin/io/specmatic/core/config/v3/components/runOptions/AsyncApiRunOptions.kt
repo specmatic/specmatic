@@ -6,7 +6,6 @@ import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.validation.ConfigValidationOutput
-import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
@@ -57,29 +56,13 @@ data class AsyncApiMockConfig(
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : AsyncApiRunOptions {
     fun withConfig(newConfig: Map<String, Any>): AsyncApiMockConfig = copy(_config = LinkedHashMap(newConfig))
+
     override fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> {
-        val baseContext = validationContext.child("asyncapi")
-        val validateConfiguration: (Map<String, Any>, ValidationContext) -> List<ConfigValidationOutput> = { effectiveConfig, effectiveContext ->
-            effectiveContext.validateProtocolConfig(
-                config = effectiveConfig,
-                specFile = specFile,
-                definition = definition,
-                specType = SpecType.ASYNCAPI,
-                runOptionType = RunOptionType.MOCK,
-            )
-        }
-
-        val matchingOverride = definition.getSpecificationId()
-            ?.let(::getMatchingSpecificationWithIndex)
-            ?.takeIf { it.value.getConfig().isNotEmpty() }
-
-        return when (matchingOverride) {
-            null -> validateConfiguration(config, baseContext)
-            else -> {
-                val (index, specification) = matchingOverride
-                validateConfiguration(specification.getConfig(), baseContext.child("specs").child(index))
-            }
-        }
+        return validateProtocolConfigForSpecFile(
+            specFile = specFile,
+            definition = definition,
+            validationContext = validationContext.child("asyncapi"),
+        )
     }
 
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiMockConfig = copy(

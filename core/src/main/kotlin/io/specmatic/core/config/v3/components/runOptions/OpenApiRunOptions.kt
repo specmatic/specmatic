@@ -7,8 +7,11 @@ import io.specmatic.core.WorkflowConfiguration
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.v3.mapValue
 import io.specmatic.core.config.ConfigPathMapper
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
 interface ConfigWithCert { val cert: RefOrValue<HttpsConfiguration>? }
@@ -70,6 +73,14 @@ data class OpenApiMockConfig(
     override val specs: List<OpenApiRunOptionsSpecifications>? = null
 ) : OpenApiRunOptions, ConfigWithCert {
     override val config: Map<String, Any> = emptyMap()
+
+    override fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> {
+        return validateProtocolConfigForSpecFile(
+            specFile = specFile,
+            definition = definition,
+            validationContext = validationContext.child("openapi"),
+        )
+    }
 
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): OpenApiMockConfig = copy(
         cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },

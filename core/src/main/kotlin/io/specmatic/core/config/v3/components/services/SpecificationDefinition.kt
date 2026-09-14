@@ -36,9 +36,13 @@ sealed interface SpecificationDefinition {
             )
         }
 
-        val runOptions = determineSpecTypeFor(specFile).mapNotNull { getRunOpts(it) }
-        return runOptions.flatMap {
-            it.validateForSpecFile(specFile = specFile, definition = this, validationContext = runOptionsContext)
+        val runOptions = determineSpecTypeFor(specFile).mapNotNull { specType -> getRunOpts(specType) }
+        return runOptions.flatMap { runOptions ->
+            runOptions.validateForSpecFile(
+                definition = this,
+                specFile = specFile,
+                validationContext = runOptionsContext
+            )
         }
     }
 
