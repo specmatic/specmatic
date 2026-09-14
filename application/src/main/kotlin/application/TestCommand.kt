@@ -53,7 +53,8 @@ private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
 class TestCommand(
     private val junitLauncher: Launcher = LauncherFactory.create(),
     @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
-    val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig()
+    val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig(),
+    private val agentMode: Boolean = false,
 ) : Callable<Int> {
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])
     var contractPaths: List<String>? = null
@@ -238,6 +239,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             timeoutInMilliSeconds = timeoutInMs ?: timeout?.times(1000),
             contractPaths = contractPaths?.joinToString(separator = ",").takeIf(::isNotNullOrBlank),
             insightsReportOptions = insightsReportOptions,
+            agentMode = agentMode,
         )
 
         SpecmaticJUnitSupport.settingsStaging.set(settings)

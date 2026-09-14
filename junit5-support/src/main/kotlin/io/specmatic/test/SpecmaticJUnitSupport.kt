@@ -6,6 +6,7 @@ import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsingDecisions
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.consoleLog
+import io.specmatic.core.log.dontPrintToConsole
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.pattern.ContractException
@@ -78,6 +79,10 @@ open class SpecmaticJUnitSupport {
         const val FILTER = "filter"
         const val LOG_SEPARATOR = "--------------------"
         const val LOG_INDENT = "  "
+
+        internal fun httpClientLog(agentMode: Boolean): (LogMessage) -> Unit {
+            return if (agentMode) dontPrintToConsole else { logMessage -> logger.log(logMessage) }
+        }
 
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
@@ -383,14 +388,10 @@ open class SpecmaticJUnitSupport {
                 var testResult: ContractTestExecutionResult? = null
 
                 try {
-                    val log: (LogMessage) -> Unit = { logMessage ->
-                        logger.log(logMessage)
-                    }
-
                     val httpClient =
                         HttpClient(
                             baseURL,
-                            log = log,
+                            log = httpClientLog(settings.agentMode),
                             timeoutInMilliseconds = timeoutInMilliseconds,
                             prettyPrint = prettyPrint,
                             keyData = keyDataFor(baseURL),

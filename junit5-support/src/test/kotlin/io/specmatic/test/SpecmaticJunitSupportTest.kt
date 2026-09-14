@@ -23,6 +23,7 @@ import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
+import io.specmatic.core.log.dontPrintToConsole
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Decision
@@ -36,6 +37,7 @@ import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.httpClientLog
 import io.specmatic.test.listeners.ContractExecutionListener
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
@@ -104,6 +106,16 @@ class SpecmaticJunitSupportTest {
                 Arguments.of(null, null, "http://spec.example", "http://spec.example")
             )
 
+    }
+
+    @Test
+    fun `httpClientLog uses dontPrintToConsole when agentMode is true`() {
+        assertThat(httpClientLog(agentMode = true)).isSameAs(dontPrintToConsole)
+    }
+
+    @Test
+    fun `httpClientLog does not use dontPrintToConsole when agentMode is false`() {
+        assertThat(httpClientLog(agentMode = false)).isNotSameAs(dontPrintToConsole)
     }
 
     @Test
