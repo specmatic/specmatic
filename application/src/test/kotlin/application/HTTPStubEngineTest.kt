@@ -7,6 +7,7 @@ import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.log.dontPrintToConsole
 import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.SpecmaticConfigSource
@@ -103,5 +104,39 @@ class HTTPStubEngineTest {
         |
         |Press Ctrl + C to stop.
         """.trimMargin().replace("\\t", "\t"))
+    }
+
+    @Test
+    fun `requestLog uses dontPrintToConsole when agentMode is true`() {
+        assertThat(HTTPStubEngine.requestLog(agentMode = true)).isSameAs(dontPrintToConsole)
+    }
+
+    @Test
+    fun `requestLog uses consoleLog when agentMode is false`() {
+        assertThat(HTTPStubEngine.requestLog(agentMode = false)).isNotSameAs(dontPrintToConsole)
+    }
+
+    @Test
+    fun `agentMode still prints mock startup banner`() {
+        val (stdOut, _) = captureStandardOutput {
+            HTTPStubEngine().runHTTPStub(
+                stubs = listOf("api.yaml".toMockkFeature() to emptyList()),
+                host = "0.0.0.0",
+                port = 9000,
+                keyDataRegistry = KeyDataRegistry.empty(),
+                incomingMtlsRegistry = IncomingMtlsRegistry.empty(),
+                strictMode = false,
+                httpClientFactory = HttpClientFactory(),
+                workingDirectory = WorkingDirectory(),
+                gracefulRestartTimeoutInMs = 0,
+                specToBaseUrlMap = mapOf("api.yaml" to "http://localhost:9000"),
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(SpecmaticConfig()),
+                insightsReportOptions = InsightsReportOptions(),
+                agentMode = true,
+            ).close()
+        }
+
+        assertThat(stdOut).contains("Mock server is running on the following URLs:")
+        assertThat(stdOut).contains("Press Ctrl + C to stop.")
     }
 }

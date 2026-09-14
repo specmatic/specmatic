@@ -127,7 +127,7 @@ internal class StubCommandTest {
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
         every { shutdownHookRegistrar.register(capture(registeredHook)) } returns Closeable {}
         every {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns mockk {
             every { close() } answers { closeCount.incrementAndGet() }
         }
@@ -163,7 +163,7 @@ internal class StubCommandTest {
         every { watcher.watchForChanges(capture(restart)) } just Runs
         every { watchMaker.make(listOf(contractPath)) } returns watcher
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
-        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(firstServer, secondServer, thirdServer)
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(firstServer, secondServer, thirdServer)
         stubCommand.hotReload = Switch.enabled
 
         assertThat(CommandLine(stubCommand).execute(contractPath)).isZero()
@@ -175,7 +175,7 @@ internal class StubCommandTest {
         restart.captured.invoke()
         assertThat(closeCount.get()).isEqualTo(3)
         verify(exactly = 3) {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         }
     }
 
@@ -208,7 +208,7 @@ internal class StubCommandTest {
         every { watchMaker.make(listOf(contractPath)) } returns watcher
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
         every { shutdownHookRegistrar.register(any()) } returns Closeable { terminalCloseRequested.countDown() }
-        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(firstServer, secondServer)
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(firstServer, secondServer)
         stubCommand.hotReload = Switch.enabled
 
         assertThat(CommandLine(stubCommand).execute(contractPath)).isZero()
@@ -349,7 +349,7 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$extension"))
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
-        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
             mockk<HttpStub> { every { close() } returns Unit }
         }
 
@@ -652,7 +652,7 @@ internal class StubCommandTest {
         assertThat(output).contains("FATAL: No examples found for the given filters")
         assertThat(output).contains("METHOD='POST'")
         verify(exactly = 0) {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         }
     }
 
@@ -663,7 +663,7 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() } returns emptyList()
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns mockk { every { close() } returns Unit }
 
         try {
