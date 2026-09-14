@@ -843,10 +843,6 @@ class HttpStub(
             defaultBaseUrl = defaultBaseUrl,
         ).also {
             it.log(_logs, httpRequest)
-            if (it is FoundStubbedResponse) {
-                val mock = it.response.mock ?: return@also
-                httpStubHandlers.utilize(handler, mock)
-            }
         }
     }
 
@@ -1427,15 +1423,9 @@ fun getHttpResponse(
 ): StubbedResponseResult {
     val (matchResults, matchingStubResponse) = stubbedResponse(httpExpectations, httpRequest)
     if (matchingStubResponse != null) {
-        val (httpStubResponse, httpStubData) = matchingStubResponse
-        return FoundStubbedResponse(
-            httpStubResponse.resolveSubstitutions(
-                httpRequest,
-                httpStubData.resolveOriginalRequest() ?: httpRequest,
-                httpStubData.data,
-            ),
-        )
+        return matchingStubResponse
     }
+
     if (httpClientFactory != null && passThroughTargetBase.isNotBlank()) {
         return NotStubbed(
             passThroughResponse(httpRequest, passThroughTargetBase, httpClientFactory),
@@ -1485,32 +1475,29 @@ object SpecificationAndRequestMismatchMessages : MismatchMessages {
 private fun stubbedResponse(
     httpExpectations: HttpExpectations,
     httpRequest: HttpRequest
-): Pair<List<Pair<Result, HttpStubData>>, Pair<HttpStubResponse, HttpStubData>?> {
-
-    val (stubData, matchResults) = httpExpectations.matchingStub(httpRequest)
-
-    val stubResponse = stubData?.let {
-        val softCastResponse = it.softCastResponseToXML(httpRequest).response
-        HttpStubResponse(
-            response = softCastResponse,
-            delayInMilliSeconds = it.delayInMilliseconds,
-            contractPath = it.contractPath,
-            exampleName = it.name,
-            examplePath = it.examplePath,
+): Pair<List<Pair<Result, HttpStubData>>, FoundStubbedResponse?> {
+    val (stubbedResponse, matchResults) = httpExpectations.withMatchingStub(httpRequest) { stubData ->
+        val httpStubResponse = HttpStubResponse(
+            response = stubData.softCastResponseToXML(httpRequest).response,
+            delayInMilliSeconds = stubData.delayInMilliseconds,
+            contractPath = stubData.contractPath,
+            exampleName = stubData.name,
+            examplePath = stubData.examplePath,
             feature = stubData.feature,
             scenario = stubData.scenario,
-            mock = stubData
-        ) to it
+            mock = stubData,
+        )
+
+        FoundStubbedResponse(
+            httpStubResponse.resolveSubstitutions(
+                data = stubData.data,
+                request = httpRequest,
+                originalRequest = stubData.resolveOriginalRequest() ?: httpRequest,
+            ),
+        )
     }
 
-    return Pair(matchResults, stubResponse)
-}
-
-private fun stubThatMatchesRequest(
-    httpExpectations: HttpExpectations,
-    httpRequest: HttpRequest
-): Pair<HttpStubData?, List<Pair<Result, HttpStubData>>> {
-    return httpExpectations.matchingStub(httpRequest)
+    return Pair(matchResults, stubbedResponse)
 }
 
 fun isMissingData(e: Throwable?): Boolean {

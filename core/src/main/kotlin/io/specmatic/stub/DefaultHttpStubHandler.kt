@@ -51,10 +51,6 @@ internal class DefaultHttpStubHandler(private val context: HttpStubHandlerContex
         }
     }
 
-    override fun utilizeMock(mock: HttpStubData) {
-        httpExpectations.utilizeMock(mock)
-    }
-
     override fun removeWithToken(token: String?) {
         httpExpectations.removeWithToken(token)
     }

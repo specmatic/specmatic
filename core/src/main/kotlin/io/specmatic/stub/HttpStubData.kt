@@ -49,7 +49,7 @@ data class HttpStubData(
     val requestBodyRegex = scenarioStub?.requestBodyRegex
     val delayInMilliseconds = scenarioStub?.delayInMilliseconds
 
-    private val stubMatcher: HttpStubMatcher? by lazy { HttpStubMatcherFactory.load()?.create(this) }
+    private var stubMatcher: Lazy<HttpStubMatcher?> = lazy { HttpStubMatcherFactory.load()?.create(this) }
     private val defaultMismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages(name)
 
     fun resolveOriginalRequest(): HttpRequest? {
@@ -81,8 +81,8 @@ data class HttpStubData(
     }
 
     fun utilize(): Boolean {
-        if(stubMatcher == null) return this.stubToken != null
-        return stubMatcher?.utilize() == true
+        val matcher = stubMatcher.value ?: return stubToken != null
+        return matcher.utilize()
     }
 
     fun matches(
@@ -92,7 +92,18 @@ data class HttpStubData(
         val exampleMatchResult = matchExample(httpRequest, mismatchMessages)
         if (exampleMatchResult is Result.Failure) return exampleMatchResult
 
-        return stubMatcher?.matches(httpRequest) ?: Result.Success()
+        return stubMatcher.value?.matches(httpRequest) ?: Result.Success()
+    }
+
+    internal fun withResponse(response: HttpResponse): HttpStubData {
+        // A plain data-class copy would create a new lazy matcher and lose state staged by matches().
+        return this.copy(response = response).also {
+            it.stubMatcher = this.stubMatcher
+        }
+    }
+
+    internal fun matchesRequestPattern(httpRequest: HttpRequest): Result {
+        return matchExample(httpRequest)
     }
 
     private fun invokeExternalCommand(httpRequest: HttpRequest): HttpStubData {
