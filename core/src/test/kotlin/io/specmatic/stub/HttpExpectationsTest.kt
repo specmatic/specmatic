@@ -10,6 +10,8 @@ import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
 
 class HttpExpectationsTest {
     private val request = HttpRequest("POST", "/products", body = parsedJSONObject("""{"name": "Specific Value"}"""))
@@ -102,5 +104,63 @@ class HttpExpectationsTest {
 
         val jsonResponse = expectedResponse.response.body as JSONObjectValue
         assertThat(jsonResponse.findFirstChildByName("id")?.toStringLiteral()).isEqualTo("20")
+    }
+
+    @Test
+    fun `matching a transient expectation consumes it`() {
+        val transientStub = transientProductStub()
+        val expectationsWithTransient = HttpExpectations(
+            static = mutableListOf(),
+            transient = mutableListOf(transientStub),
+            specToBaseUrlMap = mapOf("test.yaml" to "http://localhost:8080")
+        )
+
+        val first = expectationsWithTransient.matchingStub(request).first
+        val second = expectationsWithTransient.matchingStub(request).first
+
+        assertThat(first).isEqualTo(transientStub)
+        assertThat(second).isNull()
+    }
+
+    @Test
+    fun `a transient expectation is selected only once by concurrent associated views`() {
+        val transientStub = transientProductStub()
+        val concurrentExpectations = HttpExpectations(
+            static = mutableListOf(),
+            transient = mutableListOf(transientStub),
+            specToBaseUrlMap = mapOf("test.yaml" to "http://localhost:8080")
+        )
+        val associatedExpectations = List(2) {
+            concurrentExpectations.associatedTo(
+                "http://localhost:8080",
+                "http://localhost:8080",
+                "/products"
+            )
+        }
+        val bothRequestsAreReady = CyclicBarrier(2)
+        val executor = Executors.newFixedThreadPool(2)
+
+        val selections = try {
+            associatedExpectations.map { expectationsForRequest ->
+                executor.submit<HttpStubData?> {
+                    bothRequestsAreReady.await()
+                    expectationsForRequest.matchingStub(request).first
+                }
+            }.map { it.get() }
+        } finally {
+            executor.shutdownNow()
+        }
+
+        assertThat(selections.filterNotNull()).containsExactly(transientStub)
+    }
+
+    private fun transientProductStub(): HttpStubData {
+        return staticStubData.copy(
+            scenarioStub = ScenarioStub(
+                request = request,
+                response = staticStubData.response,
+                stubToken = "transient-stub"
+            )
+        )
     }
 }
