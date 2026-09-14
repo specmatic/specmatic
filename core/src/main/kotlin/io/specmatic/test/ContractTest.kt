@@ -31,7 +31,6 @@ interface ContractTest : HasScenarioMetadata {
     fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult
     fun plusValidator(validator: ResponseValidator): ContractTest
     fun withRequestValidator(validator: RequestValidator): ContractTest = this
-    fun withAgentMode(agentMode: Boolean): ContractTest = this
 
     companion object {
         internal fun updateBasedOnResponseIfNegativeGeneration(scenario: Scenario, httpResponse: HttpResponse?): Scenario {

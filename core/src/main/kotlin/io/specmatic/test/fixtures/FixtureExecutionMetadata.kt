@@ -16,16 +16,10 @@ enum class FixtureScenarioType {
     }
 }
 
-data class FixtureExecutionMetadata(
-    val scenarioType: FixtureScenarioType,
-    val agentMode: Boolean = false,
-) {
+data class FixtureExecutionMetadata(val scenarioType: FixtureScenarioType) {
     companion object {
-        fun from(testScenario: Scenario, agentMode: Boolean = false): FixtureExecutionMetadata {
-            return FixtureExecutionMetadata(
-                scenarioType = FixtureScenarioType.from(testScenario),
-                agentMode = agentMode,
-            )
+        fun from(testScenario: Scenario): FixtureExecutionMetadata {
+            return FixtureExecutionMetadata(scenarioType = FixtureScenarioType.from(testScenario))
         }
     }
 }
