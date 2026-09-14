@@ -99,6 +99,18 @@ data class HttpClient(
     fun withLogger(log: (LogMessage) -> Unit): TestExecutor {
         return this.copy(log = log)
     }
+
+    fun withCommentOnLogs(comment: String?): TestExecutor {
+        return this.copy(log = { logMessage -> log(logMessage.withHttpLogComment(comment)) })
+    }
+}
+
+internal fun LogMessage.withHttpLogComment(comment: String?): LogMessage {
+    return if (this is HttpLogMessage) {
+        this.copy(comment = comment)
+    } else {
+        this
+    }
 }
 
 internal fun targetServer(baseURL: String, mtlsNegotiated: Boolean): String {

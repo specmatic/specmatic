@@ -107,6 +107,21 @@ class ContractTestSettingsTest {
         assertThat(copied.lenientMode).isNull()
     }
 
+    @Test
+    fun `copy constructor preserves agentMode from staged settings`() {
+        val config = SpecmaticConfigV1V2Common(version = VERSION_2)
+        val staged = ContractTestSettings(agentMode = true)
+        val copied = ContractTestSettings(contractTestSettings = staged, specmaticConfig = config)
+        assertThat(copied.agentMode).isTrue()
+    }
+
+    @Test
+    fun `copy constructor defaults agentMode to false when staged settings are absent`() {
+        val config = SpecmaticConfigV1V2Common(version = VERSION_2)
+        val copied = ContractTestSettings(contractTestSettings = null, specmaticConfig = config)
+        assertThat(copied.agentMode).isFalse()
+    }
+
     private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, resiliency: ResiliencyTestSuite? = null): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(

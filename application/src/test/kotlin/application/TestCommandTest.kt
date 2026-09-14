@@ -175,6 +175,28 @@ internal class TestCommandTest {
         assertThat(settings.isHostOrPortExplicitlySpecified).isEqualTo(testCase.expected)
     }
 
+    @Test
+    fun `stages agentMode when constructed with agentMode true`() {
+        every { junitLauncher.discover(any()) }.returns(mockk())
+        every { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }.returns(mockk())
+
+        CommandLine(TestCommand(junitLauncher = junitLauncher, agentMode = true), factory).execute()
+
+        val settings = SpecmaticJUnitSupport.settingsStaging.get() ?: fail("Expected staged settings to be set")
+        assertThat(settings.agentMode).isTrue()
+    }
+
+    @Test
+    fun `stages agentMode false by default`() {
+        every { junitLauncher.discover(any()) }.returns(mockk())
+        every { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }.returns(mockk())
+
+        CommandLine(testCommand, factory).execute()
+
+        val settings = SpecmaticJUnitSupport.settingsStaging.get() ?: fail("Expected staged settings to be set")
+        assertThat(settings.agentMode).isFalse()
+    }
+
     companion object {
         data class TestCommandCase(val argument: String?, val value: Any?, val extract: (ContractTestSettings) -> Any?, val expected: Any)
         data class HostPortExplicitnessCase(val arguments: List<String>, val expected: Boolean)

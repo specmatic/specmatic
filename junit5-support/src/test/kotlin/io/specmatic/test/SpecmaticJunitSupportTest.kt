@@ -1,6 +1,7 @@
 package io.specmatic.test
 
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Result
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Scenario
@@ -23,6 +24,7 @@ import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
+import io.specmatic.core.log.dontPrintToConsole
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Decision
@@ -36,6 +38,7 @@ import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
+import io.specmatic.test.SpecmaticJUnitSupport.Companion.httpClientLog
 import io.specmatic.test.listeners.ContractExecutionListener
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
@@ -104,6 +107,92 @@ class SpecmaticJunitSupportTest {
                 Arguments.of(null, null, "http://spec.example", "http://spec.example")
             )
 
+    }
+
+    @Test
+    fun `httpClientLog uses dontPrintToConsole when agentMode is true`() {
+        assertThat(httpClientLog(agentMode = true)).isSameAs(dontPrintToConsole)
+    }
+
+    @Test
+    fun `httpClientLog does not use dontPrintToConsole when agentMode is false`() {
+        assertThat(httpClientLog(agentMode = false)).isNotSameAs(dontPrintToConsole)
+    }
+
+    @Test
+    fun `agentMode suppresses HttpClient traffic dumps when running contract tests`(@TempDir tempDir: File) {
+        MockHttpServer().use { server ->
+            server.on("/orders", "GET") {
+                respond(HttpResponse(status = 200, body = NoBodyValue))
+            }
+            server.serveSwagger("/orders")
+
+            val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.canonicalPath,
+                    testBaseURL = server.baseUrl,
+                    agentMode = true,
+                )
+            )
+
+            try {
+                val originalOut = System.out
+                val outputStream = ByteArrayOutputStream()
+                System.setOut(PrintStream(outputStream))
+                try {
+                    SpecmaticJUnitSupport().contractTest().forEach { dynamicTest ->
+                        runCatching { dynamicTest.executable.execute() }
+                    }
+                } finally {
+                    System.out.flush()
+                    System.setOut(originalOut)
+                }
+
+                val output = outputStream.toString()
+                assertThat(output).doesNotContain("Request to ${server.baseUrl}")
+                assertThat(output).doesNotContain("Request to http://")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `without agentMode HttpClient traffic dumps still appear`(@TempDir tempDir: File) {
+        MockHttpServer().use { server ->
+            server.on("/orders", "GET") {
+                respond(HttpResponse(status = 200, body = NoBodyValue))
+            }
+            server.serveSwagger("/orders")
+
+            val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.canonicalPath,
+                    testBaseURL = server.baseUrl,
+                    agentMode = false,
+                )
+            )
+
+            try {
+                val originalOut = System.out
+                val outputStream = ByteArrayOutputStream()
+                System.setOut(PrintStream(outputStream))
+                try {
+                    SpecmaticJUnitSupport().contractTest().forEach { dynamicTest ->
+                        runCatching { dynamicTest.executable.execute() }
+                    }
+                } finally {
+                    System.out.flush()
+                    System.setOut(originalOut)
+                }
+
+                assertThat(outputStream.toString()).contains("Request to ${server.baseUrl}")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
     }
 
     @Test

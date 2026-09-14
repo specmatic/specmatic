@@ -4,7 +4,9 @@ import io.specmatic.core.Feature
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.consoleLog
+import io.specmatic.core.log.dontPrintToConsole
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
@@ -31,13 +33,14 @@ class HTTPStubEngine {
         listeners: List<MockEventListener> = emptyList(),
         requestHandlers: List<RequestHandler> = emptyList(),
         insightsReportOptions: InsightsReportOptions,
+        agentMode: Boolean = false,
     ): HttpStub {
         return HttpStub(
             features = stubs.map { it.first },
             rawHttpStubs = contractInfoToHttpExpectations(stubs),
             host = host,
             port = port,
-            log = ::consoleLog,
+            log = requestLog(agentMode),
             strictMode = strictMode,
             keyDataRegistry = keyDataRegistry,
             incomingMtlsRegistry = incomingMtlsRegistry,
@@ -52,6 +55,12 @@ class HTTPStubEngine {
             insightsReportOptions = insightsReportOptions,
         ).also {
             it.printStartupMessage()
+        }
+    }
+
+    companion object {
+        internal fun requestLog(agentMode: Boolean): (LogMessage) -> Unit {
+            return if (agentMode) dontPrintToConsole else ::consoleLog
         }
     }
 }

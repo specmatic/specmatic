@@ -2,7 +2,6 @@ package io.specmatic.test
 
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
-import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.matchers.MatcherEngine
@@ -123,7 +122,7 @@ data class ScenarioAsTest(
 
     override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult {
         val log: (LogMessage) -> Unit = { logMessage ->
-            logger.log(logMessage.withComment(this.annotations))
+            logger.log(logMessage.withHttpLogComment(this.annotations))
         }
 
         val httpClient = LegacyHttpClient(testBaseURL, log = log, timeoutInMilliseconds = timeoutInMilliseconds)
@@ -134,11 +133,7 @@ data class ScenarioAsTest(
     override fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult {
         startTime = Instant.now()
         val newExecutor = if (testExecutor is HttpClient) {
-            val log: (LogMessage) -> Unit = { logMessage ->
-                logger.log(logMessage.withComment(this.annotations))
-            }
-
-            testExecutor.withLogger(log)
+            testExecutor.withCommentOnLogs(this.annotations)
         } else {
             testExecutor
         }
@@ -423,13 +418,5 @@ data class ScenarioAsTest(
     private fun HttpResponse.getResponseHandlerIfExists(): ResponseHandler? {
         if (scenario.isNegative) return null
         return responseHandlerRegistry.getHandlerFor(this, scenario)
-    }
-}
-
-private fun LogMessage.withComment(comment: String?): LogMessage {
-    return if (this is HttpLogMessage) {
-        this.copy(comment = comment)
-    } else {
-        this
     }
 }

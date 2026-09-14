@@ -57,6 +57,7 @@ class StubCommand(
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory(),
     private val shutdownHookRegistrar: ShutdownHookRegistrar = JvmShutdownHookRegistrar,
+    val agentMode: Boolean = false,
     @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
     val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig()
 ) : SpecmaticMockRunner {
@@ -164,7 +165,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     private var shutdownHookRegistration: Closeable? = null
     private val terminalClose = OneShotClose(serverLifecycleLock) {
         try {
-            consoleLog(StringLog("Shutting down mock servers"))
+            postStartupConsoleLog(StringLog("Shutting down mock servers"))
             stopServer()
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -343,6 +344,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             listeners = listeners,
             requestHandlers = requestHandlers,
             insightsReportOptions = insightsReportOptions,
+            agentMode = agentMode,
         )
 
         LogTail.storeSnapshot()
@@ -366,18 +368,26 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     private fun restartServer() {
         synchronized(serverLifecycleLock) {
             if (terminalClose.hasStarted) return
-            consoleLog(StringLog("Stopping servers..."))
+            postStartupConsoleLog(StringLog("Stopping servers..."))
             try {
                 stopServer()
-                consoleLog(StringLog("Stopped."))
+                postStartupConsoleLog(StringLog("Stopped."))
             } catch (e: Throwable) {
-                consoleLog(e,"Error stopping server")
+                postStartupConsoleLog(e, "Error stopping server")
             }
 
             try { startServer() } catch (e: Throwable) {
-                consoleLog(e, "Error starting server")
+                postStartupConsoleLog(e, "Error starting server")
             }
         }
+    }
+
+    private fun postStartupConsoleLog(event: LogMessage) {
+        if (!agentMode) consoleLog(event)
+    }
+
+    private fun postStartupConsoleLog(e: Throwable, msg: String) {
+        if (!agentMode) consoleLog(e, msg)
     }
 
     private fun stopServer() {
