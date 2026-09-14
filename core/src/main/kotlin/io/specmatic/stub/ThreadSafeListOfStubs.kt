@@ -12,37 +12,55 @@ import io.specmatic.mock.ScenarioStub
 import java.io.File
 import java.net.URI
 
-class ThreadSafeListOfStubs(
+private sealed interface StubFilter {
+    data object All : StubFilter
+    data class Associated(
+        val baseUrl: String,
+        val defaultBaseUrl: String,
+        val urlPath: String,
+    ) : StubFilter
+}
+
+class ThreadSafeListOfStubs private constructor(
     private val httpStubs: MutableList<HttpStubData>,
     private val specToBaseUrlMap: Map<String, String>,
-    private val strictMode: Boolean = false,
-    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    private val strictMode: Boolean,
+    private val specmaticConfig: SpecmaticConfig,
+    private val filter: StubFilter,
 ) {
+    constructor(
+        httpStubs: MutableList<HttpStubData>,
+        specToBaseUrlMap: Map<String, String>,
+        strictMode: Boolean = false,
+        specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+    ) : this(httpStubs, specToBaseUrlMap, strictMode, specmaticConfig, StubFilter.All)
+
     val size: Int
         get() {
-            return httpStubs.size
+            synchronized(httpStubs) {
+                return visibleStubsLocked().size
+            }
         }
 
     fun stubAssociatedTo(baseUrl: String, defaultBaseUrl: String, urlPath: String): ThreadSafeListOfStubs {
-        val baseUrlToListOfStubsMap = baseUrlToListOfStubsMap(defaultBaseUrl).mapKeys { URI(it.key) }
-        val resolvedUrls = setOf(baseUrl, defaultBaseUrl).map { it.plus(urlPath) }.map(::URI)
-
-        return resolvedUrls.firstNotNullOfOrNull { resolvedUrl ->
-            specmaticConfig.mostSpecificMatchingBaseUrl(
-                resolvedUrl,
-                baseUrlToListOfStubsMap.keys
-            )?.let(baseUrlToListOfStubsMap::get)
-        } ?: emptyStubs()
+        return ThreadSafeListOfStubs(
+            httpStubs = httpStubs,
+            specToBaseUrlMap = specToBaseUrlMap,
+            strictMode = strictMode,
+            specmaticConfig = specmaticConfig,
+            filter = StubFilter.Associated(baseUrl, defaultBaseUrl, urlPath),
+        )
     }
 
     private fun matchResults(fn: (List<HttpStubData>) -> List<Pair<Result, HttpStubData>>): List<Pair<Result, HttpStubData>> {
-        synchronized(this) {
-            return fn(httpStubs.toList())
+        val snapshot = synchronized(httpStubs) {
+            visibleStubsLocked()
         }
+        return fn(snapshot)
     }
 
     fun addToStub(result: Pair<Result, HttpStubData?>, stub: ScenarioStub) {
-        synchronized(this) {
+        synchronized(httpStubs) {
             result.second.let {
                 if(it != null)
                     httpStubs.add(0, it.copy(scenarioStub = stub))
@@ -50,14 +68,8 @@ class ThreadSafeListOfStubs(
         }
     }
 
-    fun remove(element: HttpStubData) {
-        synchronized(this) {
-            httpStubs.remove(element)
-        }
-    }
-
     fun removeWithToken(token: String?) {
-        synchronized(this) {
+        synchronized(httpStubs) {
             httpStubs.mapIndexed { index, httpStubData ->
                 if (httpStubData.stubToken == token) index else null
             }.filterNotNull().reversed().map { index ->
@@ -67,14 +79,26 @@ class ThreadSafeListOfStubs(
     }
 
     fun matchingTransientStub(httpRequest: HttpRequest): Pair<HttpStubData, List<Pair<Result, HttpStubData>>>? {
-        val expectedResponseCode = httpRequest.expectedResponseCode()
-
-        val queueMatchResults: List<Pair<Result, HttpStubData>> = matchResults { stubs ->
-            stubs.filter {
-                hasExpectedResponseCode(it, expectedResponseCode)
-            }.map {
-                Pair(it.matches(httpRequest), it)
+        synchronized(httpStubs) {
+            val match = findMatchingTransientStub(httpRequest, visibleStubsLocked()) ?: return null
+            val selectedStub = match.first
+            if (selectedStub.utilize()) {
+                val index = httpStubs.indexOfFirst { candidate -> candidate === selectedStub }
+                if (index >= 0) httpStubs.removeAt(index)
             }
+            return match
+        }
+    }
+
+    private fun findMatchingTransientStub(
+        httpRequest: HttpRequest,
+        stubs: List<HttpStubData>,
+    ): Pair<HttpStubData, List<Pair<Result, HttpStubData>>>? {
+        val expectedResponseCode = httpRequest.expectedResponseCode()
+        val queueMatchResults = stubs.filter {
+            hasExpectedResponseCode(it, expectedResponseCode)
+        }.map {
+            Pair(it.matches(httpRequest), it)
         }
 
         val preferredMatch = queueMatchResults.findLast { (result, stubData) ->
@@ -85,6 +109,24 @@ class ThreadSafeListOfStubs(
         } ?: return null
 
         return Pair(queueMock, queueMatchResults)
+    }
+
+    private fun visibleStubsLocked(): List<HttpStubData> {
+        return when (val currentFilter = filter) {
+            StubFilter.All -> httpStubs.toList()
+            is StubFilter.Associated -> {
+                val groupedByBaseUrl = httpStubs.groupBy {
+                    specToBaseUrlMap[it.contractPath] ?: currentFilter.defaultBaseUrl
+                }.mapKeys { URI(it.key) }
+                val resolvedUrls = setOf(currentFilter.baseUrl, currentFilter.defaultBaseUrl)
+                    .map { it.plus(currentFilter.urlPath) }
+                    .map(::URI)
+                val selectedBaseUrl = resolvedUrls.firstNotNullOfOrNull { resolvedUrl ->
+                    specmaticConfig.mostSpecificMatchingBaseUrl(resolvedUrl, groupedByBaseUrl.keys)
+                }
+                selectedBaseUrl?.let(groupedByBaseUrl::get).orEmpty()
+            }
+        }
     }
 
     private fun hasExpectedResponseCode(httpStubData: HttpStubData, expectedResponseCode: Int?): Boolean {
@@ -156,16 +198,6 @@ class ThreadSafeListOfStubs(
         return Pair(mock?.second, listMatchResults)
     }
 
-    private fun baseUrlToListOfStubsMap(defaultBaseUrl: String): Map<String, ThreadSafeListOfStubs> {
-        synchronized(this) {
-            return httpStubs.groupBy {
-                specToBaseUrlMap[it.contractPath] ?: defaultBaseUrl
-            }.mapValues { (_, stubs) ->
-                ThreadSafeListOfStubs(stubs as MutableList<HttpStubData>, specToBaseUrlMap, strictMode, specmaticConfig)
-            }
-        }
-    }
-
     private fun substituteThenFillIn(httpRequest: HttpRequest, stubData: HttpStubData): Pair<Result, HttpStubData> {
         val originalRequest = stubData.resolveOriginalRequest()
         val strictMode = stubData.feature?.path?.let(::File)?.let(specmaticConfig::getStubStrictMode) ?: strictMode
@@ -209,10 +241,6 @@ class ThreadSafeListOfStubs(
                 if (partial.response.status in invalidRequestStatuses) return@map partialResult to stubData
                 Pair(stubData.matches(httpRequest), stubData)
             }
-    }
-
-    private fun emptyStubs(): ThreadSafeListOfStubs {
-        return ThreadSafeListOfStubs(mutableListOf(), specToBaseUrlMap, strictMode, specmaticConfig)
     }
 
     companion object {

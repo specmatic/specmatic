@@ -843,10 +843,6 @@ class HttpStub(
             defaultBaseUrl = defaultBaseUrl,
         ).also {
             it.log(_logs, httpRequest)
-            if (it is FoundStubbedResponse) {
-                val mock = it.response.mock ?: return@also
-                httpStubHandlers.utilize(handler, mock)
-            }
         }
     }
 
