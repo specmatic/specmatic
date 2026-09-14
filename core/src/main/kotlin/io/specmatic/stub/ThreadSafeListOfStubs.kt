@@ -52,7 +52,10 @@ class ThreadSafeListOfStubs(
 
     fun remove(element: HttpStubData) {
         synchronized(this) {
-            httpStubs.remove(element)
+            val index = httpStubs.indexOfFirst { it === element }
+            if (index >= 0) {
+                httpStubs.removeAt(index)
+            }
         }
     }
 
@@ -85,6 +88,14 @@ class ThreadSafeListOfStubs(
         } ?: return null
 
         return Pair(queueMock, queueMatchResults)
+    }
+
+    fun hasPotentialTransientMatch(httpRequest: HttpRequest): Boolean {
+        val expectedResponseCode = httpRequest.expectedResponseCode()
+        return synchronized(this) { httpStubs.toList() }.any { stubData ->
+            hasExpectedResponseCode(stubData, expectedResponseCode) &&
+            runCatching { stubData.matchesRequestPattern(httpRequest).isSuccess() }.getOrDefault(true)
+        }
     }
 
     private fun hasExpectedResponseCode(httpStubData: HttpStubData, expectedResponseCode: Int?): Boolean {
@@ -180,8 +191,8 @@ class ThreadSafeListOfStubs(
 
         return runCatching {
             val substituted = stubResponse.resolveSubstitutions(httpRequest, originalRequest ?: httpRequest, stubData.data)
-            val substitutedResponse = stubData.copy(response = substituted.response)
-            stubData.copy(response = stubData.responsePattern.fillInTheBlanks(substitutedResponse.response, stubData.resolver))
+            val filledIn = stubData.responsePattern.fillInTheBlanks(substituted.response, stubData.resolver)
+            stubData.withResponse(filledIn)
         }.map { Result.Success() to it }.getOrElse { e ->
             when {
                 e is ContractException && isMissingData(e) -> Pair(e.failure(), stubData)

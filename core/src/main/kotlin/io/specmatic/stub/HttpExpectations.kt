@@ -8,7 +8,8 @@ import io.specmatic.mock.ScenarioStub
 class HttpExpectations private constructor (
     private val static: ThreadSafeListOfStubs,
     private val transient: ThreadSafeListOfStubs,
-    private val dynamic: ThreadSafeListOfStubs
+    private val dynamic: ThreadSafeListOfStubs,
+    private val transientCoordinator: TransientStubCoordinator = TransientStubCoordinator(transient),
 ) {
     constructor(
         static: MutableList<HttpStubData>,
@@ -28,7 +29,32 @@ class HttpExpectations private constructor (
     fun utilizeMock(httpStubData: HttpStubData) {
         val shouldBeRemovedFromTransient = httpStubData.utilize()
         if (!shouldBeRemovedFromTransient) return
-        transient.remove(httpStubData)
+        transientCoordinator.remove(httpStubData)
+    }
+
+    internal fun <T : Any> withMatchingStub(httpRequest: HttpRequest, onMatch: (HttpStubData) -> T): Pair<T?, List<Pair<Result, HttpStubData>>> {
+        val transientResponse = transientCoordinator.withMatchingTransientStub(
+            httpRequest = httpRequest,
+            initialCandidateView = transient,
+        ) { stubData ->
+            val result = onMatch(stubData)
+            utilizeMock(stubData)
+            result
+        }
+
+        if (transientResponse != null) {
+            return Pair(transientResponse, emptyList())
+        }
+
+        val (stubData, matchResults) = matchingNonTransientStub(httpRequest)
+        if (stubData == null) {
+            return Pair(null, matchResults)
+        }
+
+        return Pair(
+            second = matchResults,
+            first = onMatch(stubData).also { utilizeMock(stubData) },
+        )
     }
 
     fun removeWithToken(token: String?) {
@@ -47,14 +73,12 @@ class HttpExpectations private constructor (
         return HttpExpectations(
             static.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath),
             transient.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath),
-            dynamic.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath))
+            dynamic.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath),
+            transientCoordinator = transientCoordinator.associatedTo(baseUrl, defaultBaseUrl, urlPath),
+        )
     }
 
-    fun matchingStub(httpRequest: HttpRequest): Pair<HttpStubData?, List<Pair<Result, HttpStubData>>> {
-        val transientMatch = transient.matchingTransientStub(httpRequest)
-        if(transientMatch != null)
-            return transientMatch
-
+    private fun matchingNonTransientStub(httpRequest: HttpRequest): Pair<HttpStubData?, List<Pair<Result, HttpStubData>>> {
         val dynamicMatch = dynamic.matchingDynamicStub(httpRequest)
         if(dynamicMatch.first != null)
             return dynamicMatch

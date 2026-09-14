@@ -31,7 +31,7 @@ class HttpExpectationsTest {
 
     @Test
     fun `it should return a matching expectation`() {
-        val responseToSpecificValue = expectations.matchingStub(request)
+        val responseToSpecificValue = expectations.withMatchingStub(request) { it }
         val expectedResponse = responseToSpecificValue.first ?: fail("Expected a response for the given request to be found")
 
         val jsonResponse = expectedResponse.response.body as JSONObjectValue
@@ -56,7 +56,7 @@ class HttpExpectationsTest {
 
         expectations.addDynamic(io.specmatic.core.Result.Success() to dynamicStubData, scenarioStub)
 
-        val responseToSpecificValue = expectations.matchingStub(request)
+        val responseToSpecificValue = expectations.withMatchingStub(request) { it }
         val expectedResponse = responseToSpecificValue.first ?: fail("Expected a response for the given request to be found")
 
         val jsonResponse = expectedResponse.response.body as JSONObjectValue
@@ -97,7 +97,7 @@ class HttpExpectationsTest {
 
         expectations.addDynamic(io.specmatic.core.Result.Success() to transientStubData, transientScenarioStub)
 
-        val responseToSpecificValue = expectations.matchingStub(request)
+        val responseToSpecificValue = expectations.withMatchingStub(request) { it }
         val expectedResponse = responseToSpecificValue.first ?: fail("Expected a response for the given request to be found")
 
         val jsonResponse = expectedResponse.response.body as JSONObjectValue

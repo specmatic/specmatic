@@ -26,7 +26,6 @@ interface HttpStubHandler {
     interface Default : HttpStubHandler {
         val stubCount: Int
         val transientStubCount: Int
-        fun utilizeMock(mock: HttpStubData)
         fun removeWithToken(token: String?)
     }
 
