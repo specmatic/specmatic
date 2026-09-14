@@ -70,8 +70,13 @@ open class SpecmaticJUnitSupport {
 
     init {
         setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault())
-        if (settings.agentMode && logger !is AgentConsoleLogger) {
-            logger = AgentConsoleLogger(logger)
+        when {
+            settings.agentMode && logger !is AgentConsoleLogger -> {
+                logger = AgentConsoleLogger(logger)
+            }
+            !settings.agentMode && logger is AgentConsoleLogger -> {
+                logger = (logger as AgentConsoleLogger).delegate
+            }
         }
     }
 
