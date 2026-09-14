@@ -1,11 +1,9 @@
 package io.specmatic.core.config.v3
 
-import io.specmatic.core.config.v3.components.runOptions.RunOptionType
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.validation.ConfigValidationMetadata
 import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.config.validation.ConfigValidationSeverity
-import io.specmatic.reporter.model.SpecType
 import java.io.File
 import java.util.ServiceLoader
 
@@ -58,14 +56,18 @@ data class ValidationContext(
         }
     }
 
-    fun validateProtocolConfig(specType: SpecType, runOptionType: RunOptionType, specFile: File, definition: SpecificationDefinition, config: Map<String, Any>): List<ConfigValidationOutput> {
-        val validators = protocolConfigValidators.filter { it.supports(specType, runOptionType) }
-        return validators.flatMap { validator ->
+    fun validateProtocolConfig(specFile: File, definition: SpecificationDefinition, configuration: ApplicableProtocolConfig<*, *>): List<ConfigValidationOutput> {
+        return protocolConfigValidators.flatMap { validator ->
             runCatching {
-                validator.validate(context = this, configuration = config, definition = definition, specification = specFile)
+                validator.validate(definition = definition, configuration = configuration, specification = specFile)
             }.getOrElse { failure ->
+                val errorContext = when (configuration) {
+                    is ApplicableProtocolConfig.Global -> configuration.runOptions.context
+                    is ApplicableProtocolConfig.Override -> configuration.specOverride.context
+                }
+
                 listOf(
-                    element = error(
+                    element = errorContext.error(
                         severity = ConfigValidationSeverity.ERROR,
                         message = "Protocol validation failed for '${specFile.path}': ${failure.message ?: failure::class.simpleName}",
                     )

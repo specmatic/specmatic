@@ -7,6 +7,9 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
@@ -55,6 +58,14 @@ data class GraphQLSdlMockConfig(
     override val specs: List<RunOptionsSpecifications>? = null,
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : GraphQLSdlRunOptions {
+    override fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> {
+        return validateProtocolConfigForSpecFile(
+            specFile = specFile,
+            definition = definition,
+            validationContext = validationContext.child("graphqlsdl"),
+        )
+    }
+
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): GraphQLSdlMockConfig = copy(
         specs = specs?.mapIndexed { index, spec ->
             spec.mapPaths(mapper.child("specs").child(index), configDirectory)

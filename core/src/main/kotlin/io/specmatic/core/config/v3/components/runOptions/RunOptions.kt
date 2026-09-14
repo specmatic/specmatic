@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.SpecmaticSpecConfig
+import io.specmatic.core.config.v3.ApplicableProtocolConfig
+import io.specmatic.core.config.v3.ValueWithContext
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.v3.resolveElseThrow
@@ -46,6 +48,34 @@ interface IRunOptions {
         val port = map["port"]?.toString()?.toIntOrNull() ?: return null
         return ServerOrigin.from(host = host, port = port)
     }
+}
+
+fun IRunOptions.validateProtocolConfigForSpecFile(
+    specFile: File,
+    definition: SpecificationDefinition,
+    validationContext: ValidationContext,
+): List<ConfigValidationOutput> {
+    val specificationId = definition.getSpecificationId()
+    val matchingOverride = specificationId
+        ?.let(::getMatchingSpecificationWithIndex)
+        ?.takeUnless { it.value.isNoOpOverride() }
+
+    val runOptions = ValueWithContext(value = this, context = validationContext)
+    val specOverrideConfig = matchingOverride?.let { (index, specification) ->
+        ApplicableProtocolConfig.Override(
+            runOptions = runOptions,
+            specOverride = ValueWithContext(
+                value = specification,
+                context = validationContext.child("specs").child(index),
+            ),
+        )
+    }
+
+    return validationContext.validateProtocolConfig(
+        specFile = specFile,
+        definition = definition,
+        configuration = specOverrideConfig ?: ApplicableProtocolConfig.Global(runOptions = runOptions),
+    )
 }
 
 data class RunOptions(
