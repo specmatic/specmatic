@@ -3,31 +3,38 @@ package io.specmatic.stub
 import io.specmatic.core.HttpRequest
 
 internal class TransientStubCoordinator(
-    private val root: ThreadSafeListOfStubs,
-    private val transactionLock: Any = Any(),
-    private val freshView: () -> ThreadSafeListOfStubs = { root },
+    private val transactionLock: Any,
+    private val canonicalRoot: ThreadSafeListOfStubs,
+    private val freshCandidateView: () -> ThreadSafeListOfStubs,
 ) {
+    constructor(canonicalRoot: ThreadSafeListOfStubs) : this(
+        transactionLock = Any(),
+        canonicalRoot = canonicalRoot,
+        freshCandidateView = { canonicalRoot },
+    )
+
     fun associatedTo(baseUrl: String, defaultBaseUrl: String, urlPath: String): TransientStubCoordinator {
         return TransientStubCoordinator(
-            root = root,
+            canonicalRoot = canonicalRoot,
             transactionLock = transactionLock,
-            freshView = { root.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath) },
+            freshCandidateView = { canonicalRoot.stubAssociatedTo(baseUrl, defaultBaseUrl, urlPath) },
         )
     }
 
     fun remove(httpStubData: HttpStubData) {
-        root.remove(httpStubData)
+        canonicalRoot.remove(httpStubData)
     }
 
     fun <T> withMatchingTransientStub(
         httpRequest: HttpRequest,
-        initialTransientView: ThreadSafeListOfStubs,
+        initialCandidateView: ThreadSafeListOfStubs,
         onMatch: (HttpStubData) -> T
     ): T? {
-        if (!initialTransientView.hasPotentialTransientMatch(httpRequest)) return null
+        // Perf: Reuse the initial view instead of calling freshCandidateView() for the pre-check; non-candidates then skip the transaction lock.
+        if (!initialCandidateView.hasPotentialTransientMatch(httpRequest)) return null
         synchronized(transactionLock) {
-            val authoritativeTransientView = freshView()
-            val match = authoritativeTransientView.matchingTransientStub(httpRequest) ?: return null
+            val authoritativeCandidateView = freshCandidateView()
+            val match = authoritativeCandidateView.matchingTransientStub(httpRequest) ?: return null
             return onMatch(match.first)
         }
     }

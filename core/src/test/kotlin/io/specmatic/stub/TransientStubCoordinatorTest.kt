@@ -273,8 +273,9 @@ class TransientStubCoordinatorTest {
 
             canonical.remove(stub)
             val result = TransientStubCoordinator(
-                root = canonical,
-                freshView = {
+                transactionLock = Any(),
+                canonicalRoot = canonical,
+                freshCandidateView = {
                     canonical.stubAssociatedTo(
                         urlPath = "",
                         baseUrl = "http://localhost:8080",
