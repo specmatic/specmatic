@@ -362,12 +362,28 @@ class ScenarioAsTestTest {
         fun `should derive positive scenario type for positive scenario`() {
             val positiveContext = FixtureExecutionMetadata.from(scenario())
             assertThat(positiveContext.scenarioType).isEqualTo(FixtureScenarioType.POSITIVE)
+            assertThat(positiveContext.agentMode).isFalse()
         }
 
         @Test
         fun `should derive negative scenario type for negative scenario`() {
             val negativeContext = FixtureExecutionMetadata.from(scenario().copy(isNegative = true))
             assertThat(negativeContext.scenarioType).isEqualTo(FixtureScenarioType.NEGATIVE)
+            assertThat(negativeContext.agentMode).isFalse()
+        }
+
+        @Test
+        fun `from preserves agentMode when provided`() {
+            val metadata = FixtureExecutionMetadata.from(scenario(), agentMode = true)
+            assertThat(metadata.agentMode).isTrue()
+            assertThat(metadata.scenarioType).isEqualTo(FixtureScenarioType.POSITIVE)
+        }
+
+        @Test
+        fun `ScenarioAsTest withAgentMode copies agentMode into fixture metadata`() {
+            val withAgent = scenarioAsTest(scenario()).withAgentMode(true) as ScenarioAsTest
+            assertThat(withAgent.agentMode).isTrue()
+            assertThat(withAgent.copy(agentMode = false).agentMode).isFalse()
         }
     }
 

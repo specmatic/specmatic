@@ -63,6 +63,7 @@ data class ScenarioAsTest(
         data = scenario.exampleRow?.scenarioStub?.data ?: JSONObjectValue(),
         strictMode = feature.specmaticConfig.getTestStrictMode() ?: feature.strictMode
     ),
+    val agentMode: Boolean = false,
 ) : ContractTest {
     companion object {
         private var id: Value? = null
@@ -72,7 +73,8 @@ data class ScenarioAsTest(
     private var endTime: Instant? = null
     private val matcherEngine: MatcherEngine? by lazy { MatcherEngine.load() }
     private val interceptor: ContractTestInterceptor? by lazy { ContractTestInterceptor.load() }
-    private val fixtureExecutionMetadata: FixtureExecutionMetadata = FixtureExecutionMetadata.from(scenario)
+    private val fixtureExecutionMetadata: FixtureExecutionMetadata =
+        FixtureExecutionMetadata.from(scenario, agentMode)
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
@@ -154,6 +156,10 @@ data class ScenarioAsTest(
 
     override fun withRequestValidator(validator: RequestValidator): ContractTest {
         return this.copy(requestValidator = validator)
+    }
+
+    override fun withAgentMode(agentMode: Boolean): ContractTest {
+        return this.copy(agentMode = agentMode)
     }
 
     private fun updateRequestAndValidate(httpRequest: HttpRequest, substitution: Substitution): ReturnValue<HttpRequest> {

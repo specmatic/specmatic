@@ -371,7 +371,8 @@ open class SpecmaticJUnitSupport {
                 return@mapNotNull null
             }
 
-            val (contractTest, baseURL) = contractTestDecision.value
+            val (loadedContractTest, baseURL) = contractTestDecision.value
+            val contractTest = loadedContractTest.withAgentMode(settings.agentMode)
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 suiteAbortMessage.get()?.let { message ->
                     throw TestAbortedException(message)
