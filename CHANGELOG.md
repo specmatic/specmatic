@@ -36,6 +36,10 @@ Each release section should stand on its own and describe the behavior shipped i
 
 - Added the `specmatic config validate` command for validating configuration files, and performing protocol-aware semantic checks. The command supports text or JSON diagnostics, source locations, and validation-specific exit codes for CLI and CI use.
 
+### Changed
+
+- Fixed positive and negative mutation generation for OpenAPI `oneOf` schemas so example rows are routed only to the matching discriminator or schema variant.
+
 ## 2.54.1 (2026-09-07)
 
 ### Changed

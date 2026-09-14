@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/tasks",
+    "body": {
+      "taskType": "bank_transfer",
+      "taskId": 202
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "accepted": true
+    }
+  },
+  "name": "top-level bank transfer task"
+}

@@ -5,6 +5,7 @@ import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.EarlyResult
 import io.specmatic.core.utilities.firstSuccessOrFailures
@@ -273,6 +274,26 @@ data class AnyPattern(
             ?: generateValue(resolver)
     }
 
+    private fun rowForPattern(row: Row, pattern: Pattern, resolver: Resolver, discriminator: Discriminator? = null): Row {
+        val example = row.requestBodyJSONExample?.jsonObject as? Value ?: return row
+        return try {
+            val matches = discriminator?.let { matchesDiscriminator(example, pattern, it, resolver) }
+                ?: pattern.matches(sampleData = example, resolver = resolver).isSuccess()
+            if (matches) row else Row()
+        } catch (e: Throwable) {
+            val matchStrategy = if (discriminator != null) "discriminator" else "pattern"
+            val patternName = pattern.typeAlias?.let(::withoutPatternDelimiters) ?: "${pattern.typeName} (${pattern.javaClass.name})"
+            logger.debug(e, "Error while matching example row '${row.name}' against pattern '$patternName' using $matchStrategy strategy, falling back to empty example row")
+            Row()
+        }
+    }
+
+    private fun matchesDiscriminator(example: Value, pattern: Pattern, discriminator: Discriminator, resolver: Resolver): Boolean {
+        val exampleObject = example as? JSONObjectValue ?: return false
+        val discriminatorValue = exampleObject.jsonObject[discriminator.property] ?: return false
+        return getDiscriminatorBasedPattern(listOf(pattern), discriminatorValue.toStringLiteral(), resolver) != null
+    }
+
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
         val updatedPatterns = discriminator?.let {
             it.updatePatternsWithDiscriminator(pattern, resolver).let { updatedPatterns ->
@@ -299,8 +320,9 @@ data class AnyPattern(
         val patternResults: Sequence<Pair<Sequence<ReturnValue<Pattern>>?, Throwable?>> = updatedPatterns.asSequence().sortedBy(::isEmpty).mapNotNull { innerPattern ->
             try {
                 resolver.withCyclePrevention(innerPattern, isNullable) { cyclePreventedResolver ->
-                    val row = discriminator?.removeKeyFromRow(row) ?: row
-                    Pair(innerPattern.newBasedOn(row, cyclePreventedResolver), null)
+                    val rowForInnerPattern = rowForPattern(row, innerPattern, cyclePreventedResolver, discriminator)
+                    val rowWithoutDiscriminator = discriminator?.removeKeyFromRow(rowForInnerPattern) ?: rowForInnerPattern
+                    Pair(innerPattern.newBasedOn(rowWithoutDiscriminator, cyclePreventedResolver), null)
                 }
             } catch (e: Throwable) {
                 Pair(null, e)
@@ -321,9 +343,11 @@ data class AnyPattern(
 
     override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
         val nullable = isNullablePattern()
-        val negativeTypeResults = pattern.filterNot(::isEmpty).asSequence().map {
+        val negativeTypeResults = pattern.filterNot(::isEmpty).asSequence().map { pattern ->
             try {
-                val patterns: Sequence<ReturnValue<Pattern>> = it.negativeBasedOn(row, resolver, config)
+                val discriminatorUpdatedPattern = updatedPatternViaDiscriminatorOrSelf(pattern, resolver)
+                val rowForInnerPattern = rowForPattern(row, discriminatorUpdatedPattern, resolver, discriminator)
+                val patterns: Sequence<ReturnValue<Pattern>> = pattern.negativeBasedOn(rowForInnerPattern, resolver, config)
                 Pair(patterns, null)
             } catch(e: Throwable) {
                 Pair(null, e)
@@ -345,6 +369,14 @@ data class AnyPattern(
                 distinctableValueOnlyForScalars(it)
             }
         }
+    }
+
+    private fun updatedPatternViaDiscriminatorOrSelf(pattern: Pattern, resolver: Resolver): Pattern {
+        return discriminator
+            ?.updatePatternsWithDiscriminator(listOf(pattern), resolver)
+            ?.singleOrNull()
+            ?.withDefault(pattern) { it }
+            ?: pattern
     }
 
     override fun parse(value: String, resolver: Resolver): Value {
