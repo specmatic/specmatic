@@ -1911,7 +1911,7 @@
           "title": "AsyncAPI servers",
           "description": "Server connection settings used by asynchronous tests and mocks.",
           "items": {
-            "$ref": "#/definitions/AsyncClientServerConfig",
+            "$ref": "#/definitions/AsyncRootServerConfig",
             "description": "One asynchronous server connection."
           }
         },
@@ -1995,6 +1995,101 @@
           "type": "string",
           "title": "Server protocol",
           "description": "Protocol identifier used to select this asynchronous server."
+        },
+        "adminCredentials": {
+          "type": "object",
+          "title": "Admin credentials",
+          "description": "Optional administrative credentials for the asynchronous server.",
+          "additionalProperties": true
+        },
+        "client": {
+          "$ref": "#/definitions/AsyncClientProperties",
+          "title": "Client properties",
+          "description": "Optional consumer and producer client properties."
+        }
+      }
+    },
+    "AsyncRootServerConfig": {
+      "title": "Root AsyncAPI server connection",
+      "description": "A direct server connection or a wrapped inline server connection.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/AsyncClientServerConfig"
+        },
+        {
+          "$ref": "#/definitions/WrappedAsyncClientServerConfig"
+        }
+      ]
+    },
+    "AsyncSpecServerConfig": {
+      "title": "Per-specification AsyncAPI server connection",
+      "description": "A direct server connection, wrapped inline server connection, or wrapped local server reference.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/AsyncClientServerConfig"
+        },
+        {
+          "$ref": "#/definitions/WrappedAsyncSpecServerConfig"
+        }
+      ]
+    },
+    "WrappedAsyncClientServerConfig": {
+      "title": "Wrapped inline AsyncAPI server connection",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "server"
+      ],
+      "properties": {
+        "server": {
+          "$ref": "#/definitions/AsyncClientServerConfig"
+        }
+      }
+    },
+    "WrappedAsyncSpecServerConfig": {
+      "title": "Wrapped per-specification AsyncAPI server connection",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "server"
+      ],
+      "properties": {
+        "server": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/AsyncClientServerConfig"
+            },
+            {
+              "$ref": "#/definitions/AsyncServerReferenceConfig"
+            }
+          ]
+        }
+      }
+    },
+    "AsyncServerReferenceConfig": {
+      "title": "AsyncAPI server reference",
+      "description": "A local reference to a server in the associated AsyncAPI document plus runtime connection settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$serverRef"
+      ],
+      "properties": {
+        "$serverRef": {
+          "type": "string",
+          "pattern": "^#/servers/[^/]+$",
+          "title": "AsyncAPI server reference",
+          "description": "Local reference to a named server in the associated AsyncAPI document."
+        },
+        "type": {
+          "type": "string",
+          "default": "external",
+          "enum": [
+            "external",
+            "in-memory"
+          ],
+          "title": "Server type",
+          "description": "Specifies whether the asynchronous server is external or in-memory."
         },
         "adminCredentials": {
           "type": "object",
@@ -2256,7 +2351,7 @@
           "title": "AsyncAPI servers",
           "description": "Server connection settings used by asynchronous tests and mocks.",
           "items": {
-            "$ref": "#/definitions/AsyncClientServerConfig",
+            "$ref": "#/definitions/AsyncSpecServerConfig",
             "description": "One asynchronous server connection."
           }
         },

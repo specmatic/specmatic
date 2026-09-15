@@ -378,6 +378,70 @@ class ConfigSchemaValidationTest {
                     assertThat(schema(SpecmaticConfigVersion.VERSION_3, testCase.json))
                         .isEqualTo(validOutput)
                 }
+
+                @Test
+                fun `rejects references and malformed wrappers in root servers`() {
+                    listOf(
+                        """
+                        version: 3
+                        components:
+                          runOptions:
+                            orders:
+                              asyncapi:
+                                type: mock
+                                servers:
+                                  - server:
+                                      ${'$'}serverRef: '#/servers/kafka-server'
+                                      type: in-memory
+                        """.trimIndent(),
+                        """
+                        version: 3
+                        components:
+                          runOptions:
+                            orders:
+                              asyncapi:
+                                type: mock
+                                servers:
+                                  - server: {}
+                        """.trimIndent(),
+                    ).forEach { config ->
+                        assertThat(schema(SpecmaticConfigVersion.VERSION_3, config))
+                            .isNotEmpty
+                            .allMatch { it.instanceLocation.startsWith("/components/runOptions/orders/asyncapi/servers/0") }
+                    }
+                }
+
+                @Test
+                fun `rejects invalid direct server options`() {
+                    listOf(
+                        """
+                        version: 3
+                        components:
+                          runOptions:
+                            orders:
+                              asyncapi:
+                                type: test
+                                servers: [{ host: localhost:9092, protocol: kafka, type: invalid }]
+                        """.trimIndent() to "servers/0/type",
+                        """
+                        version: 3
+                        components:
+                          runOptions:
+                            orders:
+                              asyncapi:
+                                type: test
+                                servers:
+                                  - host: localhost:9092
+                                    protocol: kafka
+                                    client:
+                                      consumer: invalid
+                        """.trimIndent() to "servers/0/client/consumer",
+                    ).forEach { (config, invalidPath) ->
+                        val errors = schema(SpecmaticConfigVersion.VERSION_3, config)
+                        assertThat(errors + errors.flatMap { it.details })
+                            .anyMatch { it.instanceLocation.endsWith(invalidPath) }
+                    }
+                }
             }
 
             @Nested
@@ -546,6 +610,10 @@ class ConfigSchemaValidationTest {
                           - host: localhost:9092
                             protocol: kafka
                             type: external
+                          - server:
+                              host: localhost:61616
+                              protocol: jms
+                              type: in-memory
                         schemaRegistry:
                           kind: DEFAULT
                         specs:
@@ -558,6 +626,13 @@ class ConfigSchemaValidationTest {
                                 - host: localhost:9092
                                   protocol: kafka
                                   type: external
+                                - server:
+                                    host: localhost:61616
+                                    protocol: jms
+                                    type: external
+                                - server:
+                                    ${'$'}serverRef: '#/servers/kafka-server'
+                                    type: in-memory
                               schemaRegistry:
                                 kind: DEFAULT
                 """.trimIndent(),
@@ -713,31 +788,6 @@ class ConfigSchemaValidationTest {
                 optionPath = "servers",
                 expectedType = "array",
                 schema = "AsyncApiTestRunOptions",
-            ),
-            v3OptionCase(
-                branch = "asyncTest",
-                expectedType = "string",
-                instancePath = "servers/0/type",
-                schema = "AsyncClientServerConfig",
-                name = "AsyncAPI server type must be supported",
-                optionPath = "servers/items/$REF/properties/type",
-                option = "servers: [{ host: localhost:9092, protocol: kafka, type: invalid }]",
-                errorMessage = "does not have a value in the enumeration [\"external\", \"in-memory\"]",
-            ),
-            v3OptionCase(
-                name = "AsyncAPI server client consumer must be an object",
-                branch = "asyncTest",
-                option = """
-                servers:
-                  - host: localhost:9092
-                    protocol: kafka
-                    client:
-                      consumer: invalid
-                """.trimIndent(),
-                optionPath = "servers/items/$REF/properties/client/$REF/properties/consumer",
-                instancePath = "servers/0/client/consumer",
-                expectedType = "object",
-                schema = "AsyncClientProperties",
             ),
             v3OptionCase(
                 name = "AsyncAPI test schema registry must be an object",
