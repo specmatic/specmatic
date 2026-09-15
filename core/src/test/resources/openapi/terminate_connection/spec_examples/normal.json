@@ -1,6 +1,6 @@
 {
   "name": "normal",
-  "terminateConnection": true,
+  "terminate-connection": true,
   "http-request": {
     "method": "POST",
     "path": "/normal",

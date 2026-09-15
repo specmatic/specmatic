@@ -128,7 +128,7 @@ class ExternalExampleSchemaCorpusTest {
         val propertyPaths = listOf(
             $$"$defs.Metadata.properties.name",
             $$"$defs.Metadata.properties.transient",
-            $$"$defs.Metadata.properties.terminateConnection",
+            $$"$defs.Metadata.properties.terminate-connection",
             $$"$defs.Metadata.properties.delay-in-seconds",
             $$"$defs.Metadata.properties.delay-in-milliseconds",
             $$"$defs.Metadata.properties.http-stub-id",

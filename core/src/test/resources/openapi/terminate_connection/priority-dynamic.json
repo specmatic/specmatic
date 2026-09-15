@@ -1,6 +1,6 @@
 {
   "name": "priority-dynamic",
-  "terminateConnection": true,
+  "terminate-connection": true,
   "http-request": {
     "method": "POST",
     "path": "/priority",

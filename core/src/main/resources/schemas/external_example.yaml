@@ -49,7 +49,7 @@ components:
         transient:
           nullable: true
           type: boolean
-        terminateConnection:
+        terminate-connection:
           type: boolean
         delay-in-seconds:
           nullable: true

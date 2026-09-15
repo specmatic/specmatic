@@ -1,6 +1,6 @@
 {
   "name": "matcher-exact",
-  "terminateConnection": true,
+  "terminate-connection": true,
   "http-request": {
     "method": "POST",
     "path": "/matcher-exact",

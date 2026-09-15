@@ -408,7 +408,7 @@
           "default": false,
           "$ref": "#/$defs/BooleanOrTemplateValueExpression"
         },
-        "terminateConnection": {
+        "terminate-connection": {
           "description": "Mock-only flag that terminates the upstream connection instead of returning a response.",
           "default": false,
           "$ref": "#/$defs/BooleanOrTemplateValueExpression"

@@ -1,6 +1,6 @@
 {
   "name": "partial",
-  "terminateConnection": true,
+  "terminate-connection": true,
   "partial": {
     "http-request": {
       "method": "POST",

@@ -1,6 +1,6 @@
 {
   "name": "matcher-times",
-  "terminateConnection": true,
+  "terminate-connection": true,
   "transient": true,
   "http-request": {
     "method": "POST",

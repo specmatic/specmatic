@@ -1,6 +1,6 @@
 {
   "name": "pattern-token",
-  "terminateConnection": true,
+  "terminate-connection": true,
   "http-request": {
     "method": "POST",
     "path": "/pattern-token",

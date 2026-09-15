@@ -1,6 +1,6 @@
 {
   "name": "matcher-data-type",
-  "terminateConnection": true,
+  "terminate-connection": true,
   "http-request": {
     "method": "POST",
     "path": "/matcher-data-type",
