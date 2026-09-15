@@ -13,11 +13,11 @@ dependencies {
 
     runtimeOnly("ch.qos.logback:logback-classic:1.5.37")
 
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.1.3")
 
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.1.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.1.3")
     testImplementation("org.assertj:assertj-core:3.27.7")
 }
 
