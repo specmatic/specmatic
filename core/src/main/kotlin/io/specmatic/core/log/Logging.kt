@@ -83,10 +83,8 @@ fun <T> withAgentConsoleLogger(fn: () -> T): T {
     }
 }
 
-fun shouldEmitToConsole(kind: ConsoleLogKind): Boolean {
-    val current = logger
-    return if (current is AgentConsoleLogger) current.shouldPrint(kind) else true
-}
+fun shouldEmitToConsole(kind: ConsoleLogEmission): Boolean =
+    logger.shouldPrintToConsole(kind)
 
 @Suppress("unused")
 val DebugLogger = ThreadSafeLog(Verbose(CompositePrinter()))
@@ -117,17 +115,17 @@ fun logException(fn: () -> Unit): Int =
         1
     }
 
-fun consoleLog(event: String, kind: ConsoleLogKind = ConsoleLogKind.Default) {
+fun consoleLog(event: String, kind: ConsoleLogEmission = ConsoleLogKind.Default) {
     consoleLog(StringLog(event), kind)
 }
 
-fun consoleLog(event: LogMessage, kind: ConsoleLogKind = ConsoleLogKind.Default) {
+fun consoleLog(event: LogMessage, kind: ConsoleLogEmission = ConsoleLogKind.Default) {
     LogTail.append(event)
     if (!shouldEmitToConsole(kind)) return
     logger.log(event)
 }
 
-fun consoleLog(e: Throwable, kind: ConsoleLogKind = ConsoleLogKind.Default) {
+fun consoleLog(e: Throwable, kind: ConsoleLogEmission = ConsoleLogKind.Default) {
     LogTail.append(logger.ofTheException(e))
     if (!shouldEmitToConsole(kind)) return
     logger.log(e)
@@ -136,7 +134,7 @@ fun consoleLog(e: Throwable, kind: ConsoleLogKind = ConsoleLogKind.Default) {
 fun consoleLog(
     e: Throwable,
     msg: String,
-    kind: ConsoleLogKind = ConsoleLogKind.Default,
+    kind: ConsoleLogEmission = ConsoleLogKind.Default,
 ) {
     LogTail.append(logger.ofTheException(e, msg))
     if (!shouldEmitToConsole(kind)) return
