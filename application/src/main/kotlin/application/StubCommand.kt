@@ -23,7 +23,7 @@ import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.SpecmaticMockRunner
 import io.specmatic.stub.OneShotClose
 import io.specmatic.stub.ShutdownHookRegistrar
-import io.specmatic.stub.JvmShutdownHookRegistrar
+import io.specmatic.stub.ReportFlushingShutdownHookRegistrar
 import io.specmatic.stub.endPointFromHostAndPort
 import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
@@ -56,7 +56,7 @@ class StubCommand(
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory(),
-    private val shutdownHookRegistrar: ShutdownHookRegistrar = JvmShutdownHookRegistrar,
+    private val shutdownHookRegistrar: ShutdownHookRegistrar = ReportFlushingShutdownHookRegistrar,
     val agentMode: Boolean = false,
     @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
     val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig()
