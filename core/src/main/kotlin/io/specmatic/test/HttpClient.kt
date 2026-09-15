@@ -14,7 +14,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
-import io.specmatic.core.log.consoleLog
+import io.specmatic.core.log.httpDumpLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.value.EmptyString
@@ -32,7 +32,7 @@ internal const val SET_COOKIE_SEPARATOR = "~~"
 data class HttpClient(
     private val baseURL: String,
     val timeoutInMilliseconds: Long = 6000,
-    private val log: (event: LogMessage) -> Unit = ::consoleLog,
+    private val log: (event: LogMessage) -> Unit = httpDumpLog,
     private val prettyPrint: Boolean = true,
     private val keyData: KeyData? = null,
     private var httpLogMessage: HttpLogMessage = HttpLogMessage(
@@ -123,7 +123,7 @@ internal fun targetServer(baseURL: String, mtlsNegotiated: Boolean): String {
 data class LegacyHttpClient(
     val baseURL: String,
     val timeoutInMilliseconds: Long = 6000,
-    val log: (event: LogMessage) -> Unit = ::consoleLog,
+    val log: (event: LogMessage) -> Unit = httpDumpLog,
     val prettyPrint: Boolean = true,
     val keyData: KeyData? = null,
 ) : TestExecutor {

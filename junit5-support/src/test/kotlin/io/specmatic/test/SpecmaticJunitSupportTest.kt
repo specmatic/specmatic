@@ -24,7 +24,9 @@ import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
-import io.specmatic.core.log.dontPrintToConsole
+import io.specmatic.core.log.AgentConsoleLogger
+import io.specmatic.core.log.httpDumpLog
+import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Decision
@@ -110,13 +112,8 @@ class SpecmaticJunitSupportTest {
     }
 
     @Test
-    fun `httpClientLog uses dontPrintToConsole when agentMode is true`() {
-        assertThat(httpClientLog(agentMode = true)).isSameAs(dontPrintToConsole)
-    }
-
-    @Test
-    fun `httpClientLog does not use dontPrintToConsole when agentMode is false`() {
-        assertThat(httpClientLog(agentMode = false)).isNotSameAs(dontPrintToConsole)
+    fun `httpClientLog uses httpDumpLog`() {
+        assertThat(httpClientLog()).isSameAs(httpDumpLog)
     }
 
     @Test
@@ -154,12 +151,14 @@ class SpecmaticJunitSupportTest {
                 assertThat(output).doesNotContain("Request to http://")
             } finally {
                 SpecmaticJUnitSupport.settingsStaging.remove()
+                unwrapAgentConsoleLogger()
             }
         }
     }
 
     @Test
     fun `without agentMode HttpClient traffic dumps still appear`(@TempDir tempDir: File) {
+        unwrapAgentConsoleLogger()
         MockHttpServer().use { server ->
             server.on("/orders", "GET") {
                 respond(HttpResponse(status = 200, body = NoBodyValue))
@@ -1540,7 +1539,14 @@ paths:
     @AfterEach
     fun tearDown() {
         SpecmaticJUnitSupport.settingsStaging.remove()
+        unwrapAgentConsoleLogger()
         System.getProperties().keys.minus(initialPropertyKeys).forEach { println("Clearing $it"); System.clearProperty(it.toString()) }
+    }
+}
+
+private fun unwrapAgentConsoleLogger() {
+    while (logger is AgentConsoleLogger) {
+        logger = (logger as AgentConsoleLogger).delegate
     }
 }
 

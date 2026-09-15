@@ -6,9 +6,10 @@ import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsingDecisions
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.consoleLog
-import io.specmatic.core.log.dontPrintToConsole
+import io.specmatic.core.log.httpDumpLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
+import io.specmatic.core.log.AgentConsoleLogger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.report.ReportGenerator
 import io.specmatic.reporter.RawReportType
@@ -67,7 +68,17 @@ open class SpecmaticJUnitSupport {
     private val testFilter = ScenarioMetadataFilter.from(specmaticConfig.getTestFilter().orEmpty())
     private val prettyPrint = specmaticConfig.getPrettyPrint()
 
-    init { setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault()) }
+    init {
+        setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault())
+        when {
+            settings.agentMode && logger !is AgentConsoleLogger -> {
+                logger = AgentConsoleLogger(logger)
+            }
+            !settings.agentMode && logger is AgentConsoleLogger -> {
+                logger = (logger as AgentConsoleLogger).delegate
+            }
+        }
+    }
 
     companion object {
         val settingsStaging = ThreadLocal<ContractTestSettings?>()
@@ -80,9 +91,7 @@ open class SpecmaticJUnitSupport {
         const val LOG_SEPARATOR = "--------------------"
         const val LOG_INDENT = "  "
 
-        internal fun httpClientLog(agentMode: Boolean): (LogMessage) -> Unit {
-            return if (agentMode) dontPrintToConsole else { logMessage -> logger.log(logMessage) }
-        }
+        internal fun httpClientLog(): (LogMessage) -> Unit = httpDumpLog
 
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
@@ -391,7 +400,7 @@ open class SpecmaticJUnitSupport {
                     val httpClient =
                         HttpClient(
                             baseURL,
-                            log = httpClientLog(settings.agentMode),
+                            log = httpClientLog(),
                             timeoutInMilliseconds = timeoutInMilliseconds,
                             prettyPrint = prettyPrint,
                             keyData = keyDataFor(baseURL),
