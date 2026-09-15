@@ -43,6 +43,7 @@ data class ScenarioStub(
     val afterFixtures: List<Value> = emptyList(),
     val exampleType: ExampleType = ExampleType.EXTERNAL,
     val preProcessorAttributes: PreProcessorAttributes = PreProcessorAttributes.Empty,
+    val terminateConnection: Boolean = false,
 ) {
     init {
         if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
@@ -394,6 +395,7 @@ const val MOCK_HTTP_REQUEST = "http-request"
 const val MOCK_HTTP_RESPONSE = "http-response"
 const val DELAY_IN_SECONDS = "delay-in-seconds"
 const val DELAY_IN_MILLISECONDS = "delay-in-milliseconds"
+const val TERMINATE_CONNECTION = "terminateConnection"
 const val TRANSIENT_MOCK = "http-stub"
 const val TRANSIENT_MOCK_ID = "$TRANSIENT_MOCK-id"
 const val REQUEST_BODY_REGEX = "bodyRegex"
@@ -482,6 +484,7 @@ private fun parseStandardExample(
     val delayInSeconds = getIntOrNull(DELAY_IN_SECONDS, mockSpec)
     val delayInMilliseconds = getLongOrNull(DELAY_IN_MILLISECONDS, mockSpec)
     val delayInMs = delayInMilliseconds ?: delayInSeconds?.toLong()?.times(1000)
+    val terminateConnection = getBooleanOrNull(TERMINATE_CONNECTION, mockSpec) ?: false
 
     val explicitStubToken = getStringOrNull(TRANSIENT_MOCK_ID, mockSpec)
     val isTransientMock = getBooleanOrNull(IS_TRANSIENT_MOCK, mockSpec) ?: false
@@ -506,6 +509,7 @@ private fun parseStandardExample(
         beforeFixtures = beforeFixtures,
         afterFixtures = afterFixtures,
         preProcessorAttributes = preProcessorAttributes,
+        terminateConnection = terminateConnection,
     )
 }
 

@@ -408,6 +408,11 @@
           "default": false,
           "$ref": "#/$defs/BooleanOrTemplateValueExpression"
         },
+        "terminateConnection": {
+          "description": "Mock-only flag that terminates the upstream connection instead of returning a response.",
+          "default": false,
+          "$ref": "#/$defs/BooleanOrTemplateValueExpression"
+        },
         "delay-in-seconds": {
           "description": "Mock-only delay before returning the response, in whole seconds. If both delay fields are set, delay-in-milliseconds takes precedence.",
           "examples": [2],

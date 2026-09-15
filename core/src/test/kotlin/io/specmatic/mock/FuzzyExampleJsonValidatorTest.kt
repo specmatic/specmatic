@@ -6,6 +6,7 @@ import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
@@ -45,6 +46,13 @@ class FuzzyExampleJsonValidatorTest {
     fun `should validate correct stubs successfully`(stub: Map<String, Value>) {
         val result = FuzzyExampleJsonValidator.matches(JSONObjectValue(stub))
         assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should reject null terminate connection value`() {
+        val stub = stubWith { put(TERMINATE_CONNECTION, NullValue) }
+        assertThat(FuzzyExampleJsonValidator.matches(JSONObjectValue(stub)))
+            .isNotInstanceOf(Result.Success::class.java)
     }
 
     @ParameterizedTest
@@ -223,6 +231,16 @@ class FuzzyExampleJsonValidatorTest {
                     toViolationReportString(
                         breadCrumb = "transent",
                         details = unexpectedKeyButMatches("transent", "transient"),
+                        StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
+                    )
+                ),
+                expectFailure(
+                    stub = stubWith {
+                        put("terminateConection", BooleanValue(true))
+                    },
+                    toViolationReportString(
+                        breadCrumb = "terminateConection",
+                        details = unexpectedKeyButMatches("terminateConection", TERMINATE_CONNECTION),
                         StandardRuleViolation.OPTIONAL_PROPERTY_MISSING
                     )
                 ),
@@ -435,6 +453,16 @@ class FuzzyExampleJsonValidatorTest {
                 ),
                 expectFailure(
                     stub = stubWith {
+                        put(TERMINATE_CONNECTION, StringValue("yes"))
+                    },
+                    toViolationReportString(
+                        breadCrumb = TERMINATE_CONNECTION,
+                        details = FuzzyExampleMisMatchMessages.typeMismatch("boolean", "\"yes\"", "string"),
+                        StandardRuleViolation.TYPE_MISMATCH
+                    )
+                ),
+                expectFailure(
+                    stub = stubWith {
                         put(TRANSIENT_MOCK_ID, NumberValue(10))
                     },
                     toViolationReportString(
@@ -615,6 +643,7 @@ class FuzzyExampleJsonValidatorTest {
 
                 Arguments.of(stubWith {
                     put("name", StringValue("Full Scenario"))
+                    put(TERMINATE_CONNECTION, BooleanValue(true))
                     put(DELAY_IN_SECONDS, NumberValue(5))
                     put(TRANSIENT_MOCK_ID, StringValue("stub-123"))
                     modifyNested(MOCK_HTTP_REQUEST) {
@@ -689,6 +718,10 @@ class FuzzyExampleJsonValidatorTest {
                 Arguments.of(
                     stubWith { put("transent", StringValue("true")) },
                     stubWith { put(IS_TRANSIENT_MOCK, BooleanValue(true)) }
+                ),
+                Arguments.of(
+                    stubWith { put(TERMINATE_CONNECTION, StringValue("true")) },
+                    stubWith { put(TERMINATE_CONNECTION, BooleanValue(true)) }
                 ),
                 Arguments.of(
                     stubWith { put("delay-in-secs", StringValue("5")) },
@@ -821,6 +854,7 @@ class FuzzyExampleJsonValidatorTest {
             return Stream.of(
                 Arguments.of(stubWithPartial {}, PARTIAL),
                 Arguments.of(stubWith { put(TRANSIENT_MOCK, BooleanValue(true)) }, TRANSIENT_MOCK),
+                Arguments.of(stubWith { put(TERMINATE_CONNECTION, BooleanValue(true)) }, TERMINATE_CONNECTION),
                 Arguments.of(stubWith { put(DELAY_IN_SECONDS, NumberValue(1)) }, DELAY_IN_SECONDS),
                 Arguments.of(stubWith { put(DELAY_IN_MILLISECONDS, NumberValue(1)) }, DELAY_IN_MILLISECONDS),
                 Arguments.of(stubWith { put(TRANSIENT_MOCK_ID, StringValue("inline-id")) }, TRANSIENT_MOCK_ID),
