@@ -48,6 +48,7 @@ data class HttpStubData(
     val stubToken = scenarioStub?.stubToken
     val requestBodyRegex = scenarioStub?.requestBodyRegex
     val delayInMilliseconds = scenarioStub?.delayInMilliseconds
+    val terminateConnection = scenarioStub?.terminateConnection ?: false
 
     private var stubMatcher: Lazy<HttpStubMatcher?> = lazy { HttpStubMatcherFactory.load()?.create(this) }
     private val defaultMismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages(name)

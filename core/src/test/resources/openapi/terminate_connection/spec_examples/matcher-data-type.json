@@ -1,0 +1,24 @@
+{
+  "name": "matcher-data-type",
+  "terminate-connection": true,
+  "http-request": {
+    "method": "POST",
+    "path": "/matcher-data-type",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": "$match(dataType: number)",
+      "name": "matcher"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "matcher-data-type"
+    }
+  }
+}

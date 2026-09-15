@@ -1,0 +1,25 @@
+{
+  "name": "partial",
+  "terminate-connection": true,
+  "partial": {
+    "http-request": {
+      "method": "POST",
+      "path": "/partial",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "id": 2
+      }
+    },
+    "http-response": {
+      "status": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "source": "partial"
+      }
+    }
+  }
+}

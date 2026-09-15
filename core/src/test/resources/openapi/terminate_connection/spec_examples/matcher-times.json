@@ -1,0 +1,22 @@
+{
+  "name": "matcher-times",
+  "terminate-connection": true,
+  "transient": true,
+  "http-request": {
+    "method": "POST",
+    "path": "/matcher-times",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": "$match(times: 2, value: any)"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "matcher-times"
+    }
+  }
+}
