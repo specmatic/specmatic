@@ -9,7 +9,7 @@ import java.io.PrintStream
 class AgentConsoleLoggerTest {
     private val originalLogger = logger
 
-    private val suppressibleKind = object : ConsoleLogEmission {
+    private val suppressibleKind = object : ConsoleLogEmissionPolicy {
         override val suppressUnderAgent: Boolean = true
     }
 
@@ -68,11 +68,11 @@ class AgentConsoleLoggerTest {
     }
 
     @Test
-    fun `shouldEmitToConsole asks the installed logger`() {
-        assertThat(shouldEmitToConsole(suppressibleKind)).isTrue()
+    fun `shouldPrintToConsole asks the installed logger`() {
+        assertThat(logger.shouldPrintToConsole(suppressibleKind)).isTrue()
         withAgentConsoleLogger {
-            assertThat(shouldEmitToConsole(ConsoleLogKind.Default)).isTrue()
-            assertThat(shouldEmitToConsole(suppressibleKind)).isFalse()
+            assertThat(logger.shouldPrintToConsole(ConsoleLogKind.Default)).isTrue()
+            assertThat(logger.shouldPrintToConsole(suppressibleKind)).isFalse()
         }
     }
 

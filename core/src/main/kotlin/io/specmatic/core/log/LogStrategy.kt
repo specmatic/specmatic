@@ -23,5 +23,5 @@ interface LogStrategy : UsesIndentation, UsesBoundary {
         infoLoggingEnabled = true
     }
 
-    fun shouldPrintToConsole(kind: ConsoleLogEmission): Boolean = true
+    fun shouldPrintToConsole(kind: ConsoleLogEmissionPolicy): Boolean = true
 }
