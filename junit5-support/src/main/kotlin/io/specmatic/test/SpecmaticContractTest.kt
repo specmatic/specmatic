@@ -2,7 +2,6 @@ package io.specmatic.test
 
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicTest
-import org.junit.jupiter.api.TestFactory
 import java.util.stream.Stream
 
 interface SpecmaticContractTest : SpecmaticContractTestRunner {
@@ -16,7 +15,6 @@ interface SpecmaticContractTest : SpecmaticContractTestRunner {
         }
     }
 
-    @TestFactory
     override fun testStream(): Stream<DynamicTest> {
         return instance.contractTest()
     }
@@ -26,3 +24,4 @@ interface SpecmaticContractTest : SpecmaticContractTestRunner {
     }
 }
 
+class SpecmaticContractTestImpl : SpecmaticContractTest
