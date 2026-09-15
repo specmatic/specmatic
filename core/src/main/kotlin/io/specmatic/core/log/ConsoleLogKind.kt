@@ -1,14 +1,19 @@
 package io.specmatic.core.log
 
 /**
- * Category for console emissions. Under an installed [AgentConsoleLogger], kinds with
- * [suppressUnderAgent] true are kept out of stdout (LogTail still receives them via [consoleLog]).
+ * Policy for a [consoleLog] category. Downstream may define its own kinds.
+ * Under an installed [AgentConsoleLogger], kinds with [suppressUnderAgent] true are
+ * kept out of stdout (LogTail still receives them via [consoleLog]).
  * Without the agent logger, every kind prints.
  */
-enum class ConsoleLogKind(val suppressUnderAgent: Boolean) {
+interface ConsoleLogEmissionPolicy {
+    val suppressUnderAgent: Boolean
+}
+
+enum class ConsoleLogKind(
+    override val suppressUnderAgent: Boolean,
+) : ConsoleLogEmissionPolicy {
     Default(false),
     HttpDump(true),
-    FixtureDetail(true),
     StubTraffic(true),
-    AsyncTraffic(true),
 }

@@ -9,6 +9,10 @@ import java.io.PrintStream
 class AgentConsoleLoggerTest {
     private val originalLogger = logger
 
+    private val suppressibleKind = object : ConsoleLogEmissionPolicy {
+        override val suppressUnderAgent: Boolean = true
+    }
+
     @AfterEach
     fun restoreLogger() {
         logger = originalLogger
@@ -57,9 +61,18 @@ class AgentConsoleLoggerTest {
             setLoggerUsing(io.specmatic.core.config.LoggingConfiguration.default())
             assertThat(logger).isInstanceOf(AgentConsoleLogger::class.java)
             val output = captureStdout {
-                consoleLog("still-quiet", ConsoleLogKind.FixtureDetail)
+                consoleLog("still-quiet", suppressibleKind)
             }
             assertThat(output).doesNotContain("still-quiet")
+        }
+    }
+
+    @Test
+    fun `shouldPrintToConsole asks the installed logger`() {
+        assertThat(logger.shouldPrintToConsole(suppressibleKind)).isTrue()
+        withAgentConsoleLogger {
+            assertThat(logger.shouldPrintToConsole(ConsoleLogKind.Default)).isTrue()
+            assertThat(logger.shouldPrintToConsole(suppressibleKind)).isFalse()
         }
     }
 
