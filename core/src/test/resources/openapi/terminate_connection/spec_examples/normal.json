@@ -1,0 +1,24 @@
+{
+  "name": "normal",
+  "terminateConnection": true,
+  "http-request": {
+    "method": "POST",
+    "path": "/normal",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": 1,
+      "name": "normal"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "normal"
+    }
+  }
+}

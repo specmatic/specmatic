@@ -1,0 +1,23 @@
+{
+  "name": "normal-fallback",
+  "http-request": {
+    "method": "POST",
+    "path": "/normal",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": 999,
+      "name": "regular"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "normal-fallback"
+    }
+  }
+}

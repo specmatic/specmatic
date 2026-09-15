@@ -408,6 +408,10 @@ class HttpStub(
                         }
                     }
 
+                    if (httpStubResponse.mock?.terminateConnection == true) {
+                        terminateConnection(call)
+                        return@intercept
+                    }
 
                     val (httpResponse, responseInterceptorResultsList) = applyResponseInterceptors(
                         httpRequest = httpRequest,
@@ -897,6 +901,11 @@ class HttpStub(
         } catch (e: Throwable) {
             logger.log("$channelError (${exceptionCauseMessage(e)}")
         }
+    }
+
+    private fun terminateConnection(call: ApplicationCall) {
+        val nettyCall = call as? NettyApplicationCall ?: error("Connection termination requires the Netty engine")
+        nettyCall.context.close()
     }
 
     private suspend fun defensivelyExtractedRequestForLogging(call: ApplicationCall): HttpRequest {

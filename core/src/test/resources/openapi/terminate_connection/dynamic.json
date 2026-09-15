@@ -1,0 +1,24 @@
+{
+  "name": "dynamic",
+  "terminateConnection": true,
+  "http-request": {
+    "method": "POST",
+    "path": "/dynamic",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": 6,
+      "name": "dynamic"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "dynamic"
+    }
+  }
+}
