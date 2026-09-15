@@ -539,6 +539,8 @@ class HttpStub(
             request = httpRequest,
             response = httpResponse,
             result = httpLogMessage.toResult(),
+            requestTime = httpLogMessage.requestTime.toInstant(),
+            responseTime = httpLogMessage.responseTime?.toInstant(),
             sourceProvider = httpStubResponse.feature?.sourceProvider,
             repository = httpStubResponse.feature?.sourceRepository,
             branch = httpStubResponse.feature?.sourceRepositoryBranch,

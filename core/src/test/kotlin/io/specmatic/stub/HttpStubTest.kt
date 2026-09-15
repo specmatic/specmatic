@@ -4411,6 +4411,38 @@ Then status 200
         }
     }
 
+    @Nested
+    inner class TestResultRecordTimingTest {
+        @Test
+        fun `should capture request and response times in scenario result record`() {
+            val feature = OpenApiSpecification.fromYAML(
+                yamlContent = """
+                openapi: 3.0.3
+                info:
+                  title: Timing API
+                  version: 1.0.0
+                paths:
+                  /hello:
+                    get:
+                      responses:
+                        "200":
+                          description: OK
+                """.trimIndent(),
+                openApiFilePath = "timing.yaml"
+            ).toFeature()
+
+            HttpStub(feature, port = ServerSocket(0).use { it.localPort }).use { stub ->
+                val response = stub.client.execute(HttpRequest(method = "GET", path = "/hello"))
+                assertThat(response.status).isEqualTo(200)
+
+                val testResultRecord = stub.ctrfTestResultRecords().single()
+                val requestTime = requireNotNull(testResultRecord.requestTime)
+                val responseTime = requireNotNull(testResultRecord.responseTime)
+                assertThat(requestTime).isBeforeOrEqualTo(responseTime)
+            }
+        }
+    }
+
     @Test
     fun `should capture scenario result from failure even when request does not match any scenario identifier`() {
         val tempDir = Files.createTempDirectory("specmatic-openapi-scenario-result").toFile()
@@ -4458,6 +4490,8 @@ Then status 200
                 val scenario = testResultRecord.scenarioResult?.scenario as Scenario
                 assertThat(scenario.method).isEqualTo("POST")
                 assertThat(scenario.path).isEqualTo("/hello")
+                assertThat(testResultRecord.requestTime).isNotNull()
+                assertThat(testResultRecord.responseTime).isNotNull()
             }
         } finally {
             tempDir.deleteRecursively()
