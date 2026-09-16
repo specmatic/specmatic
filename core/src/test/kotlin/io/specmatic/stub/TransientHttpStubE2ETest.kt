@@ -181,13 +181,14 @@ internal class TransientHttpStubE2ETest {
                 assertThat(record.exampleId).isEqualTo("normal")
                 assertThat(record.response?.status).isEqualTo(0)
                 assertThat(record.actualResponseStatus).isEqualTo(0)
+                assertThat(record.connectionTerminated).isTrue()
                 assertThat(record.result).isEqualTo(TestResult.Success)
-                assertThat(record.response?.body?.toStringLiteral()).isEqualTo("Connection Terminated.")
+                assertThat(record.response?.body?.toStringLiteral()).isEqualTo("Connection terminated.\nNo HTTP response was sent.")
             }
 
             val logMessage = loggedMessages.single() as HttpLogMessage
             assertThat(logMessage.response?.status).isEqualTo(0)
-            assertThat(logMessage.response?.body?.toStringLiteral()).isEqualTo("Connection Terminated.")
+            assertThat(logMessage.response?.body?.toStringLiteral()).isEqualTo("Connection terminated.\nNo HTTP response was sent.")
             assertThat(logMessage.toLogString()).isEqualToIgnoringWhitespace("""
             --------------------
             Contract matched: ${fixture.feature.path}
@@ -205,14 +206,15 @@ internal class TransientHttpStubE2ETest {
               }
 
             Response at ${logMessage.responseTime}
-              0
-              Connection Terminated.
+              Connection terminated.
+              No HTTP response was sent.
             """.trimIndent())
 
             val event = mockEvents.single()
             assertThat(event.response?.status).isEqualTo(0)
-            assertThat(event.response?.body?.toStringLiteral()).isEqualTo("Connection Terminated.")
+            assertThat(event.response?.body?.toStringLiteral()).isEqualTo("Connection terminated.\nNo HTTP response was sent.")
             assertThat(event.stubResult).isEqualTo(TestResult.Success)
+            assertThat(event.terminatedConnection).isTrue()
         }
 
         @Test

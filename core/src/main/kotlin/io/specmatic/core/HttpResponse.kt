@@ -80,6 +80,10 @@ data class HttpResponse(
         })
 
     fun toLogString(prefix: String = "", prettyPrint: Boolean = true): String {
+        if (this.status == 0 && this.headers.isEmpty()) {
+            return startLinesWith(this.body.toStringLiteral(), prefix)
+        }
+
         val statusLine = "$status $statusText"
         val headerString = headers.map { "${it.key}: ${it.value}" }.joinToString("\n")
 
@@ -105,7 +109,7 @@ data class HttpResponse(
 
     companion object {
         val ERROR_400 = HttpResponse(400, "This request did not match any scenario.", mapOf(CONTENT_TYPE to "text/plain"))
-        val TERMINATED = HttpResponse(status = 0, body = "Connection Terminated.", headers = emptyMap())
+        val TERMINATED = HttpResponse(status = 0, body = "Connection terminated.\nNo HTTP response was sent.", headers = emptyMap())
         val OK = HttpResponse(200, emptyMap())
 
         fun ok(body: Number): HttpResponse {

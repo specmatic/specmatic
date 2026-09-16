@@ -411,7 +411,7 @@ class HttpStub(
                     if (httpStubResponse.mock?.terminateConnection == true) {
                         httpLogMessage.addResponse(httpStubResponse.withResponse(HttpResponse.TERMINATED))
                         addCtrfTestResultRecord(httpLogMessage, httpRequest, HttpResponse.TERMINATED, httpStubResponse)
-                        MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
+                        MockEvent(httpLogMessage, terminatedConnection = true).let { event -> listeners.forEach { it.onRespond(event) } }
                         log(httpLogMessage)
                         terminateConnection(call)
                         return@intercept
@@ -556,6 +556,7 @@ class HttpStub(
             testType = STUB_TEST_TYPE,
             actualResponseStatus = httpResponse.status,
             actualResponseContentType = httpResponse.normalizedContentType(),
+            connectionTerminated = httpStubResponse.mock?.terminateConnection == true,
             matchesResponseIdentifiers = httpLogMessage.scenario?.matchesStatusAndContentType(httpResponse) ?: false,
             operations = setOf(
                 OpenAPIOperation(

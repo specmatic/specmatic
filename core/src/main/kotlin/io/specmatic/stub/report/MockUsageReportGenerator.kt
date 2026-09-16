@@ -45,12 +45,13 @@ class MockUsageReportGenerator {
 
     private fun factsFor(operation: OpenAPIOperation, testResultRecords: List<TestResultRecord>): MockUsageFacts {
         val tests = testResultRecords.filter { it.operations.contains(operation) }
+        val nonTerminatedTests = tests.filter { !it.isConnectionTerminated() }
 
         return MockUsageFacts(
-            operation = operation,
             tests = tests,
-            matchRecords = tests.filter { it.matches(operation) },
-            attemptRecords = tests,
+            operation = operation,
+            attemptRecords = nonTerminatedTests,
+            matchRecords = nonTerminatedTests.filter { it.matches(operation) }
         )
     }
 

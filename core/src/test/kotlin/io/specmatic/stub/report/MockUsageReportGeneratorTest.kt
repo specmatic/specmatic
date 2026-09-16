@@ -2,6 +2,10 @@ package io.specmatic.stub.report
 
 import io.specmatic.core.HttpResponse
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
+import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -9,10 +13,104 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.TestResultRecord
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class MockUsageReportGeneratorTest {
     private val reportGenerator = MockUsageReportGenerator()
+
+    @Nested
+    inner class TerminationScenarios {
+        @Test
+        fun `should use non-terminated records for mixed coverage metadata`() {
+            val endpoint = endpoint("/orders", "POST", "application/json", 201, "application/json")
+            val operation = endpoint.toOpenApiOperation()
+            val normalRecord = testResultRecord(
+                operation = operation,
+                actualResponseStatus = 201,
+                actualResponseContentType = "application/json",
+            )
+
+            val firstTerminatedRecord = testResultRecord(
+                operation = operation,
+                actualResponseStatus = 0,
+                connectionTerminated = true,
+                actualResponseContentType = null,
+            )
+
+            val secondTerminatedRecord = testResultRecord(
+                operation = operation,
+                actualResponseStatus = 0,
+                connectionTerminated = true,
+                actualResponseContentType = null,
+            )
+
+            val records = listOf(normalRecord, firstTerminatedRecord, secondTerminatedRecord)
+            val reportOperation = reportOperationFor(endpoint, records)
+
+            assertThat(reportOperation.tests).isEqualTo(records)
+            assertThat(reportOperation.eligibleForCoverage).isTrue()
+            assertThat(reportOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
+            assertThat(reportOperation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+            assertThat(reportOperation.metrics).isEqualTo(CtrfOperationMetrics(attempts = 1, matches = 1))
+            assertThat(reportOperation.qualifiers).isEqualTo(emptyList<CtrfOperationQualifiers>())
+            assertThat(reportOperation.tests.flatMap { it.extraFields().qualifiers.orEmpty() }).isEqualTo(
+                listOf(CtrfTestQualifiers.TERMINATED, CtrfTestQualifiers.TERMINATED)
+            )
+        }
+
+        @Test
+        fun `should report terminated-only operation as not used with test qualifiers`() {
+            val endpoint = endpoint("/orders", "POST", "application/json", 201, "application/json")
+            val operation = endpoint.toOpenApiOperation()
+            val firstTerminatedRecord = testResultRecord(
+                operation = operation,
+                actualResponseStatus = 0,
+                connectionTerminated = true,
+                actualResponseContentType = null,
+            )
+
+            val secondTerminatedRecord = testResultRecord(
+                operation = operation,
+                actualResponseStatus = 0,
+                connectionTerminated = true,
+                actualResponseContentType = null,
+            )
+
+            val records = listOf(firstTerminatedRecord, secondTerminatedRecord)
+            val reportOperation = reportOperationFor(endpoint, records)
+
+            assertThat(reportOperation.tests).isEqualTo(records)
+            assertThat(reportOperation.eligibleForCoverage).isTrue()
+            assertThat(reportOperation.omittedStatus).isEqualTo(OmittedStatus.SKIPPED)
+            assertThat(reportOperation.coverageStatus).isEqualTo(CoverageStatus.NOT_USED)
+            assertThat(reportOperation.metrics).isEqualTo(CtrfOperationMetrics(attempts = 0, matches = 0))
+            assertThat(reportOperation.qualifiers).isEqualTo(emptyList<CtrfOperationQualifiers>())
+            assertThat(reportOperation.tests.flatMap { it.extraFields().qualifiers.orEmpty() }).isEqualTo(
+                listOf(CtrfTestQualifiers.TERMINATED, CtrfTestQualifiers.TERMINATED)
+            )
+        }
+
+        @Test
+        fun `should use normal-only operation for coverage metadata without qualifiers`() {
+            val endpoint = endpoint("/orders", "POST", "application/json", 201, "application/json")
+            val normalRecord = testResultRecord(
+                actualResponseStatus = 201,
+                operation = endpoint.toOpenApiOperation(),
+                actualResponseContentType = "application/json",
+            )
+
+            val reportOperation = reportOperationFor(endpoint, listOf(normalRecord))
+
+            assertThat(reportOperation.eligibleForCoverage).isTrue()
+            assertThat(reportOperation.tests).isEqualTo(listOf(normalRecord))
+            assertThat(reportOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
+            assertThat(reportOperation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+            assertThat(reportOperation.tests.flatMap { it.extraFields().qualifiers.orEmpty() }).isEmpty()
+            assertThat(reportOperation.qualifiers).isEqualTo(emptyList<CtrfOperationQualifiers>())
+            assertThat(reportOperation.metrics).isEqualTo(CtrfOperationMetrics(attempts = 1, matches = 1))
+        }
+    }
 
     @Test
     fun `should generate covered not used mismatch and missing in spec rows for mock usage`() {
@@ -53,24 +151,32 @@ class MockUsageReportGeneratorTest {
         val missingInSpecOperation = reportOperations.single { it.operation.path == "/unknown" }
 
         assertThat(coveredOperation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+        assertThat(coveredOperation.tests).isEqualTo(listOf(coveredRecord))
+        assertThat(coveredOperation.metrics).isEqualTo(CtrfOperationMetrics(attempts = 1, matches = 1))
+        assertThat(coveredOperation.qualifiers).isEqualTo(emptyList<CtrfOperationQualifiers>())
+        assertThat(coveredOperation.eligibleForCoverage).isTrue()
         assertThat(coveredOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
-        assertThat(coveredOperation.metrics?.attempts).isEqualTo(1)
-        assertThat(coveredOperation.metrics?.matches).isEqualTo(1)
 
         assertThat(unusedOperation.coverageStatus).isEqualTo(CoverageStatus.NOT_USED)
+        assertThat(unusedOperation.tests).isEqualTo(emptyList<TestResultRecord>())
+        assertThat(unusedOperation.metrics).isEqualTo(CtrfOperationMetrics(attempts = 0, matches = 0))
+        assertThat(unusedOperation.qualifiers).isEqualTo(emptyList<CtrfOperationQualifiers>())
+        assertThat(unusedOperation.eligibleForCoverage).isTrue()
         assertThat(unusedOperation.omittedStatus).isEqualTo(OmittedStatus.SKIPPED)
-        assertThat(unusedOperation.metrics?.attempts).isEqualTo(0)
-        assertThat(unusedOperation.metrics?.matches).isEqualTo(0)
 
         assertThat(mismatchOperation.coverageStatus).isEqualTo(CoverageStatus.MISMATCH)
+        assertThat(mismatchOperation.tests).isEqualTo(listOf(mismatchRecord))
+        assertThat(mismatchOperation.metrics).isEqualTo(CtrfOperationMetrics(attempts = 1, matches = 0))
+        assertThat(mismatchOperation.qualifiers).isEqualTo(emptyList<CtrfOperationQualifiers>())
+        assertThat(mismatchOperation.eligibleForCoverage).isTrue()
         assertThat(mismatchOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
-        assertThat(mismatchOperation.metrics?.attempts).isEqualTo(1)
-        assertThat(mismatchOperation.metrics?.matches).isEqualTo(0)
 
         assertThat(missingInSpecOperation.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
+        assertThat(missingInSpecOperation.tests).isEqualTo(listOf(missingInSpecRecord))
+        assertThat(missingInSpecOperation.metrics).isEqualTo(CtrfOperationMetrics(attempts = 1, matches = 0))
+        assertThat(missingInSpecOperation.qualifiers).isEqualTo(emptyList<CtrfOperationQualifiers>())
+        assertThat(missingInSpecOperation.eligibleForCoverage).isFalse()
         assertThat(missingInSpecOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
-        assertThat(missingInSpecOperation.metrics?.attempts).isEqualTo(1)
-        assertThat(missingInSpecOperation.metrics?.matches).isEqualTo(0)
     }
 
     @Test
@@ -101,6 +207,11 @@ class MockUsageReportGeneratorTest {
         assertThat(reportOperations.single().operation.path).isEqualTo("/orders/{id}")
     }
 
+    private fun reportOperationFor(endpoint: StubEndpoint, testResultRecords: List<TestResultRecord>): CoverageReportOperation<OpenAPIOperation, TestResultRecord> {
+        val context = MockUsageContext(tests = testResultRecords, allSpecEndpoints = listOf(endpoint))
+        return reportGenerator.generate(context = context).single()
+    }
+
     private fun endpoint(
         path: String,
         method: String,
@@ -122,6 +233,7 @@ class MockUsageReportGeneratorTest {
         operation: OpenAPIOperation,
         actualResponseStatus: Int,
         actualResponseContentType: String?,
+        connectionTerminated: Boolean = false,
     ) = TestResultRecord(
         path = operation.path,
         method = operation.method,
@@ -134,6 +246,7 @@ class MockUsageReportGeneratorTest {
         ),
         result = TestResult.Success,
         actualResponseStatus = actualResponseStatus,
+        connectionTerminated = connectionTerminated,
         actualResponseContentType = actualResponseContentType,
         specType = SpecType.OPENAPI,
         requestContentType = operation.contentType,

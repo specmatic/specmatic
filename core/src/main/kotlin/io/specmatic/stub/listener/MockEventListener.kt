@@ -26,8 +26,9 @@ data class MockEvent (
     val postHookResponseTime: Long? = null,
     val scenario: Scenario?,
     val stubResult: TestResult,
+    val terminatedConnection: Boolean,
 ) {
-    constructor(logMessage: HttpLogMessage) : this(
+    constructor(logMessage: HttpLogMessage, terminatedConnection: Boolean = false) : this(
         name = logMessage.toName(),
         details = logMessage.toDetails(),
         result = logMessage.result ?: if (logMessage.toResult() == TestResult.Success) {
@@ -44,6 +45,7 @@ data class MockEvent (
         postHookResponse = logMessage.postHookResponse,
         postHookResponseTime = logMessage.postHookResponseTime?.toEpochMillis(),
         scenario = logMessage.scenario,
-        stubResult = logMessage.toResult()
+        stubResult = logMessage.toResult(),
+        terminatedConnection = terminatedConnection,
     )
 }
