@@ -35,4 +35,8 @@ data class HttpStubResponse(
 
         return this.copy(response = updatedResponse)
     }
+
+    fun withResponse(response: HttpResponse): HttpStubResponse {
+        return this.copy(response = response)
+    }
 }

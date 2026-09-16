@@ -105,7 +105,9 @@ data class HttpResponse(
 
     companion object {
         val ERROR_400 = HttpResponse(400, "This request did not match any scenario.", mapOf(CONTENT_TYPE to "text/plain"))
+        val TERMINATED = HttpResponse(status = 0, body = "Connection Terminated.", headers = emptyMap())
         val OK = HttpResponse(200, emptyMap())
+
         fun ok(body: Number): HttpResponse {
             val bodyValue = NumberValue(body)
             return HttpResponse(200, mapOf(CONTENT_TYPE to bodyValue.httpContentType), bodyValue)

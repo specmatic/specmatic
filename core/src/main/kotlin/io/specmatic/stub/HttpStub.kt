@@ -409,6 +409,10 @@ class HttpStub(
                     }
 
                     if (httpStubResponse.mock?.terminateConnection == true) {
+                        httpLogMessage.addResponse(httpStubResponse.withResponse(HttpResponse.TERMINATED))
+                        addCtrfTestResultRecord(httpLogMessage, httpRequest, HttpResponse.TERMINATED, httpStubResponse)
+                        MockEvent(httpLogMessage).let { event -> listeners.forEach { it.onRespond(event) } }
+                        log(httpLogMessage)
                         terminateConnection(call)
                         return@intercept
                     }
