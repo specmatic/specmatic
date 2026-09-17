@@ -1,5 +1,7 @@
 package application
 
+import io.specmatic.commons.shutdown.ShutdownTask
+import io.specmatic.commons.shutdown.ShutdownRegistrar
 import io.specmatic.core.DEFAULT_TIMEOUT_IN_MILLISECONDS
 import io.specmatic.core.KeyData
 import io.specmatic.core.ProxyConfig
@@ -7,6 +9,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.log.StringLog
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.consoleLog
@@ -17,6 +20,7 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.proxy.Proxy
+import io.specmatic.core.lifecycle.SpecmaticShutdownIntent
 import io.specmatic.stub.SpecmaticConfigSource
 import picocli.CommandLine.*
 import java.io.File
@@ -29,7 +33,9 @@ import java.util.concurrent.Callable
     description = ["Proxies requests to the specified target and converts the result into contracts and stubs"],
 )
 @Category("Specmatic core")
-open class ProxyCommand : Callable<Unit> {
+open class ProxyCommand(
+    private val shutdownHookRegistrar: ShutdownRegistrar = SpecmaticLifecycle.shutdownRegistrar
+): Callable<Unit> {
     @Option(names = ["--target"], description = ["Base URL of the target to proxy"], required = false)
     var targetBaseURL: String? = null
 
@@ -103,7 +109,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
 
         proxy = createProxyServer(specmaticConfigLoaded, keyStoreData, configSource)
-        addShutdownHook()
+        registerShutdown()
         logger.boundary()
         while(true) sleep(10000)
     }
@@ -164,18 +170,22 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
     }
 
-    protected open fun addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(object : Thread() {
-            override fun run() {
-                try {
-                    println("Shutting down proxy server")
-                    proxy?.close()
-                } catch (e: InterruptedException) {
-                    currentThread().interrupt()
-                } catch (e: Throwable) {
-                    logger.log(e)
+    protected open fun registerShutdown() {
+        shutdownHookRegistrar.register(
+            task = ShutdownTask(
+                id = "specmatic.proxy.http",
+                intent = SpecmaticShutdownIntent.PROXY,
+                action = {
+                    try {
+                        println("Shutting down proxy server")
+                        proxy?.close()
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                    } catch (e: Throwable) {
+                        logger.log(e)
+                    }
                 }
-            }
-        })
+            )
+        )
     }
 }

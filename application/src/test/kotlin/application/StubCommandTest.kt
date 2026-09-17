@@ -17,7 +17,9 @@ import io.specmatic.core.utilities.StubServerWatcher
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
-import io.specmatic.stub.ShutdownHookRegistrar
+import io.specmatic.commons.shutdown.ShutdownRegistrar
+import io.specmatic.commons.shutdown.ShutdownTask
+import io.specmatic.core.lifecycle.NoOpShutdownRegistrar
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -30,7 +32,6 @@ import org.junit.jupiter.params.provider.ValueSource
 import picocli.CommandLine
 import java.io.File
 import java.io.FileOutputStream
-import java.io.Closeable
 import java.net.ServerSocket
 import java.nio.file.Path
 import java.security.KeyStore
@@ -60,7 +61,7 @@ internal class StubCommandTest {
     lateinit var stubLoaderEngine: StubLoaderEngine
 
     @MockK
-    lateinit var shutdownHookRegistrar: ShutdownHookRegistrar
+    lateinit var shutdownHookRegistrar: ShutdownRegistrar
 
     @InjectMockKs
     lateinit var stubCommand: StubCommand
@@ -68,7 +69,9 @@ internal class StubCommandTest {
     @BeforeEach
     fun setUp() {
         MockKAnnotations.init(this)
-        every { shutdownHookRegistrar.register(any()) } returns java.io.Closeable {}
+        every { shutdownHookRegistrar.register(any()) } answers {
+            NoOpShutdownRegistrar.register(firstArg<ShutdownTask>())
+        }
     }
 
     @AfterEach
@@ -120,12 +123,14 @@ internal class StubCommandTest {
         val contractPath = tempDir.resolve("contract.$CONTRACT_EXTENSION").canonicalPath
         File(contractPath).writeText("Feature: A stub")
 
-        val registeredHook = slot<Closeable>()
+        val registeredHook = slot<ShutdownTask>()
         val closeCount = AtomicInteger(0)
         every { watchMaker.make(listOf(contractPath)) } returns watcher
         every { specmaticConfig.contractStubPaths() } returns arrayListOf(contractPath)
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
-        every { shutdownHookRegistrar.register(capture(registeredHook)) } returns Closeable {}
+        every { shutdownHookRegistrar.register(capture(registeredHook)) } answers {
+            NoOpShutdownRegistrar.register(firstArg<ShutdownTask>())
+        }
         every {
             httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns mockk {
@@ -135,7 +140,7 @@ internal class StubCommandTest {
         assertThat(CommandLine(stubCommand).execute(contractPath)).isZero()
         assertThat(registeredHook.isCaptured).isTrue()
 
-        registeredHook.captured.close()
+        registeredHook.captured.action.run()
         stubCommand.close()
 
         assertThat(closeCount.get()).isEqualTo(1)
@@ -207,7 +212,9 @@ internal class StubCommandTest {
         every { watcher.watchForChanges(capture(restart)) } just Runs
         every { watchMaker.make(listOf(contractPath)) } returns watcher
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
-        every { shutdownHookRegistrar.register(any()) } returns Closeable { terminalCloseRequested.countDown() }
+        every { shutdownHookRegistrar.register(any()) } returns mockk {
+            every { close() } answers { terminalCloseRequested.countDown() }
+        }
         every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returnsMany listOf(firstServer, secondServer)
         stubCommand.hotReload = Switch.enabled
 
@@ -1221,4 +1228,5 @@ internal class StubCommandTest {
         keyStore.load(null, password.toCharArray())
         FileOutputStream(file).use { keyStore.store(it, password.toCharArray()) }
     }
+
 }

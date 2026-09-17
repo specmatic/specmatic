@@ -176,7 +176,7 @@ class ProxyCommandTest {
             return mockk(relaxed = true)
         }
 
-        override fun addShutdownHook() {
+        override fun registerShutdown() {
             throw ProxyStartedTestException()
         }
     }

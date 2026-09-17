@@ -1,12 +1,9 @@
 package application
 
-import io.specmatic.core.loadSpecmaticConfigOrNull
+import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.UncaughtExceptionHandler
 import io.specmatic.license.core.Executor
-import io.specmatic.license.core.LicenseResolver
-import io.specmatic.license.core.util.LicenseConfig
-import io.specmatic.reporter.ReportTracker
 import io.specmatic.specmatic.executable.JULForwarder
 import picocli.CommandLine
 
@@ -17,18 +14,11 @@ open class SpecmaticApplication {
 
         @JvmStatic
         fun main(args: Array<String>) {
+            SpecmaticLifecycle.initialize(Executor.JAR)
             val commandLine = createCommandLine()
             redirectStdoutToStderrIfMcpServer(args)
-
-            LicenseResolver.setCurrentExecutorIfNotSet(Executor.JAR)
-
-            val specmaticConfig = loadSpecmaticConfigOrNull()
-            specmaticConfig?.let {
-                LicenseConfig.instance.utilization.shipDisabled = LicenseConfig.instance.utilization.shipDisabled || it.isTelemetryDisabled()
-            }
             setupPicoCli()
             setupLogging()
-            ReportTracker.initialize()
 
             Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
 
