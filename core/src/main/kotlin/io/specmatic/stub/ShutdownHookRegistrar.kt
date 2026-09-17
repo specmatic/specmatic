@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.specmatic.reporter.ReportTracker
 import java.io.Closeable
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -24,6 +25,18 @@ object JvmShutdownHookRegistrar : ShutdownHookRegistrar {
         Runtime.getRuntime().addShutdownHook(hook)
         return Closeable {
             runCatching { Runtime.getRuntime().removeShutdownHook(hook) }
+        }
+    }
+}
+
+object ReportFlushingShutdownHookRegistrar : ShutdownHookRegistrar {
+    override fun register(closeable: Closeable): Closeable {
+        return JvmShutdownHookRegistrar.register {
+            try {
+                closeable.close()
+            } finally {
+                ReportTracker.instance.ensureFlushed()
+            }
         }
     }
 }
