@@ -1,4 +1,5 @@
 {
+  "id": "normal",
   "name": "normal",
   "terminate-connection": true,
   "http-request": {

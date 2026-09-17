@@ -39,6 +39,7 @@ data class TestResultRecord(
     override val specification: String? = null,
     override val specType: SpecType,
     val actualResponseStatus: Int = 0,
+    val connectionTerminated: Boolean = false,
     val actualResponseContentType: String? = response.normalizedContentType(),
     val scenarioResult: Result? = null,
     override val isWip: Boolean = false,
@@ -76,7 +77,7 @@ data class TestResultRecord(
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
 
-    fun isConnectionRefused() = actualResponseStatus == 0
+    fun isConnectionTerminated() = connectionTerminated
 
     override fun extraFields(): CtrfTestMetadata {
         val outputs =
@@ -102,9 +103,9 @@ data class TestResultRecord(
         )
     }
 
-    fun testQualifiers(): List<CtrfTestQualifiers> {
-        if (isResponseInSpecification == null || isResponseInSpecification) return emptyList()
-        return listOf(CtrfTestQualifiers.UNDECLARED_RESPONSE)
+    fun testQualifiers(): List<CtrfTestQualifiers> = buildList {
+        if (isConnectionTerminated()) add(CtrfTestQualifiers.TERMINATED)
+        if (isResponseInSpecification == false) add(CtrfTestQualifiers.UNDECLARED_RESPONSE)
     }
 
     fun operationQualifiers(): List<CtrfOperationQualifiers> {

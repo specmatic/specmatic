@@ -10,6 +10,8 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.log.LogMessage
 import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.parsedJSONObject
@@ -18,6 +20,9 @@ import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.TestResult
+import io.specmatic.stub.listener.MockEvent
+import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.test.HttpClient
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -144,6 +149,72 @@ internal class TransientHttpStubE2ETest {
                 val firstResponseByte = readFirstResponseByte(stub.endPoint, rawPost(requestPath, body))
                 assertThat(firstResponseByte).isEqualTo(-1)
             }
+        }
+
+        @Test
+        fun `a terminated response is logged recorded and sent to listeners`() {
+            val mockEvents = mutableListOf<MockEvent>()
+            val loggedMessages = mutableListOf<LogMessage>()
+            val listener = object : MockEventListener {
+                override fun onRespond(data: MockEvent) {
+                    mockEvents.add(data)
+                }
+            }
+
+            val fixture = loadFixture()
+            val port = freePort()
+            HttpStub(
+                port = port,
+                listeners = listOf(listener),
+                log = {  loggedMessages.add(it) },
+                features = listOf(fixture.feature),
+                rawHttpStubs = contractInfoToHttpExpectations(listOf(fixture.feature to fixture.scenarioStubs)),
+            ).use { stub ->
+                val firstResponseByte = readFirstResponseByte(
+                    endpoint = stub.endPoint,
+                    rawRequest = rawPost("/normal", """{"id":1,"name":"normal"}"""),
+                )
+
+                assertThat(firstResponseByte).isEqualTo(-1)
+                val record = stub.ctrfTestResultRecords().single()
+                assertThat(record.matchesResponseIdentifiers).isFalse
+                assertThat(record.exampleId).isEqualTo("normal")
+                assertThat(record.response?.status).isEqualTo(0)
+                assertThat(record.actualResponseStatus).isEqualTo(0)
+                assertThat(record.connectionTerminated).isTrue()
+                assertThat(record.result).isEqualTo(TestResult.Success)
+                assertThat(record.response?.body?.toStringLiteral()).isEqualTo("Connection terminated.\nNo HTTP response was sent.")
+            }
+
+            val logMessage = loggedMessages.single() as HttpLogMessage
+            assertThat(logMessage.response?.status).isEqualTo(0)
+            assertThat(logMessage.response?.body?.toStringLiteral()).isEqualTo("Connection terminated.\nNo HTTP response was sent.")
+            assertThat(logMessage.toLogString()).isEqualToIgnoringWhitespace("""
+            --------------------
+            Contract matched: ${fixture.feature.path}
+            External Example matched: normal
+
+            Request to port '$port' at ${logMessage.requestTime}
+              POST /normal
+              Host: localhost
+              Content-Type: application/json
+              Content-Length: 24
+              Connection: keep-alive
+              {
+                  "id": 1,
+                  "name": "normal"
+              }
+
+            Response at ${logMessage.responseTime}
+              Connection terminated.
+              No HTTP response was sent.
+            """.trimIndent())
+
+            val event = mockEvents.single()
+            assertThat(event.response?.status).isEqualTo(0)
+            assertThat(event.response?.body?.toStringLiteral()).isEqualTo("Connection terminated.\nNo HTTP response was sent.")
+            assertThat(event.stubResult).isEqualTo(TestResult.Success)
+            assertThat(event.terminatedConnection).isTrue()
         }
 
         @Test
