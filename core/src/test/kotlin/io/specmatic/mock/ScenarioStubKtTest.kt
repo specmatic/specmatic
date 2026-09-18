@@ -289,6 +289,44 @@ internal class ScenarioStubKtTest {
     }
 
     @Test
+    fun `terminate connection defaults to false`() {
+        val stubText = """
+        {
+          "http-request": {
+            "method": "POST",
+            "path": "/square"
+          },
+          "http-response": {
+            "status": 200
+          }
+        }
+        """.trimIndent()
+
+        val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
+        assertThat(scenarioStub.terminateConnection).isFalse()
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `load terminate connection from stub info`(terminateConnection: Boolean) {
+        val stubText = """
+        {
+          "http-request": {
+            "method": "POST",
+            "path": "/square"
+          },
+          "http-response": {
+            "status": 200
+          },
+          "$TERMINATE_CONNECTION": $terminateConnection
+        }
+        """.trimIndent()
+
+        val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
+        assertThat(scenarioStub.terminateConnection).isEqualTo(terminateConnection)
+    }
+
+    @Test
     fun `show only the error for the scenario with matching status when there is a request mismatch for an OpenAPI contract having multiple error statuses`() {
         val openAPI = """
 openapi: 3.0.0

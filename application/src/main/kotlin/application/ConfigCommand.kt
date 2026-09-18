@@ -23,8 +23,10 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import picocli.CommandLine
 import picocli.CommandLine.*
 import java.io.File
+import java.util.ServiceLoader
 import java.util.concurrent.Callable
 import kotlin.system.exitProcess
 
@@ -46,6 +48,16 @@ class ConfigCommand : Callable<Int> {
     override fun call(): Int {
         println("Use a subcommand. Use --help for more details.")
         return SUCCESS_EXIT_CODE
+    }
+
+    companion object {
+        fun commandLine(): CommandLine = commandLine(ServiceLoader.load(ConfigCommandProvider::class.java))
+
+        internal fun commandLine(providers: Iterable<ConfigCommandProvider>): CommandLine = CommandLine(ConfigCommand()).also { configCommand ->
+            providers
+                .flatMap(ConfigCommandProvider::subcommands)
+                .forEach(configCommand::addSubcommand)
+        }
     }
 
     @Command(
@@ -231,6 +243,10 @@ class ConfigCommand : Callable<Int> {
         TEXT,
         JSON,
     }
+}
+
+interface ConfigCommandProvider {
+    fun subcommands(): List<Any>
 }
 
 @Serializable

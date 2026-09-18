@@ -34,7 +34,6 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Added
 
-- Added programmatic `agentMode` on contract test settings so OpenAPI contract tests can suppress HTTP request/response console dumps while keeping end-of-run scenario summaries. ScenarioAsTest now preserves the HttpClient log callback (including quiet mode) when attaching scenario comments. OpenAPI mock `StubCommand` / `HTTPStubEngine` honor the same `agentMode` by suppressing post-startup mock console traffic (including `Request to port` dumps) while keeping the mock startup banner.
 - Added the `specmatic config validate` command for validating configuration files, and performing protocol-aware semantic checks. The command supports text or JSON diagnostics, source locations, and validation-specific exit codes for CLI and CI use.
 
 ### Changed

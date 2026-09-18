@@ -1,0 +1,23 @@
+{
+  "name": "priority-static",
+  "http-request": {
+    "method": "POST",
+    "path": "/priority",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": 7,
+      "name": "priority"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "static"
+    }
+  }
+}

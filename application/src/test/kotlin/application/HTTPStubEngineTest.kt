@@ -7,7 +7,6 @@ import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
-import io.specmatic.core.log.dontPrintToConsole
 import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.SpecmaticConfigSource
@@ -107,13 +106,9 @@ class HTTPStubEngineTest {
     }
 
     @Test
-    fun `requestLog uses dontPrintToConsole when agentMode is true`() {
-        assertThat(HTTPStubEngine.requestLog(agentMode = true)).isSameAs(dontPrintToConsole)
-    }
-
-    @Test
-    fun `requestLog uses consoleLog when agentMode is false`() {
-        assertThat(HTTPStubEngine.requestLog(agentMode = false)).isNotSameAs(dontPrintToConsole)
+    fun `httpDumpLog is used for stub request logging`() {
+        // HTTPStubEngine always wires httpDumpLog; quieting is owned by AgentConsoleLogger.
+        assertThat(io.specmatic.core.log.httpDumpLog).isNotNull()
     }
 
     @Test

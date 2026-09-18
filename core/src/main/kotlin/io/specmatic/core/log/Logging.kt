@@ -59,11 +59,28 @@ fun newLogger(printers: List<LogPrinter>, config: LoggingConfiguration): LogStra
 
 @Suppress("unused") // Being used in other modules
 fun resetLogger() {
-    logger = logStrategyFromConfig()
+    val base = logStrategyFromConfig()
+    logger = if (logger is AgentConsoleLogger) AgentConsoleLogger(base) else base
 }
 
 fun setLoggerUsing(logConfig: LoggingConfiguration) {
-    logger = logStrategyFromConfig(logConfig)
+    val base = logStrategyFromConfig(logConfig)
+    logger = if (logger is AgentConsoleLogger) AgentConsoleLogger(base) else base
+}
+
+/**
+ * Installs [AgentConsoleLogger] for the duration of [fn], then restores the previous logger.
+ * Idempotent if an agent logger is already installed.
+ */
+fun <T> withAgentConsoleLogger(fn: () -> T): T {
+    if (logger is AgentConsoleLogger) return fn()
+    val previous = logger
+    logger = AgentConsoleLogger(previous)
+    return try {
+        fn()
+    } finally {
+        logger = previous
+    }
 }
 
 @Suppress("unused")
@@ -95,25 +112,29 @@ fun logException(fn: () -> Unit): Int =
         1
     }
 
-fun consoleLog(event: String) {
-    consoleLog(StringLog(event))
+fun consoleLog(event: String, kind: ConsoleLogEmissionPolicy = ConsoleLogKind.Default) {
+    consoleLog(StringLog(event), kind)
 }
 
-fun consoleLog(event: LogMessage) {
+fun consoleLog(event: LogMessage, kind: ConsoleLogEmissionPolicy = ConsoleLogKind.Default) {
     LogTail.append(event)
+    if (!logger.shouldPrintToConsole(kind)) return
     logger.log(event)
 }
 
-fun consoleLog(e: Throwable) {
+fun consoleLog(e: Throwable, kind: ConsoleLogEmissionPolicy = ConsoleLogKind.Default) {
     LogTail.append(logger.ofTheException(e))
+    if (!logger.shouldPrintToConsole(kind)) return
     logger.log(e)
 }
 
 fun consoleLog(
     e: Throwable,
     msg: String,
+    kind: ConsoleLogEmissionPolicy = ConsoleLogKind.Default,
 ) {
     LogTail.append(logger.ofTheException(e, msg))
+    if (!logger.shouldPrintToConsole(kind)) return
     logger.log(e, msg)
 }
 
@@ -141,6 +162,11 @@ fun consoleDebug(
 
 val dontPrintToConsole = { event: LogMessage ->
     LogTail.append(event)
+}
+
+/** HttpClient / stub request dumps — quiet only when [AgentConsoleLogger] is installed. */
+val httpDumpLog: (LogMessage) -> Unit = { event ->
+    consoleLog(event, ConsoleLogKind.HttpDump)
 }
 
 val ignoreLog = { _: LogMessage -> }

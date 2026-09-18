@@ -1,5 +1,6 @@
 package io.specmatic.core.log
 
+import java.time.Instant
 import java.util.*
 
 class CurrentDate(private val date: Calendar = Calendar.getInstance()) {
@@ -21,6 +22,10 @@ class CurrentDate(private val date: Calendar = Calendar.getInstance()) {
 
     fun toEpochMillis(): Long {
         return date.timeInMillis
+    }
+
+    fun toInstant(): Instant {
+        return date.toInstant()
     }
 
     fun toFileNameString(): String {

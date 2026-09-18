@@ -33,7 +33,7 @@ object SpecmaticCoreSubcommands : CliConfigurer {
         ExamplesCommand(),
         StubCommand(),
         TestCommand(),
-        ConfigCommand(),
+        ConfigCommand.commandLine(),
         McpBaseCommand(),
         ValidateCommand(),
         *ReporterSubcommands.subcommands(),

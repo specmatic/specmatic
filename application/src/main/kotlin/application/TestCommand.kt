@@ -6,6 +6,7 @@ import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.log.LoggingConfigSource
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.withAgentConsoleLogger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.newXMLBuilder
@@ -138,7 +139,15 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         loadSpecmaticConfigOrNull(resolvedConfigPath, explicitlySpecifiedByUser = insightsReportOptions.configPath != null).orDefault()
     }
 
-    override fun call(): Int = try {
+    override fun call(): Int {
+        return if (agentMode) {
+            withAgentConsoleLogger { callInternal() }
+        } else {
+            callInternal()
+        }
+    }
+
+    private fun callInternal(): Int = try {
         configureLogging(
             LoggingFromOpts(debug = verboseMode),
             LoggingConfigSource.FromConfig(specmaticConfig.getLogConfigurationOrDefault()))

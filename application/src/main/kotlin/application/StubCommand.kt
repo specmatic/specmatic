@@ -223,6 +223,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 logPrefix = logPrefix,
             ),
             LoggingConfigSource.FromConfig(specmaticConfiguration.getLogConfigurationOrDefault()))
+        if (agentMode && logger !is AgentConsoleLogger) {
+            logger = AgentConsoleLogger(logger)
+        }
 
         val parseResult = commandSpec.commandLine().parseResult
         val hostSpecified = parseResult?.hasMatchedOption("--host") == true
@@ -383,11 +386,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun postStartupConsoleLog(event: LogMessage) {
-        if (!agentMode) consoleLog(event)
+        consoleLog(event, ConsoleLogKind.StubTraffic)
     }
 
     private fun postStartupConsoleLog(e: Throwable, msg: String) {
-        if (!agentMode) consoleLog(e, msg)
+        consoleLog(e, msg, ConsoleLogKind.StubTraffic)
     }
 
     private fun stopServer() {
