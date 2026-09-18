@@ -12,10 +12,10 @@ import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.log.AgentConsoleLogger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.report.ReportGenerator
+import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.reporter.RawReportType
 import io.specmatic.core.utilities.*
 import io.specmatic.license.core.*
-import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.hasOpenApiFileExtension
@@ -69,6 +69,7 @@ open class SpecmaticJUnitSupport {
     private val prettyPrint = specmaticConfig.getPrettyPrint()
 
     init {
+        SpecmaticLifecycle.initialize(Executor.PROGRAMMATIC, specmaticConfig)
         setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault())
         when {
             settings.agentMode && logger !is AgentConsoleLogger -> {
@@ -204,12 +205,7 @@ open class SpecmaticJUnitSupport {
 
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
-        LicenseResolver.setCurrentExecutorIfNotSet(Executor.PROGRAMMATIC)
-
         settings = ContractTestSettings(settings, specmaticConfig)
-
-        LicenseConfig.instance.utilization.shipDisabled = LicenseConfig.instance.utilization.shipDisabled || specmaticConfig.isTelemetryDisabled()
-
         partialSuccesses.clear()
 
         val filterName: String? = settings.filterName

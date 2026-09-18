@@ -1,11 +1,15 @@
 package application
 
+import io.specmatic.commons.shutdown.ShutdownRegistration
+import io.specmatic.commons.shutdown.ShutdownTask
+import io.specmatic.commons.shutdown.ShutdownRegistrar
 import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
+import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
@@ -21,9 +25,8 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.RequestHandler
 import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.SpecmaticMockRunner
-import io.specmatic.stub.OneShotClose
-import io.specmatic.stub.ShutdownHookRegistrar
-import io.specmatic.stub.JvmShutdownHookRegistrar
+import io.specmatic.core.lifecycle.OneShotClose
+import io.specmatic.core.lifecycle.SpecmaticShutdownIntent
 import io.specmatic.stub.endPointFromHostAndPort
 import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
@@ -36,7 +39,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import picocli.CommandLine.*
 import picocli.CommandLine.Model.CommandSpec
-import java.io.Closeable
 import java.io.File
 import java.util.concurrent.TimeoutException
 import kotlin.time.DurationUnit
@@ -56,7 +58,7 @@ class StubCommand(
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory(),
-    private val shutdownHookRegistrar: ShutdownHookRegistrar = JvmShutdownHookRegistrar,
+    private val shutdownHookRegistrar: ShutdownRegistrar = SpecmaticLifecycle.shutdownRegistrar,
     val agentMode: Boolean = false,
     @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
     val insightsReportOptions: InsightsReportOptionsWithConfig = InsightsReportOptionsWithConfig()
@@ -162,12 +164,12 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     var requestHandlers: List<RequestHandler> = emptyList()
 
     private val serverLifecycleLock = Any()
-    private var shutdownHookRegistration: Closeable? = null
+    private var shutdownRegistration: ShutdownRegistration? = null
     private val terminalClose = OneShotClose(serverLifecycleLock) {
         try {
             postStartupConsoleLog(StringLog("Shutting down mock servers"))
             stopServer()
-        } catch (e: InterruptedException) {
+        } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }
     }
@@ -265,7 +267,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             startServer()
 
             if (httpStub != null) {
-                shutdownHookRegistration = shutdownHookRegistrar.register(terminalClose)
+                shutdownRegistration = shutdownHookRegistrar.register(
+                    task = ShutdownTask(
+                        id = "specmatic.mock.http",
+                        action = { terminalClose.close() },
+                        intent = SpecmaticShutdownIntent.MOCK,
+                    )
+                )
 
                 val configuredHotReload = configuredHotReload()
 
@@ -425,8 +433,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun close() {
-        shutdownHookRegistration?.close()
-        shutdownHookRegistration = null
+        shutdownRegistration?.close()
+        shutdownRegistration = null
         terminalClose.close()
     }
 

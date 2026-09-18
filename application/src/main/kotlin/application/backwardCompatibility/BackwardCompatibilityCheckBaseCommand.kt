@@ -1,5 +1,8 @@
 package application.backwardCompatibility
 
+import io.specmatic.commons.shutdown.ShutdownRegistration
+import io.specmatic.commons.shutdown.ShutdownTask
+import io.specmatic.commons.shutdown.ShutdownRegistrar
 import io.specmatic.core.Feature
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
@@ -8,6 +11,7 @@ import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.generateBackwardCompatibilityReport
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
+import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
@@ -16,6 +20,7 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
+import io.specmatic.core.lifecycle.SpecmaticShutdownIntent
 import java.io.File
 import java.nio.file.Paths
 import java.util.ServiceLoader
@@ -27,7 +32,8 @@ import kotlin.io.path.absolutePathString
 
 abstract class BackwardCompatibilityCheckBaseCommand(
     @field:picocli.CommandLine.Mixin
-    val options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()
+    val options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions(),
+    private val shutdownHookRegistrar: ShutdownRegistrar = SpecmaticLifecycle.shutdownRegistrar,
 ): Callable<Int> {
     protected val specmaticConfig: SpecmaticConfig by lazy { loadSpecmaticConfigIfAvailableElseDefault() }
     protected val backwardCompConfig by lazy { specmaticConfig.getBackwardCompatibilityConfig() }
@@ -60,8 +66,10 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
         options.insightsReportOptions.validate()
-        addShutdownHook()
+        return registerShutdown().use { executeCompatibilityCheck() }
+    }
 
+    private fun executeCompatibilityCheck(): Int {
         val specsToCheck = getSpecsToCheck()
         if (specsToCheck.isEmpty()) {
             logger.log(CompatibilityReport.emptyReport())
@@ -318,15 +326,17 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         }
     }
 
-    private fun addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(object : Thread() {
-            override fun run() {
-                runCatching {
+    private fun registerShutdown(): ShutdownRegistration {
+        return shutdownHookRegistrar.register(
+            task = ShutdownTask(
+                id = "specmatic.bcc",
+                intent = SpecmaticShutdownIntent.BACKWARD_COMPATIBILITY_CHECK,
+                action = {
                     gitCommand.checkout(getCurrentBranch())
                     if (areLocalChangesStashed) gitCommand.stashPop()
                 }
-            }
-        })
+            )
+        )
     }
 
     internal data class ChangedFiles(

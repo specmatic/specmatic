@@ -40,7 +40,6 @@ import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getIntValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
-import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
@@ -1872,6 +1871,13 @@ fun loadSpecmaticConfigOrDefault(configFileName: String? = null): SpecmaticConfi
 
 fun loadSpecmaticConfigOrNull(configFileName: String? = null): SpecmaticConfig? =
     loadSpecmaticConfigOrNull(configFileName, explicitlySpecifiedByUser = false)
+
+fun loadSpecmaticConfigOrDefaultCatching(
+    configFileName: String = configFilePath,
+    onFailure: (Throwable) -> SpecmaticConfig = { SpecmaticConfig() }
+): SpecmaticConfig {
+    return runCatching { loadSpecmaticConfig(configFileName) }.getOrElse(onFailure)
+}
 
 fun loadSpecmaticConfigOrNull(
     configFileName: String? = null,
