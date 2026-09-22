@@ -8,6 +8,8 @@ import io.specmatic.commons.shutdown.ShutdownTask
 import io.specmatic.core.log.logger
 import io.specmatic.reporter.ReporterShutdownIntent
 import java.util.LinkedHashMap
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -91,9 +93,29 @@ internal class SpecmaticLifecycleRegistrar: ShutdownRegistrar {
     fun shutdown() {
         val tasks = lock.withLock { takeShutdownTasks() } ?: return
         logger.debug("Starting Specmatic shutdown with ${tasks.size} task(s)")
+        val (regularTasks, concurrentTasks) = tasks.partition {
+            !it.intent.isConcurrentShutdown()
+        }
 
-        tasks.forEach(::runTask)
+        regularTasks.forEach(::runTask)
+        runConcurrently(concurrentTasks)
         logger.debug("Completed Specmatic shutdown")
+    }
+
+    private fun runConcurrently(tasks: List<ShutdownTask>) {
+        if (tasks.isEmpty()) return
+        val executor = Executors.newFixedThreadPool(tasks.size)
+
+        try {
+            val callables = tasks.map { task -> Callable { runTask(task) } }
+            executor.invokeAll(callables)
+        } catch (e: InterruptedException) {
+            executor.shutdownNow()
+            Thread.currentThread().interrupt()
+            logger.debug(e, "Interrupted while waiting for concurrent shutdown tasks")
+        } finally {
+            executor.shutdown()
+        }
     }
 
     private fun takeShutdownTasks(): List<ShutdownTask>? {
@@ -103,9 +125,7 @@ internal class SpecmaticLifecycleRegistrar: ShutdownRegistrar {
         }
 
         state = LifecycleState.SHUTTING_DOWN
-        return registrations.values
-            .sortedBy { it.intent.shutdownOrder() }
-            .also { registrations.clear() }
+        return registrations.values.toList().also { registrations.clear() }
     }
 
     private fun runTask(task: ShutdownTask) {
@@ -118,13 +138,10 @@ internal class SpecmaticLifecycleRegistrar: ShutdownRegistrar {
         }
     }
 
-    private fun ShutdownIntent.shutdownOrder(): ShutdownOrder = when (this) {
-        is ReporterShutdownIntent -> ShutdownOrder.REPORTER
-        is LicenseShutdownIntent -> ShutdownOrder.LICENSE
-        else -> ShutdownOrder.REGULAR
+    private fun ShutdownIntent.isConcurrentShutdown(): Boolean {
+        return this is ReporterShutdownIntent || this is LicenseShutdownIntent
     }
 
-    private enum class ShutdownOrder { REGULAR, REPORTER, LICENSE }
     private enum class LifecycleState { ACTIVE, HOOK_INSTALLED, SHUTTING_DOWN }
     private companion object {
         val defaultShutdownHookInstaller: ShutdownHookInstaller = { hook ->

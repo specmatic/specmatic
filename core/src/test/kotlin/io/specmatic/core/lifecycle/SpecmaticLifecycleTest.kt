@@ -7,14 +7,18 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SpecmaticLifecycleTest {
     @Nested
     inner class Ordering {
         @Test
-        fun `runs registered tasks sequentially in registration order with reporter and license last`() {
-            val events = mutableListOf<String>()
+        fun `runs regular tasks sequentially in registration order with reporter and license last`() {
+            val events = Collections.synchronizedList(mutableListOf<String>())
             val registrar = SpecmaticLifecycleRegistrar()
 
             registrar.register(task("mock", events))
@@ -39,7 +43,60 @@ class SpecmaticLifecycleTest {
             registrar.register(task("late-mock", events))
 
             registrar.shutdown()
-            assertThat(events).containsExactly("mock", "proxy", "late-mock", "reporter", "license")
+            assertThat(events.subList(0, 3)).containsExactly("mock", "proxy", "late-mock")
+            assertThat(events.subList(3, 5)).containsExactlyInAnyOrder("reporter", "license")
+        }
+
+        @Test
+        fun `runs reporter and license concurrently after regular tasks complete`() {
+            val regularCompleted = AtomicBoolean(false)
+
+            val reporterStarted = CountDownLatch(1)
+            val reporterRanAfterRegular = AtomicBoolean(false)
+            val reporterObservedLicense = AtomicBoolean(false)
+
+            val licenseStarted = CountDownLatch(1)
+            val licenseRanAfterRegular = AtomicBoolean(false)
+            val licenseObservedReporter = AtomicBoolean(false)
+
+            val registrar = SpecmaticLifecycleRegistrar()
+            registrar.register(
+                task = ShutdownTask(
+                    id = "regular",
+                    intent = SpecmaticShutdownIntent.MOCK,
+                    action = { regularCompleted.set(true) },
+                ),
+            )
+
+            registrar.register(
+                task = ShutdownTask(
+                    id = "reporter",
+                    intent = ReporterShutdownIntent.REPORT_TRACKER,
+                    action = {
+                        reporterRanAfterRegular.set(regularCompleted.get())
+                        reporterStarted.countDown()
+                        reporterObservedLicense.set(licenseStarted.await(5, SECONDS))
+                    },
+                ),
+            )
+
+            registrar.register(
+                task = ShutdownTask(
+                    id = "license",
+                    intent = LicenseShutdownIntent.UTILIZATION_TRACKER,
+                    action = {
+                        licenseRanAfterRegular.set(regularCompleted.get())
+                        licenseStarted.countDown()
+                        licenseObservedReporter.set(reporterStarted.await(5, SECONDS))
+                    },
+                ),
+            )
+
+            registrar.shutdown()
+            assertThat(reporterRanAfterRegular.get()).isTrue()
+            assertThat(licenseRanAfterRegular.get()).isTrue()
+            assertThat(reporterObservedLicense.get()).isTrue()
+            assertThat(licenseObservedReporter.get()).isTrue()
         }
     }
 

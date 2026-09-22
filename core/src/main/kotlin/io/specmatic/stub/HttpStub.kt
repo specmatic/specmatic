@@ -77,7 +77,6 @@ import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
@@ -103,7 +102,9 @@ import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.SupportedCipherSuiteFilter
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.codec.http2.Http2SecurityUtil
+import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.utilities.FileAssociation
+import io.specmatic.license.core.Executor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -1175,7 +1176,7 @@ class HttpStub(
     }
 
     init {
-        LicenseConfig.instance.utilization.shipDisabled = LicenseConfig.instance.utilization.shipDisabled || specmaticConfigInstance.isTelemetryDisabled()
+        SpecmaticLifecycle.initialize(Executor.PROGRAMMATIC, specmaticConfigInstance)
         val initializers = ServiceLoader.load(StubInitializer::class.java)
 
         initializers.forEach { initializer ->
