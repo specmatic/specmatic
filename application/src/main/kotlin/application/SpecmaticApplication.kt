@@ -14,7 +14,7 @@ open class SpecmaticApplication {
 
         @JvmStatic
         fun main(args: Array<String>) {
-            SpecmaticLifecycle.initialize(Executor.JAR)
+            SpecmaticLifecycle.initialize(Executor.JAR, args.toList())
             val commandLine = createCommandLine()
             redirectStdoutToStderrIfMcpServer(args)
             setupPicoCli()

@@ -2,11 +2,18 @@ package io.specmatic.core.lifecycle
 
 import io.specmatic.commons.shutdown.LicenseShutdownIntent
 import io.specmatic.commons.shutdown.ShutdownTask
+import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
+import io.specmatic.license.core.Executor
+import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.ReporterShutdownIntent
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import java.nio.file.Path
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit.SECONDS
@@ -14,6 +21,70 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicBoolean
 
 class SpecmaticLifecycleTest {
+    @TempDir
+    lateinit var tempDir: Path
+
+    @Nested
+    inner class Configuration {
+        @ParameterizedTest(name = "supports {0}")
+        @ValueSource(strings = ["--config", "--config="])
+        fun `uses config supplied in command line`(configOption: String) {
+            val configFile = tempDir.resolve("custom-specmatic.yaml").apply {
+                toFile().writeText("disableTelemetry: true")
+            }
+
+            val unselectedConfigFile = tempDir.resolve("unselected-specmatic.yaml").apply {
+                toFile().writeText("disableTelemetry: false")
+            }
+
+            val originalConfigFilePath = System.getProperty(CONFIG_FILE_PATH)
+            val originalShipDisabled = LicenseConfig.instance.utilization.shipDisabled
+            try {
+                System.setProperty(CONFIG_FILE_PATH, unselectedConfigFile.toString())
+                LicenseConfig.instance.utilization.shipDisabled = false
+
+                val args = if (configOption.endsWith('=')) {
+                    listOf("test", "$configOption${configFile}")
+                } else {
+                    listOf("test", configOption, configFile.toString())
+                }
+
+                SpecmaticLifecycle.initialize(Executor.PROGRAMMATIC, args)
+                assertThat(LicenseConfig.instance.utilization.shipDisabled).isTrue()
+                assertThat(System.getProperty(CONFIG_FILE_PATH)).isEqualTo(unselectedConfigFile.toString())
+            } finally {
+                restoreSystemProperty(CONFIG_FILE_PATH, originalConfigFilePath)
+                LicenseConfig.instance.utilization.shipDisabled = originalShipDisabled
+            }
+        }
+
+        @Test
+        fun `ignores malformed config option during bootstrap`() {
+            val fallbackConfigFile = tempDir.resolve("fallback-specmatic.yaml").apply {
+                toFile().writeText("disableTelemetry: true")
+            }
+
+            val originalConfigFilePath = System.getProperty(CONFIG_FILE_PATH)
+            val originalShipDisabled = LicenseConfig.instance.utilization.shipDisabled
+            try {
+                System.setProperty(CONFIG_FILE_PATH, fallbackConfigFile.toString())
+                LicenseConfig.instance.utilization.shipDisabled = false
+
+                SpecmaticLifecycle.initialize(Executor.PROGRAMMATIC, listOf("test", "--config"))
+                assertThat(LicenseConfig.instance.utilization.shipDisabled).isTrue()
+                assertThat(System.getProperty(CONFIG_FILE_PATH)).isEqualTo(fallbackConfigFile.toString())
+            } finally {
+                restoreSystemProperty(CONFIG_FILE_PATH, originalConfigFilePath)
+                LicenseConfig.instance.utilization.shipDisabled = originalShipDisabled
+            }
+        }
+
+        @Suppress("SameParameterValue")
+        private fun restoreSystemProperty(name: String, value: String?) {
+            if (value == null) System.clearProperty(name) else System.setProperty(name, value)
+        }
+    }
+
     @Nested
     inner class Ordering {
         @Test

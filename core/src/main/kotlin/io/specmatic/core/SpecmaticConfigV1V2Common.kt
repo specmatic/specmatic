@@ -1873,7 +1873,7 @@ fun loadSpecmaticConfigOrNull(configFileName: String? = null): SpecmaticConfig? 
     loadSpecmaticConfigOrNull(configFileName, explicitlySpecifiedByUser = false)
 
 fun loadSpecmaticConfigOrDefaultCatching(
-    configFileName: String = configFilePath,
+    configFileName: String? = configFilePath,
     onFailure: (Throwable) -> SpecmaticConfig = { SpecmaticConfig() }
 ): SpecmaticConfig {
     return runCatching { loadSpecmaticConfig(configFileName) }.getOrElse(onFailure)
