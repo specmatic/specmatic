@@ -378,6 +378,49 @@ class ConfigSchemaValidationTest {
                     assertThat(schema(SpecmaticConfigVersion.VERSION_3, testCase.json))
                         .isEqualTo(validOutput)
                 }
+
+                @Test
+                fun `rejects malformed wrappers and invalid entries in servers`() {
+                    listOf(
+                        """
+                        version: 3
+                        components:
+                          runOptions:
+                            orders:
+                              asyncapi:
+                                type: mock
+                                servers:
+                                  - server: {}
+                        """.trimIndent(),
+                        """
+                        version: 3
+                        components:
+                          runOptions:
+                            orders:
+                              asyncapi:
+                                type: mock
+                                servers:
+                                  - server:
+                                      host: localhost:9092
+                        """.trimIndent(),
+                        """
+                        version: 3
+                        components:
+                          runOptions:
+                            orders:
+                              asyncapi:
+                                type: mock
+                                servers:
+                                  - server:
+                                      ${'$'}serverRef: 'invalid-pattern'
+                        """.trimIndent(),
+                    ).forEach { config ->
+                        assertThat(schema(SpecmaticConfigVersion.VERSION_3, config))
+                            .isNotEmpty
+                            .allMatch { it.instanceLocation.startsWith("/components/runOptions/orders/asyncapi/servers/0") }
+                    }
+                }
+
             }
 
             @Nested
@@ -546,6 +589,10 @@ class ConfigSchemaValidationTest {
                           - host: localhost:9092
                             protocol: kafka
                             type: external
+                          - server:
+                              host: localhost:61616
+                              protocol: jms
+                              type: in-memory
                         schemaRegistry:
                           kind: DEFAULT
                         specs:
@@ -558,6 +605,13 @@ class ConfigSchemaValidationTest {
                                 - host: localhost:9092
                                   protocol: kafka
                                   type: external
+                                - server:
+                                    host: localhost:61616
+                                    protocol: jms
+                                    type: external
+                                - server:
+                                    ${'$'}serverRef: '#/servers/kafka-server'
+                                    type: in-memory
                               schemaRegistry:
                                 kind: DEFAULT
                 """.trimIndent(),
@@ -715,14 +769,14 @@ class ConfigSchemaValidationTest {
                 schema = "AsyncApiTestRunOptions",
             ),
             v3OptionCase(
-                branch = "asyncTest",
-                expectedType = "string",
-                instancePath = "servers/0/type",
-                schema = "AsyncClientServerConfig",
                 name = "AsyncAPI server type must be supported",
-                optionPath = "servers/items/$REF/properties/type",
+                branch = "asyncTest",
                 option = "servers: [{ host: localhost:9092, protocol: kafka, type: invalid }]",
+                optionPath = "servers/items/$REF/allOf/0/else/$REF/properties/type",
+                instancePath = "servers/0/type",
+                expectedType = "string",
                 errorMessage = "does not have a value in the enumeration [\"external\", \"in-memory\"]",
+                schema = "AsyncClientServerConfig",
             ),
             v3OptionCase(
                 name = "AsyncAPI server client consumer must be an object",
@@ -734,7 +788,7 @@ class ConfigSchemaValidationTest {
                     client:
                       consumer: invalid
                 """.trimIndent(),
-                optionPath = "servers/items/$REF/properties/client/$REF/properties/consumer",
+                optionPath = "servers/items/$REF/allOf/0/else/$REF/properties/client/$REF/properties/consumer",
                 instancePath = "servers/0/client/consumer",
                 expectedType = "object",
                 schema = "AsyncClientProperties",
