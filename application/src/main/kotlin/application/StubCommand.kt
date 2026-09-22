@@ -1,5 +1,6 @@
 package application
 
+import io.specmatic.commons.shutdown.CoreShutdownIntent
 import io.specmatic.commons.shutdown.ShutdownRegistration
 import io.specmatic.commons.shutdown.ShutdownTask
 import io.specmatic.commons.shutdown.ShutdownRegistrar
@@ -26,7 +27,6 @@ import io.specmatic.stub.RequestHandler
 import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.SpecmaticMockRunner
 import io.specmatic.core.lifecycle.OneShotClose
-import io.specmatic.core.lifecycle.SpecmaticShutdownIntent
 import io.specmatic.stub.endPointFromHostAndPort
 import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
@@ -271,7 +271,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                     task = ShutdownTask(
                         id = "specmatic.mock.http",
                         action = { terminalClose.close() },
-                        intent = SpecmaticShutdownIntent.MOCK,
+                        intent = CoreShutdownIntent.PREPARE_DATA,
                     )
                 )
 

@@ -1,12 +1,9 @@
 package io.specmatic.core.lifecycle
 
-import io.specmatic.commons.shutdown.LicenseShutdownIntent
-import io.specmatic.commons.shutdown.ShutdownIntent
 import io.specmatic.commons.shutdown.ShutdownRegistrar
 import io.specmatic.commons.shutdown.ShutdownRegistration
 import io.specmatic.commons.shutdown.ShutdownTask
 import io.specmatic.core.log.logger
-import io.specmatic.reporter.ReporterShutdownIntent
 import java.util.LinkedHashMap
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
@@ -93,12 +90,14 @@ internal class SpecmaticLifecycleRegistrar: ShutdownRegistrar {
     fun shutdown() {
         val tasks = lock.withLock { takeShutdownTasks() } ?: return
         logger.debug("Starting Specmatic shutdown with ${tasks.size} task(s)")
-        val (regularTasks, concurrentTasks) = tasks.partition {
-            !it.intent.isConcurrentShutdown()
+
+        val tasksByOrder = tasks.groupBy { it.intent.order }.toSortedMap()
+        tasksByOrder.forEach { (_, tasksForOrder) ->
+            val intents = tasksForOrder.map { it.intent }.distinct().joinToString()
+            logger.debug("Running shutdown tasks with intents [$intents]: ${tasksForOrder.joinToString { it.id }}")
+            runConcurrently(tasksForOrder)
         }
 
-        regularTasks.forEach(::runTask)
-        runConcurrently(concurrentTasks)
         logger.debug("Completed Specmatic shutdown")
     }
 
@@ -136,10 +135,6 @@ internal class SpecmaticLifecycleRegistrar: ShutdownRegistrar {
         } catch (e: Throwable) {
             logger.debug(e, "Shutdown task '${task.id}' failed")
         }
-    }
-
-    private fun ShutdownIntent.isConcurrentShutdown(): Boolean {
-        return this is ReporterShutdownIntent || this is LicenseShutdownIntent
     }
 
     private enum class LifecycleState { ACTIVE, HOOK_INSTALLED, SHUTTING_DOWN }

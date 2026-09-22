@@ -1,5 +1,6 @@
 package application
 
+import io.specmatic.commons.shutdown.CoreShutdownIntent
 import io.specmatic.commons.shutdown.ShutdownTask
 import io.specmatic.commons.shutdown.ShutdownRegistrar
 import io.specmatic.core.DEFAULT_TIMEOUT_IN_MILLISECONDS
@@ -20,7 +21,6 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.proxy.Proxy
-import io.specmatic.core.lifecycle.SpecmaticShutdownIntent
 import io.specmatic.stub.SpecmaticConfigSource
 import picocli.CommandLine.*
 import java.io.File
@@ -174,7 +174,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         shutdownHookRegistrar.register(
             task = ShutdownTask(
                 id = "specmatic.proxy.http",
-                intent = SpecmaticShutdownIntent.PROXY,
+                intent = CoreShutdownIntent.PREPARE_DATA,
                 action = {
                     try {
                         println("Shutting down proxy server")

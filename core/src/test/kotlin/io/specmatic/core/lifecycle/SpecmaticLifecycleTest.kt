@@ -1,11 +1,10 @@
 package io.specmatic.core.lifecycle
 
-import io.specmatic.commons.shutdown.LicenseShutdownIntent
+import io.specmatic.commons.shutdown.CoreShutdownIntent
 import io.specmatic.commons.shutdown.ShutdownTask
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.license.core.Executor
 import io.specmatic.license.core.util.LicenseConfig
-import io.specmatic.reporter.ReporterShutdownIntent
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
@@ -14,8 +13,8 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
-import java.util.Collections
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicBoolean
@@ -88,34 +87,22 @@ class SpecmaticLifecycleTest {
     @Nested
     inner class Ordering {
         @Test
-        fun `runs regular tasks sequentially in registration order with reporter and license last`() {
-            val events = Collections.synchronizedList(mutableListOf<String>())
+        fun `runs shutdown phases in intent order`() {
+            val events = CopyOnWriteArrayList<String>()
             val registrar = SpecmaticLifecycleRegistrar()
 
-            registrar.register(task("mock", events))
-            registrar.register(task("proxy", events))
+            registrar.register(task("general-first", events))
+            registrar.register(task("prepare", events, CoreShutdownIntent.PREPARE_DATA))
 
-            registrar.register(
-                task = ShutdownTask(
-                    id = "license",
-                    action = { events += "license" },
-                    intent = LicenseShutdownIntent.UTILIZATION_TRACKER,
-                ),
-            )
-
-            registrar.register(
-                task = ShutdownTask(
-                    id = "reporter",
-                    action = { events += "reporter" },
-                    intent = ReporterShutdownIntent.REPORT_TRACKER,
-                ),
-            )
-
-            registrar.register(task("late-mock", events))
+            registrar.register(task("general-second", events))
+            registrar.register(task("publish", events, CoreShutdownIntent.PUBLISH_DATA))
 
             registrar.shutdown()
-            assertThat(events.subList(0, 3)).containsExactly("mock", "proxy", "late-mock")
-            assertThat(events.subList(3, 5)).containsExactlyInAnyOrder("reporter", "license")
+
+            assertThat(events).hasSize(4)
+            assertThat(setOf(events[0], events[1])).isEqualTo(setOf("general-first", "general-second"))
+            assertThat(events[2]).isEqualTo("prepare")
+            assertThat(events[3]).isEqualTo("publish")
         }
 
         @Test
@@ -134,7 +121,7 @@ class SpecmaticLifecycleTest {
             registrar.register(
                 task = ShutdownTask(
                     id = "regular",
-                    intent = SpecmaticShutdownIntent.MOCK,
+                    intent = CoreShutdownIntent.GENERAL,
                     action = { regularCompleted.set(true) },
                 ),
             )
@@ -142,7 +129,7 @@ class SpecmaticLifecycleTest {
             registrar.register(
                 task = ShutdownTask(
                     id = "reporter",
-                    intent = ReporterShutdownIntent.REPORT_TRACKER,
+                    intent = CoreShutdownIntent.PUBLISH_DATA,
                     action = {
                         reporterRanAfterRegular.set(regularCompleted.get())
                         reporterStarted.countDown()
@@ -154,7 +141,7 @@ class SpecmaticLifecycleTest {
             registrar.register(
                 task = ShutdownTask(
                     id = "license",
-                    intent = LicenseShutdownIntent.UTILIZATION_TRACKER,
+                    intent = CoreShutdownIntent.PUBLISH_DATA,
                     action = {
                         licenseRanAfterRegular.set(regularCompleted.get())
                         licenseStarted.countDown()
@@ -175,7 +162,7 @@ class SpecmaticLifecycleTest {
     inner class Execution {
         @Test
         fun `runs each task once and continues when a task fails`() {
-            val events = mutableListOf<String>()
+            val events = CopyOnWriteArrayList<String>()
             val registrar = SpecmaticLifecycleRegistrar()
 
             registrar.register(task = task("failing", events) { error("boom") })
@@ -184,7 +171,7 @@ class SpecmaticLifecycleTest {
             registrar.shutdown()
             registrar.shutdown()
 
-            assertThat(events).containsExactly("failing", "following")
+            assertThat(events).containsExactlyInAnyOrder("failing", "following")
         }
     }
 
@@ -192,7 +179,7 @@ class SpecmaticLifecycleTest {
     inner class Registration {
         @Test
         fun `can retry hook installation after a non shutdown installation failure`() {
-            val events = mutableListOf<String>()
+            val events = CopyOnWriteArrayList<String>()
             val registrar = SpecmaticLifecycleRegistrar()
             registrar.register(task("task", events))
 
@@ -210,7 +197,7 @@ class SpecmaticLifecycleTest {
 
         @Test
         fun `runs shutdown immediately when hook installation reports that shutdown has started`() {
-            val events = mutableListOf<String>()
+            val events = CopyOnWriteArrayList<String>()
             val registrar = SpecmaticLifecycleRegistrar()
             registrar.register(task("task", events))
 
@@ -243,7 +230,7 @@ class SpecmaticLifecycleTest {
 
         @Test
         fun `allows multiple tasks with the same id`() {
-            val events = mutableListOf<String>()
+            val events = CopyOnWriteArrayList<String>()
             val registrar = SpecmaticLifecycleRegistrar()
 
             registrar.register(task("mock", events))
@@ -255,7 +242,7 @@ class SpecmaticLifecycleTest {
 
         @Test
         fun `closing a registration removes only its task`() {
-            val events = mutableListOf<String>()
+            val events = CopyOnWriteArrayList<String>()
             val registrar = SpecmaticLifecycleRegistrar()
 
             val firstRegistration = registrar.register(task("first", events))
@@ -278,9 +265,14 @@ class SpecmaticLifecycleTest {
         }
     }
 
-    private fun task(id: String, events: MutableList<String>, action: () -> Unit = {}) = ShutdownTask(
+    private fun task(
+        id: String,
+        events: MutableList<String>,
+        intent: CoreShutdownIntent = CoreShutdownIntent.GENERAL,
+        action: () -> Unit = {},
+    ) = ShutdownTask(
         id = id,
-        intent = SpecmaticShutdownIntent.MOCK,
+        intent = intent,
         action = {
             events += id
             action()

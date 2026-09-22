@@ -1,5 +1,6 @@
 package application.backwardCompatibility
 
+import io.specmatic.commons.shutdown.CoreShutdownIntent
 import io.specmatic.commons.shutdown.ShutdownRegistration
 import io.specmatic.commons.shutdown.ShutdownTask
 import io.specmatic.commons.shutdown.ShutdownRegistrar
@@ -20,7 +21,6 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
-import io.specmatic.core.lifecycle.SpecmaticShutdownIntent
 import java.io.File
 import java.nio.file.Paths
 import java.util.ServiceLoader
@@ -330,7 +330,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         return shutdownHookRegistrar.register(
             task = ShutdownTask(
                 id = "specmatic.bcc",
-                intent = SpecmaticShutdownIntent.BACKWARD_COMPATIBILITY_CHECK,
+                intent = CoreShutdownIntent.GENERAL,
                 action = {
                     gitCommand.checkout(getCurrentBranch())
                     if (areLocalChangesStashed) gitCommand.stashPop()
