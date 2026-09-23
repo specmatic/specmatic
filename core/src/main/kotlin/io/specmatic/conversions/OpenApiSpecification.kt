@@ -250,7 +250,12 @@ class OpenApiSpecification(
             return fromFile(openApiFilePath, SpecmaticConfig(), lenientMode)
         }
 
-        fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig, lenientMode: Boolean = false): OpenApiSpecification {
+        fun fromFile(
+            openApiFilePath: String,
+            specmaticConfig: SpecmaticConfig,
+            lenientMode: Boolean = false,
+            logger: LogStrategy = io.specmatic.core.log.logger,
+        ): OpenApiSpecification {
             val specContent = sequenceOf(
                 { File(openApiFilePath).readText() },
                 { ClasspathHelper.loadFileFromClasspath(openApiFilePath) },
@@ -267,11 +272,22 @@ class OpenApiSpecification(
             )
 
             return runCatching {
-                fromYAML(specContent, openApiFilePath, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
+                fromYAML(
+                    logger = logger,
+                    yamlContent = specContent,
+                    lenientMode = lenientMode,
+                    openApiFilePath = openApiFilePath,
+                    specmaticConfig = specmaticConfig,
+                )
             }.getOrElse { e ->
                 // TODO: Fix BackwardCompatibilityCheck to not pass example json as OpenAPI files to avoid fallback here
                 logger.debug(e, "Failed to parse specification $openApiFilePath using fromYAML")
-                OpenApiSpecification(openApiFilePath, getParsedOpenApi(openApiFilePath), specmaticConfig = specmaticConfig)
+                OpenApiSpecification(
+                    logger = logger,
+                    openApiFilePath = openApiFilePath,
+                    specmaticConfig = specmaticConfig,
+                    parsedOpenApi = getParsedOpenApi(openApiFilePath),
+                )
             }
         }
 
@@ -402,6 +418,7 @@ class OpenApiSpecification(
             specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
             strictMode: Boolean = false,
             lenientMode: Boolean = false,
+            logger: LogStrategy = io.specmatic.core.log.logger,
             exampleDirPaths: List<String> = emptyList(),
         ): OpenApiSpecification {
             val parseResult: SwaggerParseResult =
@@ -417,6 +434,7 @@ class OpenApiSpecification(
             return OpenApiSpecification(
                 openApiFilePath,
                 parsedOpenApi,
+                logger = logger,
                 specmaticConfig = specmaticConfig,
                 strictMode = strictMode,
                 lenientMode = lenientMode,
@@ -601,7 +619,7 @@ class OpenApiSpecification(
 
     fun toFeature(): Feature {
         val (feature, result) = toFeatureLenient()
-        return result.returnLenientlyElseFail(lenientMode, feature)
+        return result.returnLenientlyElseFail(logger, lenientMode, feature)
     }
 
     fun toFeatureLenient(): Pair<Feature, Result> {
@@ -637,7 +655,7 @@ class OpenApiSpecification(
     fun parseUnreferencedSchemas(): Map<String, Pattern> {
         val context = CollectorContext()
         val patterns = parseUnreferencedSchemas(context)
-        return context.toCollector().toResult().returnLenientlyElseFail(lenientMode, patterns)
+        return context.toCollector().toResult().returnLenientlyElseFail(logger, lenientMode, patterns)
     }
 
     fun parseUnreferencedSchemas(rootContext: CollectorContext): Map<String, Pattern> {
@@ -661,7 +679,7 @@ class OpenApiSpecification(
     override fun toScenarioInfos(): Pair<List<ScenarioInfo>, List<NamedStub>> {
         val rootContext = CollectorContext()
         val scenarioInfos = toScenarioInfos(rootContext)
-        return rootContext.toCollector().toResult().returnLenientlyElseFail(lenientMode, scenarioInfos)
+        return rootContext.toCollector().toResult().returnLenientlyElseFail(logger, lenientMode, scenarioInfos)
     }
 
     fun toScenarioInfos(rootContext: CollectorContext): Pair<List<ScenarioInfo>, List<NamedStub>> {
@@ -4108,7 +4126,7 @@ class OpenApiSpecification(
     }
 }
 
-private fun <T> Result.returnLenientlyElseFail(lenient: Boolean = false, value: T): T {
+private fun <T> Result.returnLenientlyElseFail(logger: LogStrategy = io.specmatic.core.log.logger, lenient: Boolean = false, value: T): T {
     if ((this is Failure && this.isPartial) || lenient) {
         logger.log(this.reportString())
         return value

@@ -80,7 +80,6 @@ abstract class BackwardCompatibilityCheckBaseCommand(
             runBackwardCompatibilityCheckFor(files = specsToCheck, baseBranch = effectiveBaseBranch)
         } catch (e: Throwable) {
             logger.newLine()
-            logger.newLine()
             logger.log(e)
             return 1
         }
@@ -267,7 +266,12 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 return null
             }
 
-            val newer = getFeatureFromSpecPath(specFilePath)
+            val newer = loadFeatureForBackwardCompatibilityCheck(
+                version = "newer",
+                branch = treeishWithChanges,
+                specFilePath = specFilePath,
+            )
+
             // The newer feature is parsed while the worktree has the current branch files, but below we
             // checkout the base branch before running the comparison. OpenAPI change tracking resolves
             // external refs when scenariosForChangeTracking() is first evaluated, so delaying this until
@@ -295,7 +299,11 @@ abstract class BackwardCompatibilityCheckBaseCommand(
             areLocalChangesStashed = gitCommand.stash()
             gitCommand.checkout(baseBranch)
 
-            val older = getFeatureFromSpecPath(specFilePath)
+            val older = loadFeatureForBackwardCompatibilityCheck(
+                version = "older",
+                branch = baseBranch,
+                specFilePath = specFilePath,
+            )
 
             val checkResult = checkBackwardCompatibility(older, newer)
             val backwardCompatibilityResult = checkResult.results
@@ -323,6 +331,16 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 gitCommand.stashPop()
                 areLocalChangesStashed = false
             }
+        }
+    }
+
+    private fun loadFeatureForBackwardCompatibilityCheck(specFilePath: String, version: String, branch: String): IFeature {
+        logger.log("Loading $version specification '$specFilePath' from branch '$branch'")
+        return try {
+            getFeatureFromSpecPath(specFilePath)
+        } catch (e: Throwable) {
+            logger.log("Failed to load $version specification '$specFilePath' from branch '$branch', due to following error(s):")
+            throw e
         }
     }
 
