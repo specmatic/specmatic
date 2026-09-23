@@ -143,16 +143,25 @@ class BackwardCompatibilityCheckBaseCommandTest {
         val (output, exitCode) = captureStandardOutput { command.call() }
 
         assertThat(exitCode).isEqualTo(1)
-        assertThat(output).contains("synthetic parse failure")
-        when (failingLoad) {
-            1 -> assertThat(output)
-                .contains("Loading newer specification '$specFile' from branch 'feature'")
-                .contains("Failed to load newer specification '$specFile' from branch 'feature'")
-            2 -> assertThat(output)
-                .contains("Loading newer specification '$specFile' from branch 'feature'")
-                .contains("Loading older specification '$specFile' from branch 'main'")
-                .contains("Failed to load older specification '$specFile' from branch 'main'")
+        val loadContext = output.lineSequence().map(String::trim).filter { line ->
+            line.startsWith("Loading ") || line.startsWith("Finished loading ") || line.startsWith("Failed to load ")
+        }.toList()
+        val expectedLoadContext = when (failingLoad) {
+            1 -> listOf(
+                "Loading newer specification '$specFile' from branch 'feature'",
+                "Failed to load newer specification '$specFile' from branch 'feature', due to following error(s):",
+            )
+            2 -> listOf(
+                "Loading newer specification '$specFile' from branch 'feature'",
+                "Finished loading newer specification '$specFile' from branch 'feature'",
+                "Loading older specification '$specFile' from branch 'main'",
+                "Failed to load older specification '$specFile' from branch 'main', due to following error(s):",
+            )
+            else -> error("Unexpected failing load index: $failingLoad")
         }
+        assertThat(loadContext).isEqualTo(expectedLoadContext)
+        val causeMessages = output.lineSequence().map(String::trim).filter { it == "synthetic parse failure" }.toList()
+        assertThat(causeMessages).isEqualTo(listOf("synthetic parse failure"))
     }
 
     private fun initializeGitRepo(tempDir: File): File {
