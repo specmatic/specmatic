@@ -3,6 +3,7 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
@@ -12,6 +13,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.time.Instant
 
@@ -217,27 +219,66 @@ class TestResultRecordTest {
         assertTrue(result.contains("Something went wrong"))
     }
 
-    @Test
-    fun `testQualifiers should include response undeclared when response is outside specification`() {
-        val record = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = false)
-        assertThat(record.testQualifiers()).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
-        assertThat(record.extraFields().qualifiers).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
-    }
+    @Nested
+    inner class Qualifiers {
+        @Test
+        fun `testQualifiers should include response undeclared when response is outside specification`() {
+            val record = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = false)
+            assertThat(record.testQualifiers()).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
+            assertThat(record.extraFields().qualifiers).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
+        }
 
-    @Test
-    fun `testQualifiers should be empty when response is declared or unknown`() {
-        val responseDeclared = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = true)
-        val responseUnknown = testResultRecord(result = TestResult.Failed)
+        @Test
+        fun `testQualifiers should be empty when response is declared or unknown`() {
+            val responseDeclared = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = true)
+            val responseUnknown = testResultRecord(result = TestResult.Failed)
 
-        assertThat(responseDeclared.testQualifiers()).isEmpty()
-        assertThat(responseDeclared.extraFields().qualifiers).isEmpty()
-        assertThat(responseUnknown.testQualifiers()).isEmpty()
-        assertThat(responseUnknown.extraFields().qualifiers).isEmpty()
+            assertThat(responseDeclared.testQualifiers()).isEmpty()
+            assertThat(responseDeclared.extraFields().qualifiers).isEmpty()
+            assertThat(responseUnknown.testQualifiers()).isEmpty()
+            assertThat(responseUnknown.extraFields().qualifiers).isEmpty()
+        }
+
+        @Test
+        fun `should report terminated and undeclared response test qualifiers`() {
+            val record = testResultRecord(
+                isWip = true,
+                result = TestResult.Failed,
+                actualResponseStatus = 0,
+                connectionTerminated = true
+            ).copy(isResponseInSpecification = false)
+
+            assertThat(record.testQualifiers()).containsExactly(
+                CtrfTestQualifiers.TERMINATED,
+                CtrfTestQualifiers.UNDECLARED_RESPONSE
+            )
+
+            assertThat(record.extraFields().qualifiers).containsExactly(
+                CtrfTestQualifiers.TERMINATED,
+                CtrfTestQualifiers.UNDECLARED_RESPONSE
+            )
+
+            assertThat(record.operationQualifiers()).containsExactly(CtrfOperationQualifiers.WIP)
+        }
+
+        @Test
+        fun `should not report termination for a zero actual response status alone`() {
+            val record = testResultRecord(
+                result = TestResult.Failed,
+                actualResponseStatus = 0
+            )
+
+            assertThat(record.isConnectionTerminated()).isFalse()
+            assertThat(record.testQualifiers()).isEmpty()
+            assertThat(record.operationQualifiers()).isEmpty()
+        }
     }
 
     private fun testResultRecord(
         result: TestResult,
-        isWip: Boolean = false
+        isWip: Boolean = false,
+        actualResponseStatus: Int = 200,
+        connectionTerminated: Boolean = false
     ) = TestResultRecord(
         path = "/example/path",
         method = "GET",
@@ -246,6 +287,8 @@ class TestResultRecordTest {
         response = null,
         result = result,
         isWip = isWip,
-        specType = SpecType.OPENAPI
+        specType = SpecType.OPENAPI,
+        actualResponseStatus = actualResponseStatus,
+        connectionTerminated = connectionTerminated
     )
 }

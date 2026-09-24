@@ -128,6 +128,16 @@ internal class HttpResponseTest {
     }
 
     @Test
+    fun `should log a terminated response without an HTTP status`() {
+        assertThat(HttpResponse.TERMINATED.toLogString()).isEqualTo(
+            """
+            Connection terminated.
+            No HTTP response was sent.
+            """.trimIndent()
+        )
+    }
+
+    @Test
     fun `should set the response body as NoBodyValue if the json object does not have the body key`() {
         val response = HttpResponse.fromJSON(
             mapOf("status" to NumberValue(203))

@@ -57,6 +57,7 @@ class MockEventListenerTest {
         assertThat(event.response).isNotNull
         assertThat(event.responseTime).isNotNull()
         assertThat(event.stubResult).isEqualTo(TestResult.Success)
+        assertThat(event.terminatedConnection).isFalse()
     }
 
     @Test
