@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3
 import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.config.validation.ConfigValidationSeverity
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiMockConfig
+import io.specmatic.core.config.v3.components.runOptions.AsyncApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlMockConfig
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
@@ -31,6 +32,31 @@ import java.io.File
 import java.util.stream.Stream
 
 class ProtocolConfigValidatorTest {
+    @Test
+    fun `invokes the SPI for AsyncAPI test config`(@TempDir tempDir: File) {
+        val validator = RecordingValidator()
+        val specification = tempDir.resolve("spec").apply { writeText("spec") }
+        val runOptions = AsyncApiTestConfig().withConfig(mapOf("servers" to emptyList<Any>()))
+
+        runOptions.validateForSpecFile(
+            specFile = specification,
+            definition = SpecificationDefinition.StringValue(specification.path),
+            validationContext = context(tempDir, validator),
+        )
+
+        assertThat(validator.applicableCalls.single()).isEqualTo(
+            ApplicableCall(
+                specification = specification,
+                source = ApplicableSource.GLOBAL,
+                runOptionType = RunOptionType.TEST,
+                valueType = AsyncApiTestConfig::class,
+                runOptionsType = AsyncApiTestConfig::class,
+                location = "/dependencies/runOptions/asyncapi",
+                runOptionsLocation = "/dependencies/runOptions/asyncapi",
+            )
+        )
+    }
+
     @Nested
     @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     inner class MockProtocols {

@@ -22,7 +22,7 @@ internal class BackwardCompatibilityCheckLogger {
         specificationsOfChangedExternalisedExamples.printSummary("Specs whose externalised examples were changed")
         untrackedFiles.printSummary("Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs)")
         logger.log("-".repeat(20))
-        logger.log(newLine)
+        logger.boundary()
     }
 
     fun logCheckStart(index: Int, processedSpec: ProcessedSpec) {
@@ -87,12 +87,12 @@ internal class BackwardCompatibilityCheckLogger {
     }
 
     private fun logVerdictFor(specFilePath: String, message: String, startWithNewLine: Boolean = true) {
-        if (startWithNewLine) logger.log(newLine)
+        if (startWithNewLine) logger.boundary()
         logger.log("-".repeat(20).prependIndent(ONE_INDENT))
         logger.log("Verdict for spec $specFilePath:".prependIndent(ONE_INDENT))
         logger.log("$ONE_INDENT$message")
         logger.log("-".repeat(20).prependIndent(ONE_INDENT))
-        logger.log(newLine)
+        logger.boundary()
     }
 
     private fun logExampleValidationSummary(

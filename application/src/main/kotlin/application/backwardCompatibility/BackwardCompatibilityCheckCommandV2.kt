@@ -6,6 +6,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
+import io.specmatic.core.utilities.isolateInstanceForInfoLogModification
 import io.specmatic.license.core.cli.Category
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.reporter.commands.GitReportDefaultValueProvider
@@ -102,18 +103,42 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
     }
 
     override fun getFeatureFromSpecPath(path: String): Feature {
-        logger.disableInfoLogging()
+        val (feature, result) = parseOpenApiFeature(path)
+        if (result is Result.Failure && !result.isPartial) result.throwOnFailure()
+        return feature.withRepositoryRelativeSpecificationPath(path)
+    }
+
+    override fun getFeatureLoadOutcome(path: String): FeatureLoadOutcome {
         return try {
-            val feature = OpenApiSpecification.fromFile(path).toFeature()
-            val specificationPath = File(path).canonicalFile
-                .relativeTo(File(effectiveRepoDir).canonicalFile).invariantSeparatorsPath
-            feature.copy(
-                specification = specificationPath,
-                scenarios = feature.scenarios.map { it.copy(specification = specificationPath) },
-            )
-        } finally {
-            logger.enableInfoLogging()
+            val (feature, diagnostics) = parseOpenApiFeature(path)
+            val featureWithSpecificationPath = feature.withRepositoryRelativeSpecificationPath(path)
+            FeatureLoadOutcome.Loaded(featureWithSpecificationPath, diagnostics)
+        } catch (e: Throwable) {
+            FeatureLoadOutcome.Failed(e)
         }
+    }
+
+    private fun parseOpenApiFeature(path: String): Pair<Feature, Result> {
+        val parseLogger = logger.isolateInstanceForInfoLogModification()
+        if (!isOpenAPI(path, logFailure = false)) parseLogger.disableInfoLogging()
+
+        val specification = OpenApiSpecification.fromFile(
+            lenientMode = true,
+            logger = parseLogger,
+            openApiFilePath = path,
+            specmaticConfig = specmaticConfig,
+        )
+
+        parseLogger.disableInfoLogging()
+        return specification.toFeatureLenient()
+    }
+
+    private fun Feature.withRepositoryRelativeSpecificationPath(path: String): Feature {
+        val specificationPath = File(path).canonicalFile.relativeTo(File(effectiveRepoDir).canonicalFile).invariantSeparatorsPath
+        return copy(
+            specification = specificationPath,
+            scenarios = scenarios.map { it.copy(specification = specificationPath) },
+        )
     }
 
     override fun regexForMatchingReferred(schemaFileName: String) = schemaFileName

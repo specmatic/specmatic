@@ -1,8 +1,8 @@
 package application.mcp.server.tools
 
 import application.StubCommand
+import io.specmatic.core.lifecycle.NoOpShutdownRegistrar
 import io.specmatic.stub.waitUntilConnectable
-import io.specmatic.stub.NoOpShutdownHookRegistrar
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import picocli.CommandLine
@@ -42,7 +42,7 @@ class MockServerTool {
         val specFile = tempDir.resolve("spec.$specFormat").apply { writeText(openApiSpec) }
 
         return try {
-            val command = StubCommand(shutdownHookRegistrar = NoOpShutdownHookRegistrar)
+            val command = StubCommand(shutdownHookRegistrar = NoOpShutdownRegistrar)
             val argsList = stubCommandArgs(port, specFile)
 
             startInBackground(command, port, argsList)

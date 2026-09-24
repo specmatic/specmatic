@@ -1,0 +1,43 @@
+Checking backward compatibility of the following specs:
+
+  - Specs that have changed:
+    1. @SPEC_PATH@
+
+--------------------
+
+Loading newer specification '@SPEC_PATH@' from branch 'change'
+
+WARNING: The OpenAPI file @SPEC_PATH@ was read successfully but with some issues
+  - attribute paths.'/data'(post).requestBody.content.'application/json'.schema.additionalProperties is not of type `object`
+
+API Specification Summary: @SPEC_PATH@
+  OpenAPI Version: 3.0.3
+  API Paths: 1, API Operations: 1
+
+
+Finished loading newer specification '@SPEC_PATH@' from branch 'change'
+
+Loading older specification '@SPEC_PATH@' from branch 'main'
+
+WARNING: The OpenAPI file @SPEC_PATH@ was read successfully but with some issues
+  - attribute paths.'/data'(post).requestBody.content.'application/json'.schema.additionalProperties is not of type `object`
+
+API Specification Summary: @SPEC_PATH@
+  OpenAPI Version: 3.0.3
+  API Paths: 1, API Operations: 1
+
+
+Finished loading older specification '@SPEC_PATH@' from branch 'main'
+
+[Compatibility Check] Executing 1 scenarios for POST /data against 1 operations
+  - POST /data -> 200 (requestContentType application/json)
+[Compatibility Check] Verdict: PASS
+1. Running the check for @SPEC_PATH@:
+  --------------------
+  Verdict for spec @SPEC_PATH@:
+    (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+  --------------------
+
+Generating BCC report for 2 checks and 1 operations...
+Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
+Files checked: 1 (Passed: 1, Failed: 0)

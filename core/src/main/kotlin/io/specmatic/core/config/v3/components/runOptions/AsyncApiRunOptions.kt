@@ -28,6 +28,16 @@ data class AsyncApiTestConfig(
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : AsyncApiRunOptions {
     fun withConfig(newConfig: Map<String, Any>): AsyncApiTestConfig = copy(_config = LinkedHashMap(newConfig))
+
+    override fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> {
+        return validateProtocolConfigForSpecFile(
+            specFile = specFile,
+            definition = definition,
+            runOptionType = type ?: RunOptionType.TEST,
+            validationContext = validationContext.child("asyncapi"),
+        )
+    }
+
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiTestConfig = copy(
         specs = specs?.mapIndexed { index, spec ->
             spec.mapPaths(mapper.child("specs").child(index), configDirectory)

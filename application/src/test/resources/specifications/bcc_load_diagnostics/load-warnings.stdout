@@ -1,0 +1,55 @@
+Checking backward compatibility of the following specs:
+
+  - Specs that have changed:
+    1. @SPEC_PATH@
+
+--------------------
+
+Loading newer specification '@SPEC_PATH@' from branch 'change'
+
+API Specification Summary: @SPEC_PATH@
+  OpenAPI Version: 3.0.0
+  API Paths: 1, API Operations: 1
+  Schema components: 1, Security Schemes: none
+
+
+Finished loading with warning(s) for newer specification '@SPEC_PATH@' from branch 'change':
+
+  >> components.schemas.Person.additionalProperties
+
+      OAS0044: Invalid additionalProperties usage
+      Documentation: https://docs.specmatic.io/rules#oas0044
+      Summary: additionalProperties should only be used within object schemas
+
+      additionalProperties should only be defined for object schema, found for type "string", this will be ignored, Please remove it.
+
+Loading older specification '@SPEC_PATH@' from branch 'main'
+
+API Specification Summary: @SPEC_PATH@
+  OpenAPI Version: 3.0.0
+  API Paths: 1, API Operations: 1
+  Schema components: 1, Security Schemes: none
+
+
+Finished loading with warning(s) for older specification '@SPEC_PATH@' from branch 'main':
+
+  >> components.schemas.Person.additionalProperties
+
+      OAS0044: Invalid additionalProperties usage
+      Documentation: https://docs.specmatic.io/rules#oas0044
+      Summary: additionalProperties should only be used within object schemas
+
+      additionalProperties should only be defined for object schema, found for type "string", this will be ignored, Please remove it.
+
+[Compatibility Check] Executing 1 scenarios for GET /health against 1 operations
+  - GET /health -> 200
+[Compatibility Check] Verdict: PASS
+1. Running the check for @SPEC_PATH@:
+  --------------------
+  Verdict for spec @SPEC_PATH@:
+    (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+  --------------------
+
+Generating BCC report for 2 checks and 1 operations...
+Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
+Files checked: 1 (Passed: 1, Failed: 0)

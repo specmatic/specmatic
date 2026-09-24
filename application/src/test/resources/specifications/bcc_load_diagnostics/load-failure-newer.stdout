@@ -1,0 +1,12 @@
+Checking backward compatibility of the following specs:
+
+  - Specs that have changed:
+    1. @SPEC_PATH@
+
+--------------------
+
+Loading newer specification '@SPEC_PATH@' from branch 'feature'
+
+Failed to load newer specification '@SPEC_PATH@' from branch 'feature', due to following error(s):
+
+synthetic parse failure
