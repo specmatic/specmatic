@@ -1,6 +1,8 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.log.NonVerbose
+import io.specmatic.mock.NoLogPrinter
 
 data class OpenApiChangeTrackingSource(
     val yamlContent: String,
@@ -20,6 +22,7 @@ data class OpenApiChangeTrackingSource(
                 strictMode = strictMode,
                 lenientMode = lenientMode,
                 exampleDirPaths = exampleDirPaths,
+                logger = NonVerbose(NoLogPrinter()),
             )
             .toFeature()
             .scenarios

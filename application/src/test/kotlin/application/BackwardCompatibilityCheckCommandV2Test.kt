@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
@@ -573,7 +574,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
-
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'orders-change'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -581,11 +582,17 @@ class BackwardCompatibilityCheckCommandV2Test {
               Schema components: 7, Security Schemes: none
 
 
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'orders-change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 5, API Operations: 7
               Schema components: 7, Security Schemes: none
 
+
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for POST /orders against 2 operations
               - POST /orders -> 201 (requestContentType application/json, responseContentType application/json)
@@ -648,12 +655,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 21 checks and 11 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -687,6 +692,146 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
             return Triple(stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/'), exitCode, spec)
         }
+
+        private fun assertFullStdout(output: String, snapshotName: String, specPath: String) {
+            val expected = checkNotNull(javaClass.getResource("/specifications/bcc_load_diagnostics/$snapshotName"))
+                .readText()
+                .replace("@SPEC_PATH@", specPath)
+                .trimEnd()
+
+            assertThat(output).isEqualToNormalizingNewlines(expected)
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            "true, false, newer-load-error.stdout",
+            "false, true, older-load-error.stdout",
+        )
+        fun `labels load diagnostics with the side and branch`(oldSpecIncludesNull: Boolean, newSpecIncludesNull: Boolean, snapshotName: String) {
+            val (output, exitCode, spec) = runChange(
+                oldSpec = specWithNullableEnum("Old", includeNull = oldSpecIncludesNull),
+                newSpec = specWithNullableEnum("New", includeNull = newSpecIncludesNull),
+            )
+
+            assertThat(exitCode).isEqualTo(0)
+            assertFullStdout(output, snapshotName, spec.canonicalFile.invariantSeparatorsPath)
+        }
+
+        @Test
+        fun `logs partial load diagnostics and continues compatibility checks`() {
+            val (output, exitCode, spec) = runChange(
+                oldSpec = specWithInvalidAdditionalProperties("Old"),
+                newSpec = specWithInvalidAdditionalProperties("New"),
+            )
+
+            assertThat(exitCode).isEqualTo(0)
+            assertFullStdout(output, "load-warnings.stdout", spec.canonicalFile.invariantSeparatorsPath)
+        }
+
+        @Test
+        fun `prints parser warnings while loading each specification`() {
+            val (output, exitCode, spec) = runChange(
+                oldSpec = specWithParserWarning("Old"),
+                newSpec = specWithParserWarning("New"),
+            )
+
+            assertThat(exitCode).isEqualTo(0)
+            assertFullStdout(output, "parser-warnings.stdout", spec.canonicalFile.invariantSeparatorsPath)
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["json", "yaml"])
+        fun `suppresses OpenAPI parser output for documents without an OpenAPI marker`(extension: String) {
+            val content = when (extension) {
+                "json" -> """{"specification":"base.yaml"}"""
+                "yaml" -> "specification: [base.yaml"
+                else -> error("Unexpected extension: $extension")
+            }
+
+            val candidate = tempDir.resolve("metadata.$extension").apply { writeText(content) }
+            val (output, _) = captureStandardOutput {
+                runCatching {
+                    BackwardCompatibilityCheckCommandV2().getFeatureFromSpecPath(candidate.canonicalPath)
+                }
+            }
+
+            assertThat(output).isEmpty()
+        }
+
+        @Test
+        fun `returns the feature when the loader reports partial diagnostics`() {
+            val spec = tempDir.resolve("partial-diagnostics.yaml")
+            spec.writeText(specWithInvalidAdditionalProperties("Partial"))
+            val sharedLogger = io.specmatic.core.log.logger
+            val originalInfoLoggingEnabled = sharedLogger.infoLoggingEnabled
+
+            try {
+                sharedLogger.infoLoggingEnabled = false
+                val command = BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                }
+
+                val feature = command.getFeatureFromSpecPath(spec.canonicalPath)
+                assertThat(feature.scenarios).hasSize(1)
+                assertThat(sharedLogger.infoLoggingEnabled).isFalse()
+            } finally {
+                sharedLogger.infoLoggingEnabled = originalInfoLoggingEnabled
+            }
+        }
+
+        private fun specWithNullableEnum(title: String, includeNull: Boolean) = """
+        openapi: 3.0.0
+        info: { title: $title, version: "1.0.0" }
+        paths:
+          /health:
+            get:
+              responses:
+                '200': { description: ok }
+        components:
+          schemas:
+            PetAdoptionState:
+              type: object
+              properties:
+                adoptionLastUpdatedBy:
+                  type: string
+                  nullable: true
+                  enum: [SYSTEM${if (includeNull) ", null" else ""}]
+        """.trimIndent()
+
+        private fun specWithParserWarning(title: String) = """
+        openapi: 3.0.3
+        info:
+          title: $title
+          version: 1.0.0
+        paths:
+          /data:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      additionalProperties: []
+              responses:
+                '200':
+                  description: Success
+        """.trimIndent()
+
+        private fun specWithInvalidAdditionalProperties(title: String) = """
+        openapi: 3.0.0
+        info: { title: $title, version: "1.0.0" }
+        paths:
+          /health:
+            get:
+              responses:
+                '200': { description: ok }
+        components:
+          schemas:
+            Person:
+              type: string
+              additionalProperties: {}
+        """.trimIndent()
 
         @Test
         fun `1 - all compatible, no WIP - COMPATIBLE, no report sections`() {
@@ -733,17 +878,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -753,7 +904,6 @@ class BackwardCompatibilityCheckCommandV2Test {
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -830,17 +980,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 2, API Operations: 2
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -854,7 +1010,6 @@ class BackwardCompatibilityCheckCommandV2Test {
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -931,17 +1086,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 2, API Operations: 2
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -964,7 +1125,6 @@ class BackwardCompatibilityCheckCommandV2Test {
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -1017,17 +1177,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -1043,12 +1209,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -1125,17 +1289,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 2, API Operations: 2
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -1155,12 +1325,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -1237,17 +1405,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 2, API Operations: 2
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -1276,12 +1450,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -1336,17 +1508,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
@@ -1365,7 +1543,6 @@ class BackwardCompatibilityCheckCommandV2Test {
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -1419,17 +1596,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -1448,7 +1631,6 @@ class BackwardCompatibilityCheckCommandV2Test {
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -1502,17 +1684,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
+            Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -1528,12 +1716,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
@@ -1684,45 +1870,67 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '$compatibleSpecPath' from branch 'mixed-hook-results'
 
+            API Specification Summary: $compatibleSpecPath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '$compatibleSpecPath' from branch 'mixed-hook-results'
+
+            Loading older specification '$compatibleSpecPath' from branch 'main'
 
             API Specification Summary: $compatibleSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: $compatibleSpecPath
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '$compatibleSpecPath' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /compatible against 1 operations
               - GET /compatible -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
 
-            API Specification Summary: $hookFailedSpecPath
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Loading newer specification '$hookFailedSpecPath' from branch 'mixed-hook-results'
 
             API Specification Summary: $hookFailedSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
+
+            Finished loading newer specification '$hookFailedSpecPath' from branch 'mixed-hook-results'
+
+            Loading older specification '$hookFailedSpecPath' from branch 'main'
+
+            API Specification Summary: $hookFailedSpecPath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading older specification '$hookFailedSpecPath' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /hook-failed against 1 operations
               - GET /hook-failed -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
 
-            API Specification Summary: $hookPassedSpecPath
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Loading newer specification '$hookPassedSpecPath' from branch 'mixed-hook-results'
 
             API Specification Summary: $hookPassedSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
+
+            Finished loading newer specification '$hookPassedSpecPath' from branch 'mixed-hook-results'
+
+            Loading older specification '$hookPassedSpecPath' from branch 'main'
+
+            API Specification Summary: $hookPassedSpecPath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading older specification '$hookPassedSpecPath' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /hook-passed against 1 operations
               - GET /hook-passed -> 200 (responseContentType application/json)
@@ -1732,7 +1940,6 @@ class BackwardCompatibilityCheckCommandV2Test {
               Verdict for spec $compatibleSpecPath:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
-
 
             2. Running the check for $hookFailedSpecPath:
               ________________________________________
@@ -1745,12 +1952,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec $hookFailedSpecPath:
                 (HOOK: Failed)
               --------------------
-
 
             3. Running the check for $hookPassedSpecPath:
               ________________________________________
@@ -1763,13 +1968,11 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec $hookPassedSpecPath:
                 (HOOK: Passed)
               --------------------
-
-
+            
             Generating BCC report for 6 checks and 3 operations...
             Generating HTML report in $htmlReportPath
             Files checked: 3 (Passed: 2, Failed: 1)
@@ -1865,31 +2068,45 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '$spec1Path' from branch 'breaking-change'
 
+            API Specification Summary: $spec1Path
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '$spec1Path' from branch 'breaking-change'
+
+            Loading older specification '$spec1Path' from branch 'main'
 
             API Specification Summary: $spec1Path
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: $spec1Path
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '$spec1Path' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
 
-            API Specification Summary: $spec2Path
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Loading newer specification '$spec2Path' from branch 'breaking-change'
 
             API Specification Summary: $spec2Path
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
+
+            Finished loading newer specification '$spec2Path' from branch 'breaking-change'
+
+            Loading older specification '$spec2Path' from branch 'main'
+
+            API Specification Summary: $spec2Path
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading older specification '$spec2Path' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
@@ -1905,12 +2122,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec $spec1Path:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
-
 
             2. Running the check for $spec2Path:
               ________________________________________
@@ -1923,12 +2138,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec $spec2Path:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
-
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in $htmlReportPath
@@ -2035,17 +2248,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             --------------------
 
+            Loading newer specification '$specPath' from branch 'breaking-change'
 
+            API Specification Summary: $specPath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            Finished loading newer specification '$specPath' from branch 'breaking-change'
+
+            Loading older specification '$specPath' from branch 'main'
 
             API Specification Summary: $specPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: $specPath
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
+            Finished loading older specification '$specPath' from branch 'main'
 
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
@@ -2063,12 +2282,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
 
-
               --------------------
               Verdict for spec $specPath:
                 (HOOK: PASSED) The hook declared the failing spec as backward compatible
               --------------------
-
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in $htmlReportPath

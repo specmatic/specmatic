@@ -10,6 +10,8 @@ import io.specmatic.core.azure.AzureAuthCredentials
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.git.SystemGit
+import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
@@ -30,7 +32,6 @@ import java.io.File
 import java.io.StringReader
 import java.io.StringWriter
 import java.net.URI
-import java.net.URISyntaxException
 import java.util.concurrent.*
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
@@ -593,5 +594,27 @@ fun String.ensureSuffix(suffix: String): String {
         this
     } else {
         this + suffix
+    }
+}
+
+fun LogStrategy.isolateInstanceForInfoLogModification(): LogStrategy {
+    return object: LogStrategy by this {
+        override var infoLoggingEnabled: Boolean = this@isolateInstanceForInfoLogModification.infoLoggingEnabled
+
+        override fun disableInfoLogging() {
+            infoLoggingEnabled = false
+        }
+
+        override fun enableInfoLogging() {
+            infoLoggingEnabled = true
+        }
+
+        override fun log(msg: String) {
+            if (infoLoggingEnabled) this@isolateInstanceForInfoLogModification.log(msg)
+        }
+
+        override fun log(msg: LogMessage) {
+            if (infoLoggingEnabled) this@isolateInstanceForInfoLogModification.log(msg)
+        }
     }
 }
