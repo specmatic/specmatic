@@ -141,27 +141,21 @@ class BackwardCompatibilityCheckBaseCommandTest {
         }
 
         val (output, exitCode) = captureStandardOutput { command.call() }
-
         assertThat(exitCode).isEqualTo(1)
-        val loadContext = output.lineSequence().map(String::trim).filter { line ->
-            line.startsWith("Loading ") || line.startsWith("Finished loading ") || line.startsWith("Failed to load ")
-        }.toList()
-        val expectedLoadContext = when (failingLoad) {
-            1 -> listOf(
-                "Loading newer specification '$specFile' from branch 'feature'",
-                "Failed to load newer specification '$specFile' from branch 'feature', due to following error(s):",
-            )
-            2 -> listOf(
-                "Loading newer specification '$specFile' from branch 'feature'",
-                "Finished loading newer specification '$specFile' from branch 'feature'",
-                "Loading older specification '$specFile' from branch 'main'",
-                "Failed to load older specification '$specFile' from branch 'main', due to following error(s):",
-            )
+
+        val snapshotName = when (failingLoad) {
+            1 -> "load-failure-newer.stdout"
+            2 -> "load-failure-older.stdout"
             else -> error("Unexpected failing load index: $failingLoad")
         }
-        assertThat(loadContext).isEqualTo(expectedLoadContext)
-        val causeMessages = output.lineSequence().map(String::trim).filter { it == "synthetic parse failure" }.toList()
-        assertThat(causeMessages).isEqualTo(listOf("synthetic parse failure"))
+
+        val expectedOutput = checkNotNull(javaClass.getResource("/specifications/bcc_load_diagnostics/$snapshotName"))
+            .readText()
+            .replace("@SPEC_PATH@", specFile)
+            .trimEnd()
+
+        val normalizedOutput = output.lineSequence().joinToString("\n") { it.trimEnd() }
+        assertThat(normalizedOutput).isEqualToNormalizingNewlines(expectedOutput)
     }
 
     private fun initializeGitRepo(tempDir: File): File {

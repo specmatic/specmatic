@@ -345,6 +345,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     private fun loadFeatureForBackwardCompatibilityCheck(specFilePath: String, version: String, branch: String): IFeature {
         logger.boundary()
         logger.log("Loading $version specification '$specFilePath' from branch '$branch'")
+        logger.boundary()
 
         return when (val outcome = getFeatureLoadOutcome(specFilePath)) {
             is FeatureLoadOutcome.Failed -> {
@@ -368,7 +369,10 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val severity = if (failure.isPartial) "warning(s)" else "error(s)"
         val continuation = if (failure.isPartial) "" else ", continuing leniently"
         logger.log("Finished loading with $severity for $version specification '$specFilePath' from branch '$branch'$continuation:")
-        logger.log(failure.reportString())
+        logger.boundary()
+        logger.withIndentation(count = 2) {
+            logger.log(failure.reportString())
+        }
     }
 
     protected sealed interface FeatureLoadOutcome {

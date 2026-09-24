@@ -575,6 +575,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'orders-change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 5, API Operations: 6
@@ -584,6 +585,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'orders-change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 5, API Operations: 7
@@ -691,95 +693,39 @@ class BackwardCompatibilityCheckCommandV2Test {
             return Triple(stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/'), exitCode, spec)
         }
 
-        private fun loadContextLines(output: String): List<String> = output.lineSequence()
-            .map(String::trim)
-            .filter { line ->
-                    line.startsWith("Loading ") ||
-                    line.startsWith("Finished loading ") ||
-                    line.startsWith("Failed to load ") ||
-                    line.startsWith("WARNING: The OpenAPI file ")
-            }
-            .toList()
+        private fun assertFullStdout(output: String, snapshotName: String, specPath: String) {
+            val expected = checkNotNull(javaClass.getResource("/specifications/bcc_load_diagnostics/$snapshotName"))
+                .readText()
+                .replace("@SPEC_PATH@", specPath)
+                .trimEnd()
 
-        @Test
-        fun `labels newer spec load diagnostics with the side and branch`() {
+            assertThat(output).isEqualToNormalizingNewlines(expected)
+        }
+
+        @ParameterizedTest
+        @CsvSource(
+            "true, false, newer-load-error.stdout",
+            "false, true, older-load-error.stdout",
+        )
+        fun `labels load diagnostics with the side and branch`(oldSpecIncludesNull: Boolean, newSpecIncludesNull: Boolean, snapshotName: String) {
             val (output, exitCode, spec) = runChange(
-                oldSpec = specWithNullableEnum("Old", includeNull = true),
-                newSpec = specWithNullableEnum("New", includeNull = false)
+                oldSpec = specWithNullableEnum("Old", includeNull = oldSpecIncludesNull),
+                newSpec = specWithNullableEnum("New", includeNull = newSpecIncludesNull),
             )
 
-            val specPath = spec.canonicalFile.invariantSeparatorsPath
-            val diagnostic = "Enum values must contain null if the enum is marked nullable, adding null value"
             assertThat(exitCode).isEqualTo(0)
-            assertThat(loadContextLines(output)).containsExactly(
-                "Loading newer specification '$specPath' from branch 'change'",
-                "Finished loading with error(s) for newer specification '$specPath' from branch 'change', continuing leniently:",
-                "Loading older specification '$specPath' from branch 'main'",
-                "Finished loading older specification '$specPath' from branch 'main'",
-            )
-            assertThat(output.split(diagnostic).size - 1).isEqualTo(1)
-            assertThat(output.lineSequence().map(String::trim).filter { it.startsWith("(COMPATIBLE)") }.toList())
-                .containsExactly("(COMPATIBLE) The spec is backward compatible with the corresponding spec from main")
+            assertFullStdout(output, snapshotName, spec.canonicalFile.invariantSeparatorsPath)
         }
 
         @Test
-        fun `labels older spec load diagnostics with the side and branch`() {
-            val (output, exitCode, spec) = runChange(
-                oldSpec = specWithNullableEnum("Old", includeNull = false),
-                newSpec = specWithNullableEnum("New", includeNull = true)
-            )
-
-            val specPath = spec.canonicalFile.invariantSeparatorsPath
-            val diagnostic = "Enum values must contain null if the enum is marked nullable, adding null value"
-            assertThat(exitCode).isEqualTo(0)
-            assertThat(loadContextLines(output)).containsExactly(
-                "Loading newer specification '$specPath' from branch 'change'",
-                "Finished loading newer specification '$specPath' from branch 'change'",
-                "Loading older specification '$specPath' from branch 'main'",
-                "Finished loading with error(s) for older specification '$specPath' from branch 'main', continuing leniently:",
-            )
-            assertThat(output.split(diagnostic).size - 1).isEqualTo(1)
-            assertThat(output.lineSequence().map(String::trim).filter { it.startsWith("(COMPATIBLE)") }.toList())
-                .containsExactly("(COMPATIBLE) The spec is backward compatible with the corresponding spec from main")
-        }
-
-        @Test
-        fun `labels specification load warnings with the side and branch`() {
-            val (output, exitCode, spec) = runChange(
-                oldSpec = specWithInvalidAdditionalProperties("Old"),
-                newSpec = specWithInvalidAdditionalProperties("New")
-            )
-
-            val specPath = spec.canonicalFile.invariantSeparatorsPath
-            val diagnostic = "additionalProperties should only be defined for object schema"
-            assertThat(exitCode).isEqualTo(0)
-            assertThat(loadContextLines(output)).containsExactly(
-                "Loading newer specification '$specPath' from branch 'change'",
-                "Finished loading with warning(s) for newer specification '$specPath' from branch 'change':",
-                "Loading older specification '$specPath' from branch 'main'",
-                "Finished loading with warning(s) for older specification '$specPath' from branch 'main':",
-            )
-            assertThat(output.split(diagnostic).size - 1).isEqualTo(2)
-        }
-
-        @Test
-        fun `continues after partial diagnostics`() {
+        fun `logs partial load diagnostics and continues compatibility checks`() {
             val (output, exitCode, spec) = runChange(
                 oldSpec = specWithInvalidAdditionalProperties("Old"),
                 newSpec = specWithInvalidAdditionalProperties("New"),
             )
 
-            val specPath = spec.canonicalFile.invariantSeparatorsPath
             assertThat(exitCode).isEqualTo(0)
-            assertThat(loadContextLines(output)).containsExactly(
-                "Loading newer specification '$specPath' from branch 'change'",
-                "Finished loading with warning(s) for newer specification '$specPath' from branch 'change':",
-                "Loading older specification '$specPath' from branch 'main'",
-                "Finished loading with warning(s) for older specification '$specPath' from branch 'main':",
-            )
-            assertThat(output.split("additionalProperties should only be defined for object schema").size - 1).isEqualTo(2)
-            assertThat(output.lineSequence().map(String::trim).filter { it.startsWith("(COMPATIBLE)") }.toList())
-                .containsExactly("(COMPATIBLE) The spec is backward compatible with the corresponding spec from main")
+            assertFullStdout(output, "load-warnings.stdout", spec.canonicalFile.invariantSeparatorsPath)
         }
 
         @Test
@@ -789,19 +735,8 @@ class BackwardCompatibilityCheckCommandV2Test {
                 newSpec = specWithParserWarning("New"),
             )
 
-            val specPath = spec.canonicalFile.invariantSeparatorsPath
-            val parserWarningLabel = "WARNING: The OpenAPI file $specPath was read successfully but with some issues"
-
             assertThat(exitCode).isEqualTo(0)
-            assertThat(loadContextLines(output)).containsExactly(
-                "Loading newer specification '$specPath' from branch 'change'",
-                parserWarningLabel,
-                "Finished loading newer specification '$specPath' from branch 'change'",
-                "Loading older specification '$specPath' from branch 'main'",
-                parserWarningLabel,
-                "Finished loading older specification '$specPath' from branch 'main'",
-            )
-            assertThat(output.split("additionalProperties is not of type").size - 1).isEqualTo(2)
+            assertFullStdout(output, "parser-warnings.stdout", spec.canonicalFile.invariantSeparatorsPath)
         }
 
         @ParameterizedTest
@@ -944,6 +879,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -952,6 +888,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1044,6 +981,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1052,6 +990,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1148,6 +1087,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1156,6 +1096,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1237,6 +1178,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1245,6 +1187,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1347,6 +1290,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1355,6 +1299,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1461,6 +1406,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1469,6 +1415,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
@@ -1562,6 +1509,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1570,6 +1518,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1648,6 +1597,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1656,6 +1606,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1734,6 +1685,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1742,6 +1694,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'change'
 
             Loading older specification '${spec.canonicalFile.invariantSeparatorsPath}' from branch 'main'
+
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1918,6 +1871,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '$compatibleSpecPath' from branch 'mixed-hook-results'
+
             API Specification Summary: $compatibleSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1926,6 +1880,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '$compatibleSpecPath' from branch 'mixed-hook-results'
 
             Loading older specification '$compatibleSpecPath' from branch 'main'
+
             API Specification Summary: $compatibleSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1938,6 +1893,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Verdict: PASS
 
             Loading newer specification '$hookFailedSpecPath' from branch 'mixed-hook-results'
+
             API Specification Summary: $hookFailedSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1946,6 +1902,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '$hookFailedSpecPath' from branch 'mixed-hook-results'
 
             Loading older specification '$hookFailedSpecPath' from branch 'main'
+
             API Specification Summary: $hookFailedSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1958,6 +1915,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Verdict: FAIL
 
             Loading newer specification '$hookPassedSpecPath' from branch 'mixed-hook-results'
+
             API Specification Summary: $hookPassedSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -1966,6 +1924,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '$hookPassedSpecPath' from branch 'mixed-hook-results'
 
             Loading older specification '$hookPassedSpecPath' from branch 'main'
+
             API Specification Summary: $hookPassedSpecPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -2110,6 +2069,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '$spec1Path' from branch 'breaking-change'
+
             API Specification Summary: $spec1Path
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -2118,6 +2078,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '$spec1Path' from branch 'breaking-change'
 
             Loading older specification '$spec1Path' from branch 'main'
+
             API Specification Summary: $spec1Path
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -2130,6 +2091,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Verdict: FAIL
 
             Loading newer specification '$spec2Path' from branch 'breaking-change'
+
             API Specification Summary: $spec2Path
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -2138,6 +2100,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '$spec2Path' from branch 'breaking-change'
 
             Loading older specification '$spec2Path' from branch 'main'
+
             API Specification Summary: $spec2Path
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -2286,6 +2249,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             --------------------
 
             Loading newer specification '$specPath' from branch 'breaking-change'
+
             API Specification Summary: $specPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
@@ -2294,6 +2258,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             Finished loading newer specification '$specPath' from branch 'breaking-change'
 
             Loading older specification '$specPath' from branch 'main'
+
             API Specification Summary: $specPath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
