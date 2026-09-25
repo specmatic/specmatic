@@ -7,7 +7,9 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 internal const val WORD_BOUNDARY = "\\b"
+private const val GENERATABLE_WHITESPACE = " \t\n\u000B\u000C\r"
 internal const val DOT_WITHOUT_LINE_TERMINATORS = "[^\n\r\u0085\u2028\u2029]"
+private const val ECMASCRIPT_WHITESPACE = "$GENERATABLE_WHITESPACE\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF"
 
 enum class RegexMatchMode {
     SEARCH,
@@ -179,8 +181,8 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
             "\\W" to "^a-zA-Z_0-9",
             "\\d" to "0-9",
             "\\D" to "^0-9",
-            "\\s" to " \t\n\u000c\r",
-            "\\S" to "^ \t\n\u000c\r"
+            "\\s" to GENERATABLE_WHITESPACE,
+            "\\S" to "^$ECMASCRIPT_WHITESPACE"
         )
 
         val result = StringBuilder(length)
