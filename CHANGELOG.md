@@ -30,16 +30,18 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased
+## 2.55.0 (2026-09-24)
 
 ### Added
 
 - Added the `specmatic config validate` command for validating configuration files, and performing protocol-aware semantic checks. The command supports text or JSON diagnostics, source locations, and validation-specific exit codes for CLI and CI use.
+- CTRF test results can now identify connections terminated by a mock before an HTTP response was sent; HTML reports display these results with a `Terminated` badge.
 
 ### Changed
 
 - Fixed positive and negative mutation generation for OpenAPI `oneOf` schemas so example rows are routed only to the matching discriminator or schema variant.
 - Fixed concurrent transient OpenAPI example handling so each request gets the correct example response, and failed response construction does not consume the transient example.
+- Pending report submissions now participate in the shared shutdown lifecycle and are given time to finish before termination.
 
 ## 2.54.1 (2026-09-07)
 
