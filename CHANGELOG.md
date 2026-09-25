@@ -30,6 +30,12 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+### Changed
+
+- Fixed generated strings for regexes using standalone `\s` and `\S` so vertical tab is treated as whitespace and ECMAScript whitespace is fully excluded from `\S`.
+
 ## 2.55.0 (2026-09-24)
 
 ### Added
