@@ -43,6 +43,11 @@ internal class DateTimePatternTest {
     }
 
     @Test
+    fun `should reject date-time responses without an offset because OpenAPI date-time uses RFC 3339`() {
+        StringValue("2026-09-23T07:00:26") shouldNotMatch DateTimePattern
+    }
+
+    @Test
     fun `should return itself when generating a new pattern based on a row`() {
         val datePatterns = newBasedOn(Row(), Resolver()).map { it.value as DateTimePattern }.toList()
         assertThat(datePatterns.size).isEqualTo(1)
