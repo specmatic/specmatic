@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
@@ -79,6 +80,68 @@ class RegExSpecTest {
         @ParameterizedTest(name = "{0}")
         @MethodSource("io.specmatic.core.pattern.RegExSpecTest#emptyAlternativeCases")
         fun `match empty alternatives only when the original regex allows them`(case: RuntimeMatchCase) = assertRuntimeMatches(case)
+    }
+
+    @Nested
+    inner class StandaloneWhitespaceShorthand {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#generatableWhitespaceCharacters")
+        fun `generated regex accepts common Java and ECMAScript whitespace`(name: String, value: String) {
+            val automaton = RegExp(RegExSpec("\\s").toString(), 0).toAutomaton()
+            assertThat(automaton.run(value)).isTrue
+        }
+
+        @Test
+        fun `reported reproducer rejects strings where vertical tab was previously treated as non-whitespace`() {
+            val regex = "^\\s*\\S.*$"
+            val spec = RegExSpec(regex)
+            val generatedRegex = RegExp(spec.toString(), 0).toAutomaton()
+            val previouslyInvalidValues = listOf(
+                "\u000B",
+                " \t\u000B",
+                "\r\n\u000B",
+                "\u000B\u000C",
+            )
+
+            assertThat(previouslyInvalidValues).allSatisfy { value ->
+                assertThat(generatedRegex.run(value)).isFalse
+                assertThat(spec.match(StringValue(value))).isFalse
+            }
+
+            val generated = spec.generateShortestStringOrRandom(1)
+            assertThat(spec.match(StringValue(generated))).isTrue
+        }
+    }
+
+    @Nested
+    inner class StandaloneNonWhitespaceShorthand {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#ecmaWhitespaceCharacters")
+        fun `generated regex excludes every ECMAScript whitespace character`(name: String, value: String) {
+            val automaton = RegExp(RegExSpec("\\S").toString(), 0).toAutomaton()
+            assertThat(automaton.run(value)).isFalse
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["A", "0", "_", "-", "é"])
+        fun `generated regex accepts representative non-whitespace characters`(value: String) {
+            val automaton = RegExp(RegExSpec("\\S").toString(), 0).toAutomaton()
+            assertThat(automaton.run(value)).isTrue
+        }
+    }
+
+    @Nested
+    inner class EscapedShorthandCharacters {
+        @ParameterizedTest
+        @MethodSource("io.specmatic.core.pattern.RegExSpecTest#escapedShorthandLiterals")
+        fun `escaped literal backslashes remain unchanged`(regex: String, literal: String) {
+            val cleanedRegex = RegExSpec(regex).toString()
+            val automaton = RegExp(cleanedRegex, 0).toAutomaton()
+
+            assertThat(cleanedRegex).isEqualTo(regex)
+            assertThat(automaton.run(literal)).isTrue
+            assertThat(automaton.run(" ")).isFalse
+        }
     }
 
     private fun assertRuntimeMatches(case: RuntimeMatchCase) {
@@ -249,16 +312,16 @@ class RegExSpecTest {
         "^[A-Z]{5,10}\$; [A-Z]{5,10}",
         "[A-Z]{,10}; [A-Z]{0,10}",
         "$WORD_BOUNDARY[A-Z]{5,10}$WORD_BOUNDARY; [A-Z]{5,10}",
-        "A-Z\\s0-9; 'A-Z[ \t\n\u000c\r]0-9'",
+        "A-Z\\s0-9; 'A-Z[ \t\n\u000B\u000C\r]0-9'",
         "A-Z\\d0-9; A-Z[0-9]0-9",
         "A-Z\\w0-9; A-Z[a-zA-Z_0-9]0-9",
-        "a[A-Z\\s0-9]b; 'a[A-Z \t\n\u000c\r0-9]b'",
+        "a[A-Z\\s0-9]b; 'a[A-Z \t\n\u000B\u000C\r0-9]b'",
         "a[A-Z\\da-z]b; a[A-Z0-9a-z]b",
         "a[A-Z\\w0-9]b; a[A-Za-zA-Z_0-90-9]b",
-        "a[^A-Z\\s0-9]b; 'a[^A-Z \t\n\u000c\r0-9]b'",
+        "a[^A-Z\\s0-9]b; 'a[^A-Z \t\n\u000B\u000C\r0-9]b'",
         "a[^A-Z\\da-z]b; a[^A-Z0-9a-z]b",
         "a[^A-Z\\w0-9]b; a[^A-Za-zA-Z_0-90-9]b",
-        "A-Z\\S0-9; 'A-Z[^ \t\n\u000c\r]0-9'",
+        "A-Z\\S0-9; 'A-Z[^ \t\n\u000B\u000C\r\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]0-9'",
         "A-Z\\D0-9; A-Z[^0-9]0-9",
         "A-Z\\W0-9; A-Z[^a-zA-Z_0-9]0-9",
         // TODO: Revisit Complementary meta sequence expansion in an character array
@@ -334,6 +397,51 @@ class RegExSpecTest {
     }
 
     companion object {
+        @JvmStatic
+        fun generatableWhitespaceCharacters(): Stream<Arguments> = Stream.of(
+            Arguments.of("SPACE U+0020", "\u0020"),
+            Arguments.of("TAB U+0009", "\u0009"),
+            Arguments.of("LF U+000A", "\u000A"),
+            Arguments.of("VERTICAL TAB U+000B", "\u000B"),
+            Arguments.of("FORM FEED U+000C", "\u000C"),
+            Arguments.of("CR U+000D", "\u000D"),
+        )
+
+        @JvmStatic
+        fun ecmaWhitespaceCharacters(): Stream<Arguments> = Stream.of(
+            Arguments.of("TAB U+0009", "\u0009"),
+            Arguments.of("LF U+000A", "\u000A"),
+            Arguments.of("VERTICAL TAB U+000B", "\u000B"),
+            Arguments.of("FORM FEED U+000C", "\u000C"),
+            Arguments.of("CR U+000D", "\u000D"),
+            Arguments.of("SPACE U+0020", "\u0020"),
+            Arguments.of("NO-BREAK SPACE U+00A0", "\u00A0"),
+            Arguments.of("OGHAM SPACE MARK U+1680", "\u1680"),
+            Arguments.of("EN QUAD U+2000", "\u2000"),
+            Arguments.of("EM QUAD U+2001", "\u2001"),
+            Arguments.of("EN SPACE U+2002", "\u2002"),
+            Arguments.of("EM SPACE U+2003", "\u2003"),
+            Arguments.of("THREE-PER-EM SPACE U+2004", "\u2004"),
+            Arguments.of("FOUR-PER-EM SPACE U+2005", "\u2005"),
+            Arguments.of("SIX-PER-EM SPACE U+2006", "\u2006"),
+            Arguments.of("FIGURE SPACE U+2007", "\u2007"),
+            Arguments.of("PUNCTUATION SPACE U+2008", "\u2008"),
+            Arguments.of("THIN SPACE U+2009", "\u2009"),
+            Arguments.of("HAIR SPACE U+200A", "\u200A"),
+            Arguments.of("LINE SEPARATOR U+2028", "\u2028"),
+            Arguments.of("PARAGRAPH SEPARATOR U+2029", "\u2029"),
+            Arguments.of("NARROW NO-BREAK SPACE U+202F", "\u202F"),
+            Arguments.of("MEDIUM MATHEMATICAL SPACE U+205F", "\u205F"),
+            Arguments.of("IDEOGRAPHIC SPACE U+3000", "\u3000"),
+            Arguments.of("ZERO WIDTH NO-BREAK SPACE U+FEFF", "\uFEFF"),
+        )
+
+        @JvmStatic
+        fun escapedShorthandLiterals(): Stream<Arguments> = Stream.of(
+            Arguments.of("\\\\s", "\\s"),
+            Arguments.of("\\\\S", "\\S"),
+        )
+
         @JvmStatic
         fun unanchoredPatternCases(): Stream<RuntimeMatchCase> = Stream.of(
             RuntimeMatchCase(

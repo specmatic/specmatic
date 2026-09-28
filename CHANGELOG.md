@@ -32,6 +32,10 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Changed
+
+- Fixed generated strings for regexes using standalone `\s` and `\S` so vertical tab is treated as whitespace and ECMAScript whitespace is fully excluded from `\S`.
+
 ### Fixed
 
 - URL-encoded form requests now honor the OpenAPI schema's `required` list, so examples and requests may omit optional form fields.
