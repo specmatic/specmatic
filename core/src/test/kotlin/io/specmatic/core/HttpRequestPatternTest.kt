@@ -746,6 +746,7 @@ internal class HttpRequestPatternTest {
 
         assertThat(fields).containsOnlyKeys("optA")
         assertThat(fields["optA"]).isEqualTo(ExactValuePattern(StringValue("example")))
+        assertThat(fields).doesNotContainKeys("optB", "optB?")
     }
 
     @Test
