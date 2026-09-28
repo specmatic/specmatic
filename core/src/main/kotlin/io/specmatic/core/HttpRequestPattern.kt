@@ -21,6 +21,7 @@ import io.specmatic.core.pattern.REQUEST_BODY_FIELD
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.ValueDetails
+import io.specmatic.core.pattern.allOrNothingCombinationIn
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.breadCrumb
 import io.specmatic.core.pattern.isDollarMethodOrLookup
@@ -33,6 +34,7 @@ import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.pattern.patternFromValueUsing
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.returnValue
+import io.specmatic.core.pattern.returnValues
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.core.pattern.withoutOptionality
 import io.specmatic.core.substitution.SubstitutionImpl
@@ -287,7 +289,8 @@ data class HttpRequestPattern(
         val payloadResults: List<Result> = formFieldsPattern
             .filterKeys { key -> withoutOptionality(key) in httpRequest.formFields }
             .map { (key, pattern) ->
-                Triple(withoutOptionality(key), pattern, httpRequest.formFields.getValue(key))
+                val fieldName = withoutOptionality(key)
+                Triple(fieldName, pattern, httpRequest.formFields.getValue(fieldName))
             }
             .map { (key, pattern, value) ->
                 Triple(
@@ -782,13 +785,14 @@ data class HttpRequestPattern(
 
     private fun HttpRequest.generateAndUpdateFormFieldsValues(resolver: Resolver): HttpRequest {
         val formFieldsValue = attempt(breadCrumb = "FORM FIELDS") {
-            formFieldsPattern.mapValues { (key, pattern) ->
-                attempt(breadCrumb = key) {
+            formFieldsPattern.map { (key, pattern) ->
+                val fieldName = withoutOptionality(key)
+                fieldName to attempt(breadCrumb = fieldName) {
                     resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
                         cyclePreventedResolver.generate(pattern)
                     }.toString()
                 }
-            }
+            }.toMap()
         }
         if(formFieldsValue.isEmpty()) return this
         return this.copy(
@@ -886,7 +890,20 @@ data class HttpRequestPattern(
             }
 
             val newFormFieldsPatterns: Sequence<ReturnValue<Map<String, Pattern>>> = returnValue(breadCrumb = "FORM-FIELDS") {
-                newMapBasedOn(formFieldsPattern, row, resolver).map { it.value }.map { HasValue(it) }
+                if (status.toString().startsWith("2")) {
+                    allOrNothingCombinationIn(formFieldsPattern, resolver.resolveRow(row)) { selectedFields ->
+                        newMapBasedOn(selectedFields, row, resolver)
+                    }.map { result ->
+                        result.ifValue { fields -> fields.mapKeys { (key, _) -> withoutOptionality(key) } }
+                    }
+                } else {
+                    readFrom(
+                        formFieldsPattern,
+                        row,
+                        resolver,
+                        shouldGenerateMandatoryEntryIfMissing(resolver, status)
+                    ).map { HasValue(it) }
+                }
             }
             val newFormDataPartLists: Sequence<ReturnValue<List<MultiPartFormDataPattern>>> = returnValue(breadCrumb = "FORM-DATA") {
                 newMultiPartBasedOn(multiPartFormDataPattern, row, resolver).map { HasValue(it) }
@@ -986,7 +1003,15 @@ data class HttpRequestPattern(
                 }
             }
             val newHeadersPattern = headersPattern.newBasedOn(resolver)
-            val newFormFieldsPatterns = newBasedOn(formFieldsPattern, resolver)
+            val newFormFieldsPatterns = allOrNothingCombinationIn(
+                formFieldsPattern,
+                Row(),
+                null,
+                null,
+                returnValues { selectedFields: Map<String, Pattern> -> newBasedOn(selectedFields, resolver) }
+            ).map { result ->
+                result.value.mapKeys { (key, _) -> withoutOptionality(key) }
+            }
             //TODO: Backward Compatibility
             val newFormDataPartLists = newMultiPartBasedOn(multiPartFormDataPattern, Row(), resolver)
 

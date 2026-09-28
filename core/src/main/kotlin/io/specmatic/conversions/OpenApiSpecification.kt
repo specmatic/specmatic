@@ -2726,9 +2726,11 @@ class OpenApiSpecification(
 
     private fun toFormFields(mediaType: MediaType, collectorContext: CollectorContext): Map<String, Pattern> {
         val resolvedSchema = resolveSchemaIfRef(mediaType.schema, collectorContext = collectorContext)
+        val requiredFields = resolvedSchema.resolvedSchema.required.orEmpty().toSet()
         return resolvedSchema.resolvedSchema.properties.orEmpty().map { (formFieldName, formFieldValue) ->
             val formFieldContext = resolvedSchema.collectorContext.at("properties").at(formFieldName)
-            formFieldName to toSpecmaticPattern(
+            val fieldNameWithPresence = if (formFieldName in requiredFields) formFieldName else withOptionality(formFieldName)
+            fieldNameWithPresence to toSpecmaticPattern(
                 schema = formFieldValue, typeStack = emptyList(),
                 jsonInFormData = isJsonInString(mediaType, formFieldName),
                 collectorContext = formFieldContext
