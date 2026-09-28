@@ -175,8 +175,10 @@ internal class FormUrlEncodedExampleTest {
     }
 
     private fun assertContractTestUsesFormFields(feature: Feature) {
+        var executedRequests = 0
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
+                executedRequests++
                 assertThat(request).isEqualTo(
                     HttpRequest(
                         method = "POST",
@@ -195,6 +197,7 @@ internal class FormUrlEncodedExampleTest {
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(executedRequests).isEqualTo(1)
     }
 
     private fun inlineFeature(): Feature {

@@ -38,7 +38,7 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Fixed
 
-- URL-encoded form requests now honor the OpenAPI schema's `required` list, so examples and requests may omit optional form fields.
+- URL-encoded form requests now honor the OpenAPI schema's `required` list, so examples and requests may omit optional form fields. Generated contract tests cover both all-fields and minimal-fields requests.
 
 ## 2.55.0 (2026-09-24)
 

@@ -683,6 +683,57 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
+    fun `positive form patterns contain all or only required fields`() {
+        val pattern = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf(
+                "cmd" to StringPattern(),
+                "optA?" to StringPattern(),
+                "optB?" to StringPattern()
+            )
+        )
+
+        val fieldSets = pattern.newBasedOn(Row(), Resolver(), 200)
+            .map { it.value.formFieldsPattern.keys }.toList()
+
+        assertThat(fieldSets).containsExactlyInAnyOrder(
+            setOf("cmd", "optA", "optB"),
+            setOf("cmd")
+        )
+    }
+
+    @Test
+    fun `form patterns without a row contain all or only required fields`() {
+        val pattern = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf("cmd" to StringPattern(), "optA?" to StringPattern(), "optB?" to StringPattern())
+        )
+
+        val fieldSets = pattern.newBasedOn(Resolver()).map { it.formFieldsPattern.keys }.toList()
+
+        assertThat(fieldSets).containsExactlyInAnyOrder(
+            setOf("cmd", "optA", "optB"),
+            setOf("cmd")
+        )
+    }
+
+    @Test
+    fun `non-success form pattern generation keeps its existing field set`() {
+        val pattern = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf("cmd" to StringPattern(), "optA?" to StringPattern(), "optB?" to StringPattern())
+        )
+
+        val fieldSets = pattern.newBasedOn(Row(), Resolver(), 400)
+            .map { it.value.formFieldsPattern.keys }.toList()
+
+        assertThat(fieldSets).containsExactly(setOf("cmd", "optA?", "optB?"))
+    }
+
+    @Test
     fun `missing required form fields are reported as missing properties`() {
         val request = HttpRequest(
             method = "POST",

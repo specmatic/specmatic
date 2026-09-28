@@ -5766,6 +5766,105 @@ paths:
     }
 
     @Test
+    fun `generated form tests include all and required only fields without examples`() {
+        val feature = formFieldsGenerationFeature()
+        val requests = mutableListOf<Map<String, String>>()
+
+        val results = feature.generateContractTests().toList().map { test ->
+            test.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    requests.add(request.formFields)
+                    return HttpResponse(200, "ok", mapOf(CONTENT_TYPE to "text/plain"))
+                }
+            }).result
+        }
+
+        assertThat(results).hasSize(2).allSatisfy { assertThat(it).isInstanceOf(Result.Success::class.java) }
+        assertThat(requests.map { it.keys }).containsExactlyInAnyOrder(
+            setOf("cmd", "optA", "optB"),
+            setOf("cmd")
+        )
+    }
+
+    @Test
+    fun `generated form tests retain example values in all and minimal field sets`() {
+        val feature = formFieldsGenerationFeature(mapOf("cmd" to "run", "optA" to "example-a"))
+        val requests = mutableListOf<Map<String, String>>()
+
+        val results = feature.generateContractTests().toList().map { test ->
+            test.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    requests.add(request.formFields)
+                    return HttpResponse(200, "ok", mapOf(CONTENT_TYPE to "text/plain"))
+                }
+            }).result
+        }
+
+        assertThat(results).hasSize(2).allSatisfy { assertThat(it).isInstanceOf(Result.Success::class.java) }
+        assertThat(requests.map { it.keys }).containsExactlyInAnyOrder(
+            setOf("cmd", "optA", "optB"),
+            setOf("cmd", "optA")
+        )
+        assertThat(requests).allSatisfy { request ->
+            assertThat(request).containsEntry("cmd", "run").containsEntry("optA", "example-a")
+        }
+        assertThat(requests.single { "optB" in it }).containsKey("optB")
+    }
+
+    @Test
+    fun `generated form test with all example fields has no duplicate`() {
+        val exampleFields = mapOf("cmd" to "run", "optA" to "example-a", "optB" to "example-b")
+        val feature = formFieldsGenerationFeature(exampleFields)
+        val requests = mutableListOf<Map<String, String>>()
+
+        val results = feature.generateContractTests().toList().map { test ->
+            test.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    requests.add(request.formFields)
+                    return HttpResponse(200, "ok", mapOf(CONTENT_TYPE to "text/plain"))
+                }
+            }).result
+        }
+
+        assertThat(results).hasSize(1).allSatisfy { assertThat(it).isInstanceOf(Result.Success::class.java) }
+        assertThat(requests).containsExactly(exampleFields)
+    }
+
+    private fun formFieldsGenerationFeature(exampleFields: Map<String, String>? = null): Feature {
+        val requestExamples = exampleFields?.entries?.joinToString(", ") { (name, value) -> "$name: '$value'" }
+            ?.let { "examples: {sample: {value: {$it}}}" }.orEmpty()
+        val responseExamples = if (exampleFields == null) "" else "examples: {sample: {value: ok}}"
+        val contract = """
+            openapi: 3.0.3
+            info: {title: Optional form fields, version: '1'}
+            paths:
+              /form:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/x-www-form-urlencoded:
+                        schema:
+                          type: object
+                          required: [cmd]
+                          properties:
+                            cmd: {type: string}
+                            optA: {type: string}
+                            optB: {type: string}
+                        $requestExamples
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          schema: {type: string}
+                          $responseExamples
+        """.trimIndent()
+
+        return OpenApiSpecification.fromYAML(contract, "").toFeature()
+    }
+
+    @Test
     fun `should generate tests for multipart fields with examples`() {
         val contractString = """
                 openapi: 3.0.3

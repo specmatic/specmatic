@@ -1401,6 +1401,7 @@ Background:
     @Test
     fun `should generate tests with json in form data`() {
         val flags = mutableMapOf<String, Int>().withDefault { 0 }
+        val generatedFieldSets = mutableMapOf<String, MutableList<Set<String>>>()
 
         val feature = parseGherkinStringToFeature(
             """
@@ -1416,6 +1417,7 @@ Background:
                 override fun execute(request: HttpRequest): HttpResponse {
                     val flagKey = "${request.path} ${request.method} executed"
                     flags[flagKey] = flags.getValue(flagKey) + 1
+                    generatedFieldSets.getOrPut(flagKey) { mutableListOf() }.add(request.formFields.keys)
                     val headers: HashMap<String, String> = object : HashMap<String, String>() {
                         init {
                             put("Content-Type", "application/json")
@@ -1425,7 +1427,7 @@ Background:
                         "/services/jsonAndNonJsonPayload" -> {
                             if (request.method == "POST" &&
                                 request.headers["Content-Type"] == "application/x-www-form-urlencoded" &&
-                                readPayloadFormField(request)["text"] != null
+                                (request.formFields.isEmpty() || readPayloadFormField(request)["text"] != null)
                             ) HttpResponse(
                                 200,
                                 "",
@@ -1437,7 +1439,7 @@ Background:
                         "/services/nonJsonPayloadOnly" -> {
                             if (request.method == "POST" &&
                                 request.headers["Content-Type"] == "application/x-www-form-urlencoded" &&
-                                request.formFields["nonJsonPayload"] != null
+                                (request.formFields.isEmpty() || request.formFields["nonJsonPayload"] != null)
                             ) HttpResponse(
                                 200,
                                 "",
@@ -1455,8 +1457,12 @@ Background:
             }
         )
 
-        assertThat(flags["/services/jsonAndNonJsonPayload POST executed"]).isEqualTo(1)
-        assertThat(flags["/services/nonJsonPayloadOnly POST executed"]).isEqualTo(1)
+        assertThat(flags["/services/jsonAndNonJsonPayload POST executed"]).isEqualTo(2)
+        assertThat(flags["/services/nonJsonPayloadOnly POST executed"]).isEqualTo(2)
+        assertThat(generatedFieldSets["/services/jsonAndNonJsonPayload POST executed"])
+            .containsExactlyInAnyOrder(setOf("payload", "nonJsonPayload"), emptySet())
+        assertThat(generatedFieldSets["/services/nonJsonPayloadOnly POST executed"])
+            .containsExactlyInAnyOrder(setOf("nonJsonPayload"), emptySet())
         assertThat(results.success()).isTrue
     }
 
