@@ -783,13 +783,14 @@ data class HttpRequestPattern(
 
     private fun HttpRequest.generateAndUpdateFormFieldsValues(resolver: Resolver): HttpRequest {
         val formFieldsValue = attempt(breadCrumb = "FORM FIELDS") {
-            formFieldsPattern.mapValues { (key, pattern) ->
-                attempt(breadCrumb = key) {
+            formFieldsPattern.map { (key, pattern) ->
+                val fieldName = withoutOptionality(key)
+                fieldName to attempt(breadCrumb = fieldName) {
                     resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
                         cyclePreventedResolver.generate(pattern)
                     }.toString()
                 }
-            }
+            }.toMap()
         }
         if(formFieldsValue.isEmpty()) return this
         return this.copy(
