@@ -671,6 +671,18 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
+    fun `supplied optional form field is matched by its name`() {
+        val request = HttpRequest(method = "POST", path = "/", formFields = mapOf("hello" to "10", "world" to "20"))
+        val pattern = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf("hello" to NumberPattern(), "world?" to NumberPattern())
+        )
+
+        assertThat(pattern.matches(request, Resolver())).isInstanceOf(Success::class.java)
+    }
+
+    @Test
     fun `missing required form fields are reported as missing properties`() {
         val request = HttpRequest(
             method = "POST",

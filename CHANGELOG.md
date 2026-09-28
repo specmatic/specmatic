@@ -30,6 +30,12 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+### Fixed
+
+- URL-encoded form requests now honor the OpenAPI schema's `required` list, so examples and requests may omit optional form fields.
+
 ## 2.55.0 (2026-09-24)
 
 ### Added

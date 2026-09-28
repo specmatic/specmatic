@@ -287,7 +287,8 @@ data class HttpRequestPattern(
         val payloadResults: List<Result> = formFieldsPattern
             .filterKeys { key -> withoutOptionality(key) in httpRequest.formFields }
             .map { (key, pattern) ->
-                Triple(withoutOptionality(key), pattern, httpRequest.formFields.getValue(key))
+                val fieldName = withoutOptionality(key)
+                Triple(fieldName, pattern, httpRequest.formFields.getValue(fieldName))
             }
             .map { (key, pattern, value) ->
                 Triple(

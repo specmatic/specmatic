@@ -12,6 +12,7 @@ import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.ServerSocket
 
@@ -98,6 +99,61 @@ internal class FormUrlEncodedExampleTest {
     }
 
     @Test
+    fun `external form example may omit optional fields`(@TempDir tempDir: File) {
+        val result = validateMixedFormExample(tempDir, """"form-fields": {"cmd": "x"}""")
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `external form example may supply one optional field`(@TempDir tempDir: File) {
+        val result = validateMixedFormExample(tempDir, """"form-fields": {"cmd": "x", "optA": "value"}""")
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `external form example validates a supplied optional field`(@TempDir tempDir: File) {
+        val result = validateMixedFormExample(
+            tempDir,
+            """"form-fields": {"cmd": "x", "optA": "not-a-number"}""",
+            optionalFieldType = "integer"
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("REQUEST.FORM-FIELDS.optA")
+        assertThat(result.reportString()).doesNotContain("REQUEST.FORM-FIELDS.optB")
+    }
+
+    @Test
+    fun `external form example still requires the required field`(@TempDir tempDir: File) {
+        val result = validateMixedFormExample(tempDir, """"form-fields": {"optA": "value"}""")
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("R2001: Missing required property", "REQUEST.FORM-FIELDS.cmd")
+        assertThat(result.reportString()).doesNotContain("REQUEST.FORM-FIELDS.optB")
+    }
+
+    @Test
+    fun `external form example still rejects unknown fields`(@TempDir tempDir: File) {
+        val result = validateMixedFormExample(tempDir, """"form-fields": {"cmd": "x", "foo": "value"}""")
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("R2003: Unknown property", "REQUEST.FORM-FIELDS.foo")
+    }
+
+    @Test
+    fun `external multipart example may omit optional parts`(@TempDir tempDir: File) {
+        val result = validateMixedFormExample(
+            tempDir,
+            """"multipart-formdata": [{"name": "cmd", "content": "x"}]""",
+            multipart = true
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `form fields are serialized when generic body is NoBodyValue`() {
         val builder = HttpRequestBuilder().apply {
             url("http://localhost/token")
@@ -176,6 +232,50 @@ internal class FormUrlEncodedExampleTest {
 
     private fun randomFreePort(): Int {
         return ServerSocket(0).use { it.localPort }
+    }
+
+    private fun validateMixedFormExample(
+        tempDir: File,
+        requestFields: String,
+        optionalFieldType: String = "string",
+        multipart: Boolean = false
+    ): Result {
+        val contentType = if (multipart) "multipart/form-data" else FORM_URLENCODED
+        val specFile = File(tempDir, "spec.yaml").apply {
+            writeText("""
+                openapi: 3.0.3
+                info: {title: Form fields, version: '1'}
+                paths:
+                  /form:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          $contentType:
+                            schema: {${'$'}ref: '#/components/schemas/Req'}
+                      responses:
+                        '200': {description: ok, content: {application/json: {schema: {type: object, required: [ok], properties: {ok: {type: boolean}}}}}}
+                components:
+                  schemas:
+                    Req:
+                      type: object
+                      required: [cmd]
+                      properties:
+                        cmd: {type: string}
+                        optA: {type: $optionalFieldType}
+                        optB: {type: string}
+            """.trimIndent())
+        }
+        val exampleFile = File(tempDir, "example.json").apply {
+            writeText("""
+                {
+                  "http-request": {"method": "POST", "path": "/form", $requestFields},
+                  "http-response": {"status": 200, "body": {"ok": true}}
+                }
+            """.trimIndent())
+        }
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        return exampleValidationModule.validateExample(feature, exampleFile)
     }
 
     private companion object {
