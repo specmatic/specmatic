@@ -720,7 +720,7 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
-    fun `non-success form pattern generation keeps its existing field set`() {
+    fun `400 form pattern generation omits fields missing from the row`() {
         val pattern = HttpRequestPattern(
             method = "POST",
             httpPathPattern = HttpPathPattern.from("/"),
@@ -730,7 +730,35 @@ internal class HttpRequestPatternTest {
         val fieldSets = pattern.newBasedOn(Row(), Resolver(), 400)
             .map { it.value.formFieldsPattern.keys }.toList()
 
-        assertThat(fieldSets).containsExactly(setOf("cmd", "optA?", "optB?"))
+        assertThat(fieldSets).containsExactly(emptySet())
+    }
+
+    @Test
+    fun `non-success form pattern generation reads supplied fields without optional markers`() {
+        val pattern = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf("cmd" to StringPattern(), "optA?" to StringPattern(), "optB?" to StringPattern())
+        )
+
+        val fields = pattern.newBasedOn(Row(mapOf("optA" to "example")), Resolver(), 400)
+            .single().value.formFieldsPattern
+
+        assertThat(fields).containsOnlyKeys("optA")
+        assertThat(fields["optA"]).isEqualTo(ExactValuePattern(StringValue("example")))
+    }
+
+    @Test
+    fun `500 form pattern generation includes only required fields missing from the row`() {
+        val pattern = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf("cmd" to StringPattern(), "optA?" to StringPattern())
+        )
+
+        val fields = pattern.newBasedOn(Row(), Resolver(), 500).single().value.formFieldsPattern
+
+        assertThat(fields).containsOnlyKeys("cmd")
     }
 
     @Test

@@ -897,7 +897,12 @@ data class HttpRequestPattern(
                         result.ifValue { fields -> fields.mapKeys { (key, _) -> withoutOptionality(key) } }
                     }
                 } else {
-                    newMapBasedOn(formFieldsPattern, row, resolver).map { it.value }.map { HasValue(it) }
+                    readFrom(
+                        formFieldsPattern,
+                        row,
+                        resolver,
+                        shouldGenerateMandatoryEntryIfMissing(resolver, status)
+                    ).map { HasValue(it) }
                 }
             }
             val newFormDataPartLists: Sequence<ReturnValue<List<MultiPartFormDataPattern>>> = returnValue(breadCrumb = "FORM-DATA") {
