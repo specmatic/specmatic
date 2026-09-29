@@ -30,15 +30,13 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased
+## 2.55.1 (2026-09-29)
 
 ### Changed
 
 - Fixed generated strings for regexes using standalone `\s` and `\S` so vertical tab is treated as whitespace and ECMAScript whitespace is fully excluded from `\S`.
-
-### Fixed
-
 - URL-encoded form requests now honor the OpenAPI schema's `required` list, so examples and requests may omit optional form fields. Generated contract tests cover both all-fields and minimal-fields requests.
+- RFC 3339 date-time validation now requires a complete timestamp with a timezone offset and rejects invalid calendar dates, times, and offsets while accepting valid RFC 3339 forms.
 
 ## 2.55.0 (2026-09-24)
 
