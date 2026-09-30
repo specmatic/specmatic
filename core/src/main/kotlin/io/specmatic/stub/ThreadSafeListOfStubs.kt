@@ -75,9 +75,9 @@ class ThreadSafeListOfStubs(
         val queueMatchResults: List<Pair<Result, HttpStubData>> = matchResults { stubs ->
             stubs.filter {
                 hasExpectedResponseCode(it, expectedResponseCode)
-            }.map {
+            }.filter { it.partial == null }.map {
                 Pair(it.matches(httpRequest), it)
-            }
+            }.plus(partialMatchResults(stubs, httpRequest))
         }
 
         val preferredMatch = queueMatchResults.findLast { (result, stubData) ->
