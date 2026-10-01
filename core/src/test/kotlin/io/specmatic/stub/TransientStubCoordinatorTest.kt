@@ -384,6 +384,7 @@ class TransientStubCoordinatorTest {
         init {
             every { stub.matchesRequestPattern(any()) } returns Result.Success()
             every { stub.responsePattern } returns HttpResponsePattern(HttpResponse.OK)
+            every { stub.partial } returns null
             every { stub.hasCompleteAuthoredSecurityRequirement() } returns false
             every { stub.matches(any()) } answers {
                 synchronized(stateLock) {

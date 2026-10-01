@@ -103,6 +103,12 @@ data class HttpStubData(
         }
     }
 
+    internal fun withServedPartialResponse(): HttpStubData {
+        val partialResponse = partial?.response ?: return this
+        if (response.status != 0) return this
+        return withResponse(responsePattern.fillInTheBlanks(partialResponse, resolver))
+    }
+
     internal fun matchesRequestPattern(httpRequest: HttpRequest): Result {
         return matchExample(httpRequest)
     }

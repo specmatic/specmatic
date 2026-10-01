@@ -30,6 +30,12 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+### Changed
+
+- Partial transient mock examples now match only the fields they specify and return the example response once. A request that does not match those fields no longer consumes the example or receives HTTP status 0.
+
 ## 2.55.1 (2026-09-29)
 
 ### Changed

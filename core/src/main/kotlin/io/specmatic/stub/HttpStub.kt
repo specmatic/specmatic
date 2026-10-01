@@ -1494,8 +1494,9 @@ private fun stubbedResponse(
     httpRequest: HttpRequest
 ): Pair<List<Pair<Result, HttpStubData>>, FoundStubbedResponse?> {
     val (stubbedResponse, matchResults) = httpExpectations.withMatchingStub(httpRequest) { stubData ->
+        val stubDataToServe = stubData.withServedPartialResponse()
         val httpStubResponse = HttpStubResponse(
-            response = stubData.softCastResponseToXML(httpRequest).response,
+            response = stubDataToServe.softCastResponseToXML(httpRequest).response,
             delayInMilliSeconds = stubData.delayInMilliseconds,
             contractPath = stubData.contractPath,
             exampleName = stubData.name,
