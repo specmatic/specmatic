@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.ktor.util.toUpperCasePreservingASCIIRules
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
@@ -17,7 +18,9 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.ContractPathData
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.ScalarValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.TestResult
@@ -360,6 +363,295 @@ internal class TransientHttpStubE2ETest {
 
         private fun resourceFile(path: String): File {
             return File(requireNotNull(javaClass.classLoader.getResource(path)).toURI())
+        }
+    }
+
+    @Nested
+    inner class PartialAndSubstitutionExamples {
+        @Test
+        fun `should be able to respond with transient partial examples`() {
+            val feature = OpenApiSpecification.fromYAML(
+                yamlContent = """
+                openapi: 3.0.0
+                info:
+                  title: Transient API
+                  version: 1.0.0
+                paths:
+                  /data:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              properties:
+                                data:
+                                  type: string
+                      responses:
+                        '200':
+                          description: Data
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                properties:
+                                  data:
+                                    type: string
+                """.trimIndent(),
+                openApiFilePath = "transient-api.yaml"
+            ).toFeature()
+
+            val examples = buildList {
+                val transientExampleFirst = """
+                {
+                    "transient": true,
+                    "partial": {
+                        "http-response": {"status": 200, "body": {"data": "first"}},
+                        "http-request": {"method": "POST", "path": "/data", "body": {}}
+                    }
+                }
+                """.trimIndent()
+
+                val transientExampleSecond = """
+                {
+                    "transient": true,
+                    "partial": {
+                        "http-response": {"status": 200, "body": {"data": "second"}},
+                        "http-request": {"method": "POST", "path": "/data", "body": {}}
+                    }
+                }
+                """.trimIndent()
+
+                val persistentExample = """
+                {
+                    "partial": {
+                        "http-response": {"status": 200, "body": {"data": "third"}},
+                        "http-request": {"method": "POST", "path": "/data", "body": {}}
+                    }
+                }
+                """.trimIndent()
+
+                add(ScenarioStub.parse(transientExampleFirst))
+                add(ScenarioStub.parse(transientExampleSecond))
+                add(ScenarioStub.parse(persistentExample))
+            }
+
+            val request = HttpRequest(
+                path = "/data",
+                method = "POST",
+                headers = mapOf("Content-Type" to "application/json"),
+                body = JSONObjectValue(mapOf("data" to StringValue("test"))),
+            )
+
+            val (transientFirst, transientSecond, persistent) = examples
+            HttpStub(feature = feature, port = freePort(), scenarioStubs = examples).use { stub ->
+                val firstResponse = stub.client.execute(request)
+                assertThat(firstResponse.status).isEqualTo(200)
+                assertThat(firstResponse.body)
+                    .isEqualTo(transientFirst.responseElsePartialResponse().body)
+
+                val secondResponse = stub.client.execute(request)
+                assertThat(secondResponse.status).isEqualTo(200)
+                assertThat(secondResponse.body)
+                    .isEqualTo(transientSecond.responseElsePartialResponse().body)
+
+                val thirdResponse = stub.client.execute(request)
+                assertThat(thirdResponse.status).isEqualTo(200)
+                assertThat(thirdResponse.body)
+                    .isEqualTo(persistent.responseElsePartialResponse().body)
+            }
+        }
+
+        @Test
+        fun `should be able to respond with transient substitution examples`() {
+            val feature = OpenApiSpecification.fromYAML(
+                yamlContent = """
+                openapi: 3.0.0
+                info:
+                  title: Transient API
+                  version: 1.0.0
+                paths:
+                  /data:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              properties:
+                                data:
+                                  type: string
+                      responses:
+                        '200':
+                          description: Data
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                properties:
+                                  data:
+                                    type: string
+                """.trimIndent(),
+                openApiFilePath = "transient-api.yaml"
+            ).toFeature()
+
+            val examples = buildList {
+                val directSubstitution = """
+                {
+                    "transient": true,
+                    "http-response": {"status": 200, "body": {"data": "$(DATA)"}},
+                    "http-request": {"method": "POST", "path": "/data", "body": {"data": "(DATA:string)"}}
+                }
+                """.trimIndent()
+
+                val dataLookupFirst = """
+                {
+                    "transient": true,
+                    "data": {"lookups": {"first": {"value": "FIRST"}, "*": {"value": "INVALID"}}},
+                    "http-response": {"status": 200, "body": {"data": "$(data.lookups[KEY].value)"}},
+                    "http-request": {"method": "POST", "path": "/data", "body": {"data": "(KEY:string)"}}
+                }
+                """.trimIndent()
+
+                val dataLookupSecond = """
+                {
+                    "transient": true,
+                    "data": {"lookups": {"*": {"value": "INVALID"}, "second": {"value": "SECOND"}}},
+                    "http-response": {"status": 200, "body": {"data": "$(data.lookups[KEY].value)"}},
+                    "http-request": {"method": "POST", "path": "/data", "body": {"data": "(KEY:string)"}}
+                }
+                """.trimIndent()
+
+                val fallback = """
+                {
+                    "data": {"lookups": {"*": {"value": "INVALID"}}},
+                    "http-response": {"status": 200, "body": {"data": "$(data.lookups[KEY].value)"}},
+                    "http-request": {"method": "POST", "path": "/data", "body": {"data": "(KEY:string)"}}
+                }
+                """.trimIndent()
+
+                add(ScenarioStub.parse(directSubstitution))
+                add(ScenarioStub.parse(dataLookupFirst))
+                add(ScenarioStub.parse(dataLookupSecond))
+                add(ScenarioStub.parse(fallback))
+            }
+
+            val makeRequest: (String) -> HttpRequest = { key ->
+                HttpRequest(
+                    path = "/data",
+                    method = "POST",
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = JSONObjectValue(mapOf("data" to StringValue(key))),
+                )
+            }
+
+            val extractResponse: (HttpResponse) -> String = { response ->
+                val body = response.body as JSONObjectValue
+                body.jsonObject.getValue("data").toStringLiteral()
+            }
+
+            HttpStub(feature = feature, port = freePort(), scenarioStubs = examples).use { stub ->
+                val directResponse = stub.client.execute(makeRequest("direct"))
+                assertThat(directResponse.status).isEqualTo(200)
+                assertThat(extractResponse(directResponse)).isEqualTo("direct")
+
+                assertThat(listOf("first", "second")).allSatisfy { value ->
+                    val response = stub.client.execute(makeRequest(value))
+                    assertThat(response.status).isEqualTo(200)
+                    assertThat(extractResponse(response)).isEqualTo(value.toUpperCasePreservingASCIIRules())
+                }
+
+                assertThat(listOf("direct", "first", "second")).allSatisfy { value ->
+                    val fallbackResponse = stub.client.execute(makeRequest(value))
+                    assertThat(fallbackResponse.status).isEqualTo(200)
+                    assertThat(extractResponse(fallbackResponse)).isEqualTo("INVALID")
+                }
+            }
+        }
+
+        @Test
+        fun `should be able to respond with transient partial substitution examples`() {
+            val feature = OpenApiSpecification.fromYAML(
+                yamlContent = """
+                openapi: 3.0.0
+                info:
+                  title: Transient API
+                  version: 1.0.0
+                paths:
+                  /data:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              properties:
+                                data:
+                                  type: string
+                      responses:
+                        '200':
+                          description: Data
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                properties:
+                                  data:
+                                    type: string
+                """.trimIndent(),
+                openApiFilePath = "transient-api.yaml"
+            ).toFeature()
+
+            val examples = buildList {
+                val transientExample = """
+                {
+                    "transient": true,
+                    "partial": {
+                        "http-response": {"status": 200, "body": {"data": "$(DATA)"}},
+                        "http-request": {"method": "POST", "path": "/data", "body": {"data": "(DATA:string)"}}
+                    }
+                }
+                """.trimIndent()
+
+                val persistentExample = """
+                {
+                    "transient": true,
+                    "data": {"lookups": {"*": {"value": "INVALID"}}},
+                    "partial": {
+                        "http-response": {"status": 200, "body": {"data": "$(data.lookups[KEY].value)"}},
+                        "http-request": {"method": "POST", "path": "/data", "body": {"data": "(KEY:string)"}}
+                    }
+                }
+                """.trimIndent()
+
+                add(ScenarioStub.parse(transientExample))
+                add(ScenarioStub.parse(persistentExample))
+            }
+
+            val request = HttpRequest(
+                path = "/data",
+                method = "POST",
+                headers = mapOf("Content-Type" to "application/json"),
+                body = JSONObjectValue(mapOf("data" to StringValue("test"))),
+            )
+
+            val extractResponse: (HttpResponse) -> String = { response ->
+                val body = response.body as JSONObjectValue
+                body.jsonObject.getValue("data").toStringLiteral()
+            }
+
+            HttpStub(feature = feature, port = freePort(), scenarioStubs = examples).use { stub ->
+                val transientResponse = stub.client.execute(request)
+                assertThat(transientResponse.status).isEqualTo(200)
+                assertThat(extractResponse(transientResponse)).isEqualTo("test")
+
+                val persistentResponse = stub.client.execute(request)
+                assertThat(persistentResponse.status).isEqualTo(200)
+                assertThat(extractResponse(persistentResponse)).isEqualTo("INVALID")
+            }
         }
     }
 

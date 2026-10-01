@@ -53,6 +53,10 @@ data class HttpStubData(
     private var stubMatcher: Lazy<HttpStubMatcher?> = lazy { HttpStubMatcherFactory.load()?.create(this) }
     private val defaultMismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages(name)
 
+    fun resolveFinalResponse(): HttpResponse {
+        return partial?.response ?: response
+    }
+
     fun resolveOriginalRequest(): HttpRequest? {
         return partial?.request ?: originalRequest
     }

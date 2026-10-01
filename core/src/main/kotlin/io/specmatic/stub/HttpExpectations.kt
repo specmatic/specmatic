@@ -37,7 +37,7 @@ class HttpExpectations private constructor (
             httpRequest = httpRequest,
             initialCandidateView = transient,
         ) { stubData ->
-            val result = onMatch(stubData)
+            val result = onMatch(stubData.withResponse(stubData.resolveFinalResponse()))
             utilizeMock(stubData)
             result
         }

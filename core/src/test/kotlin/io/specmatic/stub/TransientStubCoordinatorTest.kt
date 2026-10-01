@@ -315,7 +315,7 @@ class TransientStubCoordinatorTest {
             }
 
             assertThat(selections.filterNotNull()).hasSize(1)
-            assertThat(selections.filterNotNull().single()).isSameAs(stub)
+            assertThat(selections.filterNotNull().single()).isEqualTo(stub)
             assertThat(expectations.transientStubCount).isZero
         }
 
@@ -323,18 +323,15 @@ class TransientStubCoordinatorTest {
         fun `removing a selected equal registration removes that registration by identity`() {
             val first = transientStub()
             val second = first.copy()
-            val expectations = HttpExpectations(
-                static = mutableListOf(),
-                transient = mutableListOf(first, second),
-            )
 
-            val selected = expectations.withMatchingStub(httpRequest = request, onMatch = { it }).first
-            assertThat(selected).isSameAs(second)
-            assertThat(expectations.transientStubCount).isEqualTo(1)
+            val registrations = mutableListOf(first, second)
+            val expectations = HttpExpectations(static = mutableListOf(), transient = registrations)
 
-            val nextSelected = expectations.withMatchingStub(request, onMatch = { it }).first
-            assertThat(nextSelected).isSameAs(first)
-            assertThat(expectations.transientStubCount).isZero()
+            expectations.withMatchingStub(request) { it }
+            assertThat(registrations).singleElement().isSameAs(first)
+
+            expectations.withMatchingStub(request) { it }
+            assertThat(registrations).isEmpty()
         }
 
         @Test
@@ -345,10 +342,10 @@ class TransientStubCoordinatorTest {
                 transient = mutableListOf(stub, stub),
             )
 
-            assertThat(expectations.withMatchingStub(request) { it }.first).isSameAs(stub)
+            assertThat(expectations.withMatchingStub(request) { it }.first).isEqualTo(stub)
             assertThat(expectations.transientStubCount).isEqualTo(1)
 
-            assertThat(expectations.withMatchingStub(request) { it }.first).isSameAs(stub)
+            assertThat(expectations.withMatchingStub(request) { it }.first).isEqualTo(stub)
             assertThat(expectations.transientStubCount).isZero()
         }
     }
@@ -385,6 +382,8 @@ class TransientStubCoordinatorTest {
             every { stub.matchesRequestPattern(any()) } returns Result.Success()
             every { stub.responsePattern } returns HttpResponsePattern(HttpResponse.OK)
             every { stub.hasCompleteAuthoredSecurityRequirement() } returns false
+            every { stub.resolveFinalResponse() } returns HttpResponse.OK
+            every { stub.withResponse(any()) } returns stub
             every { stub.matches(any()) } answers {
                 synchronized(stateLock) {
                     firstMatchEntered.countDown()
