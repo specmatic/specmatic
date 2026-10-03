@@ -51,7 +51,7 @@ specmatic {
             pom {
                 name = "Specmatic"
                 description =
-                    "Turn your contracts into executable specifications. Contract Driven Development - Collaboratively Design & Independently Deploy MicroServices & MicroFrontends."
+                    "Turn your contracts into executable specifications. Contract Driven Development - Collaboratively Design & Independently Deploy MicroServices & MicroFrontends. Latest version of this jar can be found at https://repo.specmatic.io/#/releases/"
                 url = "https://specmatic.io"
                 licenses {
                     license {
@@ -84,7 +84,7 @@ specmatic {
         publish {
             pom {
                 name = "SpecmaticJUnit5Support"
-                description = "Specmatic JUnit 5 Support"
+                description = "Specmatic JUnit 5 Support. Latest version of this jar can be found at https://repo.specmatic.io/#/releases/"
                 url = "https://specmatic.io"
                 licenses {
                     license {
@@ -126,7 +126,7 @@ specmatic {
         publish {
             pom {
                 name = "Specmatic Executable"
-                description = "Command-line standalone executable jar for Specmatic"
+                description = "Command-line standalone executable jar for Specmatic. Latest version of this jar can be found at https://repo.specmatic.io/#/releases/"
                 url = "https://specmatic.io"
                 licenses {
                     license {
@@ -160,7 +160,7 @@ specmatic {
             pom {
                 name = "Specmatic"
                 description =
-                    "Turn your contracts into executable specifications. Contract Driven Development - Collaboratively Design & Independently Deploy MicroServices & MicroFrontends."
+                    "Turn your contracts into executable specifications. Contract Driven Development - Collaboratively Design & Independently Deploy MicroServices & MicroFrontends. Latest version of this jar can be found at https://repo.specmatic.io/#/releases/"
                 url = "https://specmatic.io"
                 licenses {
                     license {
