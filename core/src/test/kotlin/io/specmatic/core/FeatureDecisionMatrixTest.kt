@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
@@ -356,6 +357,54 @@ class FeatureDecisionMatrixTest {
 
     @Nested
     inner class NegativeGenerationTests {
+        @Test
+        fun `status 429 filter should not generate 400 negative mutations`() {
+            val fullFeature = featureFromResourceOpenapi("feature_decision_matrix.yaml").enableGenerativeTesting()
+
+            val successScenario = firstScenario(fullFeature, 200, hasExamples = true)
+            val badRequestScenario = firstScenario(fullFeature, 400, hasExamples = true)
+            val tooManyRequestsScenario = badRequestScenario.copy(
+                httpResponsePattern = badRequestScenario.httpResponsePattern.copy(status = 429)
+            )
+
+            val originalScenarios = listOf(successScenario, badRequestScenario, tooManyRequestsScenario)
+
+            val filteredDecisions = ScenarioMetadataFilter.filterUsingDecisions(
+                originalScenarios.asSequence().map { Decision.execute(it) },
+                ScenarioMetadataFilter.from("STATUS='429'"),
+            ) { it }.toList()
+            val feature = fullFeature.copy(scenarios = filteredDecisions.mapNotNull { (it as? Decision.Execute)?.value })
+
+            val generated = feature.generateContractTestScenariosWithDecision(
+                originalScenarios = originalScenarios,
+                scenarios = filteredDecisions.asSequence()
+            ).toList()
+
+            assertThat(filteredDecisions.filterIsInstance<Decision.Execute<Scenario, Scenario>>().map { it.value.status })
+                .containsExactly(429)
+            assertThat(generated.filterIsInstance<Decision.Execute<ReturnValue<Scenario>, Scenario>>().map { it.context.status }.distinct())
+                .containsExactly(429)
+        }
+
+        @Test
+        fun `status 400 filter should retain negative mutations from excluded 200`() {
+            val fullFeature = featureFromResourceOpenapi("feature_decision_matrix.yaml").enableGenerativeTesting()
+            val successScenario = firstScenario(fullFeature, 200, hasExamples = true)
+            val badRequestScenario = firstScenario(fullFeature, 400, hasExamples = true)
+            val originalScenarios = listOf(successScenario, badRequestScenario)
+            val filteredDecisions = ScenarioMetadataFilter.filterUsingDecisions(
+                originalScenarios.asSequence().map { Decision.execute(it) },
+                ScenarioMetadataFilter.from("STATUS='400'"),
+            ) { it }
+            val feature = fullFeature.copy(scenarios = listOf(badRequestScenario))
+
+            val generated = feature.negativeTestScenariosWithDecision(filteredDecisions, originalScenarios).toList()
+
+            assertThat(generated).isNotEmpty()
+            assertThat(generated.filterIsInstance<Decision.Execute<ReturnValue<Scenario>, Scenario>>().map { it.context.status }.distinct())
+                .containsExactly(400)
+        }
+
         @Test
         fun `negative generation should only execute scenarios with explicit negative reasoning`() {
             val feature = featureFromResourceOpenapi("feature_decision_matrix.yaml")
