@@ -120,7 +120,7 @@ fun patternFromValueUsing(
 ): Pattern {
     if(value !is StringValue) return parseValueToType(value)
     if(isPatternToken(value)) return DeferredPattern(value.string)
-    if (isDollarMethodOrLookup(value)) {
+    if (isDollarMethodOrLookup(value) && !isSubstitution(value)) {
         val loadedMatcherEngine =
             matcherEngine ?: throw IllegalStateException("Matcher is not supported in Specmatic Open Source")
         return loadedMatcherEngine.patternFrom(
@@ -133,7 +133,7 @@ fun patternFromValueUsing(
 }
 
 fun generateValueFromMatcher(value: Value, resolver: Resolver, self: Pattern): ReturnValue<Value>? {
-    if (value is StringValue && isDollarMethodOrLookup(value) && !resolver.isNegative) {
+    if (value is StringValue && isDollarMethodOrLookup(value) && !isSubstitution(value) && !resolver.isNegative) {
         return runCatching {
             val generated = resolver.generate(patternFromValueUsing(self, value, resolver) { it.deepPattern() })
             self.matches(generated, resolver).toReturnValue(generated)

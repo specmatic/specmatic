@@ -13,6 +13,26 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
 internal class HttpResponsePatternTest {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = ["\$(NAME)", "\$(dataLookup.dept[DEPARTMENT].city)"])
+    fun `response expectation preserves lookups until a request is available`(lookup: String) {
+        val originalBody = JSONObjectValue(mapOf("name" to StringValue(lookup)))
+        val pattern = HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("name" to StringPattern())))
+
+        val expected = pattern.fromResponseExpectation(HttpResponse(200, body = originalBody), Resolver())
+
+        assertThat(expected.body.generate(Resolver())).isEqualTo(originalBody)
+    }
+
+    @Test
+    fun `response filling leaves substitution lookups for the substitution engine`() {
+        val lookup = StringValue("\$(NAME)")
+
+        val result = StringPattern().fillInTheBlanks(lookup, Resolver())
+
+        assertThat(result.unwrapOrContractException()).isEqualTo(lookup)
+    }
+
     @Test
     fun `it should encompass itself`() {
         val httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(mapOf("X-Optional?" to StringPattern())))
