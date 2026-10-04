@@ -46,6 +46,7 @@ data class ListPattern(
     }
 
     override fun fillInTheBlanks(value: Value, resolver: Resolver, removeExtraKeys: Boolean): ReturnValue<Value> {
+        generateValueFromMatcher(value, resolver, this)?.let { return it }
         val patternToConsider = when (val resolvedPattern = resolveToPattern(value, resolver, this)) {
             is ReturnFailure -> return resolvedPattern.cast()
             else -> (resolvedPattern.value as? ListPattern) ?: return when(resolver.isNegative) {
@@ -278,6 +279,7 @@ data class ListPattern(
     }
 
     override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (isDollarMethodOrLookup(value)) return patternFromValueUsing(this, value, resolver, parseValueToType)
         if (value !is JSONArrayValue) return parseValueToType(value)
         return JSONArrayPattern(
             value.list.map { this.pattern.patternFrom(it, resolver, parseValueToType) }

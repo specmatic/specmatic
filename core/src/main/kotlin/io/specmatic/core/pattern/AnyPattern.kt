@@ -148,6 +148,7 @@ data class AnyPattern(
     }
 
     override fun fillInTheBlanks(value: Value, resolver: Resolver, removeExtraKeys: Boolean): ReturnValue<Value> {
+        generateValueFromMatcher(value, resolver, this)?.let { return it }
         val patternToConsider = when (val resolvedPattern = resolveToPattern(value, resolver, this)) {
             is ReturnFailure -> return resolvedPattern.cast()
             else -> resolvedPattern.value
@@ -644,6 +645,7 @@ data class AnyPattern(
     }
 
     override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (isDollarMethodOrLookup(value)) return patternFromValueUsing(this, value, resolver, parseValueToType)
         val selectedPattern = selectPattern(value, resolver)
         return selectedPattern.patternFrom(value, resolver, parseValueToType)
     }
