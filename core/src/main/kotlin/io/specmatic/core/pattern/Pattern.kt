@@ -133,9 +133,10 @@ fun patternFromValueUsing(
 }
 
 fun generateValueFromMatcher(value: Value, resolver: Resolver, self: Pattern): ReturnValue<Value>? {
-    if (value is StringValue && isDollarMethodOrLookup(value) && !isSubstitution(value) && !resolver.isNegative) {
+    if (value is StringValue && isDollarMethodOrLookup(value) && !isSubstitution(value)) {
         return runCatching {
             val generated = resolver.generate(patternFromValueUsing(self, value, resolver) { it.deepPattern() })
+            if (resolver.isNegative) return@runCatching HasValue(generated)
             self.matches(generated, resolver).toReturnValue(generated)
         }.getOrElse(::HasException)
     }
