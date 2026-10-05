@@ -123,6 +123,8 @@ data class JSONObjectPattern(
     }
 
     override fun addTypeAliasesToConcretePattern(concretePattern: Pattern, resolver: Resolver, typeAlias: String?): Pattern {
+        if (concretePattern is ExactValuePattern && concretePattern.pattern is JSONObjectValue)
+            return concretePattern.copy(typeAlias = typeAlias ?: this.typeAlias)
         if (additionalProperties is AdditionalProperties.FreeForm && pattern.isEmpty()) return concretePattern
         if (concretePattern !is JSONObjectPattern) throw ContractException("Expected json object type but got ${concretePattern.typeName}")
 
@@ -141,6 +143,7 @@ data class JSONObjectPattern(
     }
 
     override fun fillInTheBlanks(value: Value, resolver: Resolver, removeExtraKeys: Boolean): ReturnValue<Value> {
+        generateValueFromMatcher(value, resolver, this)?.let { return it }
         val patternToConsider = when (val resolvedPattern = resolveToPattern(value, resolver, this)) {
             is ReturnFailure -> return resolvedPattern.cast()
             else -> (resolvedPattern.value as? JSONObjectPattern) ?: return when(resolver.isNegative) {
@@ -519,6 +522,7 @@ data class JSONObjectPattern(
     override val typeName: String = "json object"
 
     override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        if (isDollarMethodOrLookup(value)) return patternFromValueUsing(this, value, resolver, parseValueToType)
         if (value !is JSONObjectValue) return parseValueToType(value)
         return toJSONObjectPattern(
             value.jsonObject.mapValues {

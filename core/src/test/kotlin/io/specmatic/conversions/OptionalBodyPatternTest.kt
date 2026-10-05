@@ -45,6 +45,41 @@ class OptionalBodyPatternTest {
     }
 
     @Test
+    fun `fillInTheBlanks should retain NoBodyValue`() {
+        val pattern = OptionalBodyPattern.fromPattern(StringPattern())
+        val result = pattern.fillInTheBlanks(NoBodyValue, Resolver())
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat((result as HasValue).value).isSameAs(NoBodyValue)
+    }
+
+    @Test
+    fun `fillInTheBlanks should forward to the body pattern`() {
+        val pattern = OptionalBodyPattern.fromPattern(JSONObjectPattern(mapOf("id" to StringPattern())))
+        val body = JSONObjectValue(mapOf("id" to StringValue("123"),))
+
+        val result = pattern.fillInTheBlanks(body, Resolver(), removeExtraKeys = true)
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat(((result as HasValue).value as JSONObjectValue).jsonObject.keys)
+            .containsExactly("id")
+    }
+
+    @Test
+    fun `fillInTheBlanks should forward removeExtraKeys to an object body pattern`() {
+        val pattern = OptionalBodyPattern.fromPattern(JSONObjectPattern(mapOf("id" to StringPattern())))
+        val body = JSONObjectValue(
+            mapOf(
+                "id" to StringValue("123"),
+                "extra" to StringValue("remove me")
+            )
+        )
+
+        val result = pattern.fillInTheBlanks(body, Resolver(), removeExtraKeys = true)
+        assertThat(result).isInstanceOf(HasValue::class.java)
+        assertThat(((result as HasValue).value as JSONObjectValue).jsonObject.keys)
+            .containsExactly("id")
+    }
+
+    @Test
     fun `optional body error match`() {
         val body = OptionalBodyPattern.fromPattern(NumberPattern())
 
