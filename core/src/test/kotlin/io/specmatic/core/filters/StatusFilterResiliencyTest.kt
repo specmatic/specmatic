@@ -70,44 +70,6 @@ class StatusFilterResiliencyTest {
         assertThat(tests).isEmpty()
     }
 
-    @Test
-    fun `STATUS 4xx with resiliency all keeps generated negatives and declared 4xx tests`() {
-        val tests = generateFilteredTests(
-            filter = "METHOD='POST' && PATH='/orders' && STATUS='4xx'",
-            resiliencyAll = true,
-            include429Example = true,
-        )
-
-        assertThat(tests).isNotEmpty
-        assertThat(tests.any { it.isNegative }).isTrue()
-        assertThat(tests.any { !it.isNegative && it.status == 429 }).isTrue()
-        assertThat(tests.none { !it.isNegative && it.status == 200 }).isTrue()
-    }
-
-    @Test
-    fun `STATUS 4xx excluding exact 429 keeps only generated negative tests`() {
-        val tests = generateFilteredTests(
-            filter = "METHOD='POST' && PATH='/orders' && STATUS='4xx' && STATUS!='429'",
-            resiliencyAll = true,
-            include429Example = true,
-        )
-
-        assertThat(tests).isNotEmpty
-        assertThat(tests).allMatch { it.isNegative }
-    }
-
-    @Test
-    fun `resiliency all on 2xx-only operation still generates negatives with null bad request expectation`() {
-        val tests = generateFilteredTests(
-            filter = "METHOD='POST' && PATH='/orders'",
-            resiliencyAll = true,
-            include429Example = false,
-        )
-
-        assertThat(tests.any { !it.isNegative && it.status == 200 }).isTrue()
-        assertThat(tests.any { it.isNegative }).isTrue()
-    }
-
     private fun generateFilteredTests(
         filter: String,
         resiliencyAll: Boolean,

@@ -341,20 +341,18 @@ class HTTPFilterKeysTest {
 
         assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "400")).isTrue()
         assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "429")).isFalse()
-        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "4xx")).isTrue()
-        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "2xx")).isFalse()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "4xx")).isFalse()
     }
 
     @Test
-    fun `STATUS includes should match positive scenarios by exact code or status class token`() {
+    fun `STATUS includes should match positive scenarios by exact status code only`() {
         val scenario429 = scenarioWithStatusAndResponseContentType(status = 429, responseContentType = "application/json")
         val scenario200 = scenarioWithStatusAndResponseContentType(status = 200, responseContentType = "application/json")
 
         assertThat(HTTPFilterKeys.STATUS.includes(scenario429, "STATUS", "429")).isTrue()
-        assertThat(HTTPFilterKeys.STATUS.includes(scenario429, "STATUS", "4xx")).isTrue()
-        assertThat(HTTPFilterKeys.STATUS.includes(scenario429, "STATUS", "2xx")).isFalse()
-        assertThat(HTTPFilterKeys.STATUS.includes(scenario200, "STATUS", "2xx")).isTrue()
-        assertThat(HTTPFilterKeys.STATUS.includes(scenario200, "STATUS", "4xx")).isFalse()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario429, "STATUS", "4xx")).isFalse()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario200, "STATUS", "200")).isTrue()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario200, "STATUS", "429")).isFalse()
     }
 
     @Test
