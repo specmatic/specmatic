@@ -330,13 +330,13 @@ class HTTPFilterKeysTest {
     }
 
     @Test
-    fun `STATUS includes should match negative scenario using bad request fallback statuses`() {
+    fun `exact STATUS excludes generated negative scenarios even when the fallback accepts that status`() {
         val scenario = negativeScenarioWithBadRequestOrDefault(
             scenarioStatus = 202,
             badRequestStatuses = mapOf(400 to listOf(scenarioWithStatusAndResponseContentType(status = 400, responseContentType = "application/json")))
         )
 
-        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "400")).isTrue()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "400")).isFalse()
     }
 
     @Test

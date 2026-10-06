@@ -19,11 +19,8 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     },
     STATUS("STATUS", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
-            if (scenario.isNegative && scenario.badRequestOrDefault != null) {
-                return scenario.badRequestOrDefault.supportsStatus(value)
-            }
-
-            return scenario.status == value.toIntOrNull()
+            if (value == "4xx") return scenario.isNegative || scenario.isA4xxScenario()
+            return !scenario.isNegative && scenario.status == value.toIntOrNull()
         }
     },
     PARAMETERS_HEADER("PARAMETERS.HEADER", false) {
