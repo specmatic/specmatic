@@ -330,13 +330,31 @@ class HTTPFilterKeysTest {
     }
 
     @Test
-    fun `STATUS includes should match negative scenario using bad request fallback statuses`() {
+    fun `STATUS includes should match negative scenario by synthetic status 400 not declared bad request codes`() {
         val scenario = negativeScenarioWithBadRequestOrDefault(
             scenarioStatus = 202,
-            badRequestStatuses = mapOf(400 to listOf(scenarioWithStatusAndResponseContentType(status = 400, responseContentType = "application/json")))
+            badRequestStatuses = mapOf(
+                400 to listOf(scenarioWithStatusAndResponseContentType(status = 400, responseContentType = "application/json")),
+                429 to listOf(scenarioWithStatusAndResponseContentType(status = 429, responseContentType = "application/json")),
+            )
         )
 
         assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "400")).isTrue()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "429")).isFalse()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "4xx")).isTrue()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "2xx")).isFalse()
+    }
+
+    @Test
+    fun `STATUS includes should match positive scenarios by exact code or status class token`() {
+        val scenario429 = scenarioWithStatusAndResponseContentType(status = 429, responseContentType = "application/json")
+        val scenario200 = scenarioWithStatusAndResponseContentType(status = 200, responseContentType = "application/json")
+
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario429, "STATUS", "429")).isTrue()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario429, "STATUS", "4xx")).isTrue()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario429, "STATUS", "2xx")).isFalse()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario200, "STATUS", "2xx")).isTrue()
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario200, "STATUS", "4xx")).isFalse()
     }
 
     @Test

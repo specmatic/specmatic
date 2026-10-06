@@ -30,6 +30,12 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+### Fixed
+
+- `STATUS` filter equality no longer treats generated negative tests as matching every declared 4xx code on the operation. Exact codes such as `STATUS='429'` select only tests with that expected status, so rate-limit example tests can run without schema-resiliency negatives. Use `STATUS='4xx'` to select generated negatives and declared 4xx tests; combine with `STATUS!='…'` to drop specific declared codes.
+
 ## 2.55.3 (2026-10-05)
 
 ## 2.55.2 (2026-10-03)
