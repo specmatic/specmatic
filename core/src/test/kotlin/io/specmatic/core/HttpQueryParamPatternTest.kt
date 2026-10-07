@@ -9,6 +9,7 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.matchers.MatcherResolutionMode
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
@@ -496,11 +497,12 @@ class HttpQueryParamPatternTest {
         mockkObject(MatcherEngine.Companion)
         every { MatcherEngine.load() } returns matcherEngine
         try {
+            val templateResolver = checkNotNull(TemplateResolver.create(MatcherResolutionMode.LOAD_TIME))
             val result = ecommerceNestedFilterQueryParamPattern().resolveTemplates(
                 resolver = Resolver(),
                 queryParams = queryParams,
-                resolutionMode = MatcherResolutionMode.LOAD_TIME,
                 data = JSONObjectValue(mapOf("data" to JSONObjectValue(mapOf("color" to StringValue("green"))))),
+                engine = templateResolver,
             )
 
             assertThat(result).isInstanceOf(HasValue::class.java)

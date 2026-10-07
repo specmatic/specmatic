@@ -5,8 +5,7 @@ import io.specmatic.conversions.TemplateTokenizer
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
-import io.specmatic.core.matchers.MatcherResolutionMode
-import io.specmatic.core.matchers.MatcherEngine.Companion.resolveTemplates
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.SegmentCounts
 import io.specmatic.core.utilities.ensurePrefix
@@ -449,10 +448,10 @@ data class HttpPathPattern(
         path: String?,
         resolver: Resolver,
         data: JSONObjectValue,
-        resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
+        engine: TemplateResolver,
     ): ReturnValue<String> {
         return resolvePathSegments(path, resolver) { urlPathPattern, value, segmentResolver ->
-            resolveTemplates(urlPathPattern.pattern, value, segmentResolver, data, resolutionMode)
+            engine.resolve(data = data, value = value, resolver = segmentResolver, pattern = urlPathPattern.pattern)
         }
     }
 

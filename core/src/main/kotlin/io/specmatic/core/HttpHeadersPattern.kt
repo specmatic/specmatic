@@ -3,8 +3,7 @@ package io.specmatic.core
 import io.ktor.http.*
 import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.log.logger
-import io.specmatic.core.matchers.MatcherResolutionMode
-import io.specmatic.core.matchers.MatcherEngine.Companion.resolveTemplates
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.utilities.withNullPattern
@@ -449,7 +448,7 @@ data class HttpHeadersPattern(
         resolver: Resolver,
         data: JSONObjectValue,
         headers: Map<String, String>,
-        resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
+        engine: TemplateResolver
     ): ReturnValue<Map<String, String>> {
         return resolveHeaders(headers = headers, resolver = resolver) { patterns, values, updatedResolver ->
             val patternsByHeaderName = values.keys.mapNotNull { headerName ->
@@ -457,11 +456,10 @@ data class HttpHeadersPattern(
                 Pair(headerName, pattern)
             }.toMap()
 
-            resolveTemplates(
+            engine.resolve(
                 data = data,
                 resolver = updatedResolver,
                 value = JSONObjectValue(values),
-                resolutionMode = resolutionMode,
                 pattern = JSONObjectPattern(patternsByHeaderName),
             ).ifValue { resolved ->
                 (resolved as? JSONObjectValue)?.jsonObject ?: values

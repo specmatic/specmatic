@@ -3,8 +3,8 @@ package io.specmatic.core
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.matchers.MatcherResolutionMode
-import io.specmatic.core.matchers.MatcherEngine.Companion.resolveTemplates
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
@@ -187,19 +187,21 @@ data class HttpResponsePattern(
         data: JSONObjectValue = JSONObjectValue(),
         resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
     ): ReturnValue<HttpResponse> {
+        val engine = TemplateResolver.create(resolutionMode)
+            ?: return HasValue(response)
+
         val headers = headersPattern.resolveTemplates(
             data = data,
+            engine = engine,
             headers = response.headers,
-            resolutionMode = resolutionMode,
             resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value),
         ).breadCrumb(BreadCrumb.HEADER.value)
 
-        val body = resolveTemplates(
+        val body = engine.resolve(
             data = data,
             pattern = body,
             resolver = resolver,
             value = response.body,
-            resolutionMode = resolutionMode,
         ).breadCrumb("BODY")
 
         return HasValue(response)

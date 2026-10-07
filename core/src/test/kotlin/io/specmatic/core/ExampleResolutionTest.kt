@@ -6,6 +6,7 @@ import io.mockk.unmockkObject
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.matchers.MatcherResolutionMode
 import io.specmatic.core.matchers.MatcherEngine
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
@@ -86,22 +87,22 @@ internal class ExampleResolutionTest {
         @Test
         fun `matches headers case insensitively without changing json property names`() {
             val matcherValue = StringValue($$"$match(exact: $(data.responseId))")
+            val templateResolver = checkNotNull(TemplateResolver.create(MatcherResolutionMode.LOAD_TIME))
             val resolvedHeaders = HttpHeadersPattern(mapOf("X-Trace-Id" to StringPattern()))
                 .resolveTemplates(
                     data = data,
                     resolver = Resolver(),
                     headers = mapOf("x-trace-id" to matcherValue.string),
-                    resolutionMode = MatcherResolutionMode.LOAD_TIME,
+                    engine = templateResolver,
                 ).value
 
             val jsonPattern = JSONObjectPattern(mapOf("X-Trace-Id" to StringPattern()))
             val jsonValue = JSONObjectValue(mapOf("x-trace-id" to matcherValue))
-            MatcherEngine.resolveTemplates(
+            templateResolver.resolve(
                 data = data,
                 value = jsonValue,
                 pattern = jsonPattern,
                 resolver = Resolver(),
-                resolutionMode = MatcherResolutionMode.LOAD_TIME,
             )
 
             assertThat(resolvedHeaders).isEqualTo(mapOf("x-trace-id" to "response-from-data"))

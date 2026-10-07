@@ -33,16 +33,5 @@ interface MatcherEngine {
         fun load(): MatcherEngine? {
             return ServiceLoader.load(MatcherEngine::class.java).firstOrNull()
         }
-
-        fun resolveTemplates(
-            pattern: Pattern,
-            value: Value,
-            resolver: Resolver,
-            data: JSONObjectValue,
-            resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
-        ): ReturnValue<Value> {
-            val matcherEngine = load() ?: return HasValue(value)
-            return matcherEngine.resolveValue(value, pattern, resolver, data, resolutionMode)
-        }
     }
 }
