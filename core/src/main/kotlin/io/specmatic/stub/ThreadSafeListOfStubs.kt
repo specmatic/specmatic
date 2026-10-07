@@ -7,7 +7,9 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.mostSpecificMatchingBaseUrl
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
+import io.specmatic.core.pipeline.Pipeline
 import io.specmatic.mock.ScenarioStub
 import java.io.File
 import java.net.URI
@@ -69,7 +71,14 @@ class ThreadSafeListOfStubs(
         }
     }
 
+    internal data class TransientMatch(val original: HttpStubData, val final: HttpStubData)
     fun matchingTransientStub(httpRequest: HttpRequest): Pair<HttpStubData, List<Pair<Result, HttpStubData>>>? {
+        return matchingTransientStubWithOriginal(httpRequest)?.let {
+            (match, results) -> match.final to results
+        }
+    }
+
+    internal fun matchingTransientStubWithOriginal(httpRequest: HttpRequest): Pair<TransientMatch, List<Pair<Result, HttpStubData>>>? {
         val expectedResponseCode = httpRequest.expectedResponseCode()
 
         val queueMatchResults: List<Pair<Result, HttpStubData>> = matchResults { stubs ->
@@ -80,14 +89,24 @@ class ThreadSafeListOfStubs(
             }.plus(partialMatchResults(stubs, httpRequest))
         }
 
-        val preferredMatch = queueMatchResults.findLast { (result, stubData) ->
-            result is Result.Success && stubData.hasCompleteAuthoredSecurityRequirement()
+        val preparedMatches = queueMatchResults.map { (result, stubData) ->
+            if (result !is Result.Success) return@map Triple(result, stubData, stubData)
+            val prepared = substituteThenFillIn(httpRequest, stubData)
+            Triple(prepared.first, prepared.second, stubData)
         }
-        val (_, queueMock) = preferredMatch ?: queueMatchResults.findLast { (result, _) ->
+
+        val preferredMatch = preparedMatches.findLast { (result, preparedStub) ->
+            result is Result.Success && preparedStub.hasCompleteAuthoredSecurityRequirement()
+        }
+
+        val (_, preparedStub, originalStub) = preferredMatch ?: preparedMatches.findLast { (result, _) ->
             result is Result.Success
         } ?: return null
 
-        return Pair(queueMock, queueMatchResults)
+        return Pair(
+            first = TransientMatch(original = originalStub, final = preparedStub),
+            second = preparedMatches.map { (result, stubData, _) -> result to stubData },
+        )
     }
 
     fun hasPotentialTransientMatch(httpRequest: HttpRequest): Boolean {
@@ -190,9 +209,18 @@ class ThreadSafeListOfStubs(
         )
 
         return runCatching {
-            val substituted = stubResponse.resolveSubstitutions(httpRequest, originalRequest ?: httpRequest, stubData.data)
-            val filledIn = stubData.responsePattern.fillInTheBlanks(substituted.response, stubData.resolver)
-            stubData.withResponse(filledIn)
+            Pipeline.from(stubResponse)
+                .then { response -> HasValue(response.resolveSubstitutions(httpRequest, originalRequest ?: httpRequest, stubData.data)) }
+                .then { substituted ->
+                    stubData.responsePattern.resolveTemplates(stubData.resolver, substituted.response, stubData.data)
+                        .ifValue(substituted::withResponse)
+                }
+                .then { resolved ->
+                    val filledIn = stubData.responsePattern.fillInTheBlanks(resolved.response, stubData.resolver)
+                    HasValue(stubData.withResponse(filledIn))
+                }
+                .run()
+                .value
         }.map { Result.Success() to it }.getOrElse { e ->
             when {
                 e is ContractException && isMissingData(e) -> Pair(e.failure(), stubData)
