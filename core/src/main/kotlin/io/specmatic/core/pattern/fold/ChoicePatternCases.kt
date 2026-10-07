@@ -6,7 +6,7 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.Value
 
 fun interface PatternSelector {
-    fun choose(value: Value, resolver: Resolver): Pattern?
+    fun choose(value: Value, resolver: Resolver): PatternAndResolver?
 }
 
 data class OneOfPatternCase<P : Pattern, C>(
@@ -16,7 +16,9 @@ data class OneOfPatternCase<P : Pattern, C>(
     private val selector: PatternSelector,
     val discriminator: Discriminator? = null,
 ) : PatternCase<P, C> {
-    fun choosePattern(value: Value, resolver: Resolver): Pattern? = selector.choose(value, resolver)
+    fun choosePattern(value: Value, resolver: Resolver): Pattern? = selector.choose(value, resolver)?.pattern
+
+    fun choosePatternAndResolver(value: Value, resolver: Resolver): PatternAndResolver? = selector.choose(value, resolver)
 
     fun <R> projectAlternatives(visitor: PatternVisitor<C, R>): List<R> {
         return alternatives.mapIndexed { index, alternative ->
@@ -33,7 +35,9 @@ data class AnyOfPatternCase<P : Pattern, C>(
     val discriminator: Discriminator? = null,
 ) : PatternCase<P, C> {
     /** Selects one branch when an operation needs a single choice; [alternatives] retains every AnyOf branch. */
-    fun choosePattern(value: Value, resolver: Resolver): Pattern? = selector.choose(value, resolver)
+    fun choosePattern(value: Value, resolver: Resolver): Pattern? = selector.choose(value, resolver)?.pattern
+
+    fun choosePatternAndResolver(value: Value, resolver: Resolver): PatternAndResolver? = selector.choose(value, resolver)
 
     fun <R> projectAlternatives(visitor: PatternVisitor<C, R>): List<R> {
         return alternatives.mapIndexed { index, alternative ->

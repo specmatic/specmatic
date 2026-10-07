@@ -40,7 +40,7 @@ data class AnyOfPattern(
                 context = context,
                 alternatives = pattern,
                 discriminator = discriminator,
-                selector = { value, resolver -> delegate.selectPattern(value, resolver) },
+                selector = { value, resolver -> delegate.selectPatternAndResolver(value, resolver) },
             ),
         )
     }

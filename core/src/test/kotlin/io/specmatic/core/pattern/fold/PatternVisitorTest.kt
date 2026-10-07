@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern.fold
 
+import io.specmatic.core.KeyWithPattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
@@ -26,6 +27,30 @@ class PatternVisitorTest {
 
             assertThat(result).isEqualTo(Visit(pattern, "request", "opaque"))
             assertThat(visitor.observed).isEqualTo(OpaquePatternCase(pattern, "request"))
+        }
+
+        @Test
+        fun `opaque values derive child patterns and matching resolver paths`() {
+            val pattern = AnyValuePattern
+            val visitor = RecordingPatternVisitor()
+            pattern.accept(visitor, "request")
+            val case = visitor.observed as OpaquePatternCase<*, String>
+            val resolver = Resolver()
+
+            val propertyValue = JSONObjectValue(mapOf("name" to StringValue("Ari")))
+            val propertyPattern = propertyValue.deepPattern()
+            assertThat(case.patternAndResolverForProperty("profile", propertyValue, resolver)).isEqualTo(
+                PatternAndResolver(
+                    propertyPattern,
+                    resolver.updateLookupPath(pattern.typeAlias, KeyWithPattern("profile", propertyPattern)),
+                ),
+            )
+
+            val itemValue = NumberValue(3)
+            val itemPattern = itemValue.deepPattern()
+            assertThat(case.patternAndResolverForArrayItem(itemValue, resolver)).isEqualTo(
+                PatternAndResolver(itemPattern, resolver.updateLookupPathForArrayItem(pattern, itemPattern)),
+            )
         }
 
         @Test
@@ -112,6 +137,23 @@ class PatternVisitorTest {
 
             assertThat(case.projectPropertyValue(visitor, "id"))
                 .isEqualTo(Visit(idPattern, "request.id", "text"))
+        }
+
+        @Test
+        fun `selected property carries the resolver lookup path used by fill and fix`() {
+            val namePattern = StringPattern()
+            val pattern = JSONObjectPattern(mapOf("name" to namePattern), typeAlias = "(Person)")
+            val visitor = RecordingPatternVisitor()
+            pattern.accept(visitor, "request")
+
+            val resolver = Resolver()
+            val case = visitor.observed as ObjectPatternCase<*, String>
+            assertThat(case.patternAndResolverForProperty("name", StringValue("Ari"), resolver)).isEqualTo(
+                PatternAndResolver(
+                    namePattern,
+                    resolver.updateLookupPath("(Person)", KeyWithPattern("name", namePattern)),
+                ),
+            )
         }
 
         @Test
@@ -210,6 +252,8 @@ class PatternVisitorTest {
             assertThat(case.itemPattern).isEqualTo(itemPattern)
             assertThat(case.projectItem(visitor, 0)).isEqualTo(Visit(itemPattern, "body[0]", "text"))
             assertThat(case.projectItem(visitor, 4)).isEqualTo(Visit(itemPattern, "body[4]", "text"))
+            assertThat(case.resolverForItem(Resolver()))
+                .isEqualTo(Resolver().updateLookupPathForArrayItem(pattern, itemPattern))
         }
 
         @Test
@@ -225,6 +269,13 @@ class PatternVisitorTest {
             assertThat(case.items).isEqualTo(listOf(Item(0, firstPattern), Item(1, secondPattern)))
             assertThat(listOf(case.patternFor(0), case.patternFor(1), case.patternFor(2)))
                 .isEqualTo(listOf(firstPattern, secondPattern, null))
+            assertThat(case.patternAndResolverForIndex(1, Resolver())).isEqualTo(
+                PatternAndResolver(
+                    secondPattern,
+                    Resolver().updateLookupPathForArrayItem(pattern, secondPattern),
+                ),
+            )
+            assertThat(case.patternAndResolverForIndex(2, Resolver())).isNull()
 
             assertThat(case.projectItems(visitor)).isEqualTo(
                 listOf(
@@ -239,13 +290,20 @@ class PatternVisitorTest {
     inner class CompositionCases {
         @Test
         fun `oneOf selects a branch while anyOf preserves its alternatives`() {
-            val first = JSONObjectPattern(mapOf("kind" to ExactValuePattern(StringValue("first"), discriminator = true)))
-            val second = JSONObjectPattern(mapOf("kind" to ExactValuePattern(StringValue("second"), discriminator = true)))
-            val patterns = listOf(first, second)
+            val first = JSONObjectPattern(
+                mapOf("kind" to ExactValuePattern(StringValue("first"), discriminator = true)),
+                typeAlias = "(First)",
+            )
 
+            val second = JSONObjectPattern(
+                mapOf("kind" to ExactValuePattern(StringValue("second"), discriminator = true)),
+                typeAlias = "(Second)",
+            )
+
+            val patterns = listOf(first, second)
             val discriminator = Discriminator.create("kind", setOf("first", "second"), emptyMap())
-            val anyPattern = AnyPattern(patterns, discriminator = discriminator)
-            val anyOfPattern = AnyOfPattern(patterns, discriminator = discriminator)
+            val anyPattern = AnyPattern(patterns, discriminator = discriminator, typeAlias = "(Choice)")
+            val anyOfPattern = AnyOfPattern(patterns, discriminator = discriminator, typeAlias = "(Choice)")
 
             val anyVisitor = RecordingPatternVisitor()
             anyPattern.accept(anyVisitor, "choice")
@@ -254,7 +312,16 @@ class PatternVisitorTest {
             assertThat(anyVisitor.lastKind).isEqualTo("oneOf")
             assertThat(anyCase.alternatives).isEqualTo(patterns)
             assertThat(anyCase.discriminator).isEqualTo(discriminator)
-            assertThat(anyCase.choosePattern(JSONObjectValue(mapOf("kind" to StringValue("second"))), Resolver())).isEqualTo(second)
+
+            val resolver = Resolver()
+            val sample = JSONObjectValue(mapOf("kind" to StringValue("second")))
+            assertThat(anyCase.choosePattern(sample, resolver)).isEqualTo(second)
+            val selectedPattern = anyCase.choosePatternAndResolver(sample, resolver)
+            val expectedResolver = resolver
+                .copy(newPatterns = mapOf("(First)" to first, "(Second)" to second))
+                .updateLookupPath("(Choice)")
+
+            assertThat(selectedPattern).isEqualTo(PatternAndResolver(second, expectedResolver))
             assertThat(anyCase.projectAlternatives(anyVisitor)).isEqualTo(
                 listOf(
                     Visit(
@@ -275,6 +342,9 @@ class PatternVisitorTest {
             assertThat(anyOfVisitor.lastKind).isEqualTo("anyOf")
             assertThat(anyOfCase.alternatives).isEqualTo(patterns)
             assertThat(anyOfCase.discriminator).isEqualTo(discriminator)
+            assertThat(anyOfCase.choosePatternAndResolver(sample, resolver))
+                .isEqualTo(PatternAndResolver(second, expectedResolver))
+
             assertThat(anyOfCase.projectAlternatives(anyOfVisitor)).isEqualTo(
                 listOf(
                     Visit(

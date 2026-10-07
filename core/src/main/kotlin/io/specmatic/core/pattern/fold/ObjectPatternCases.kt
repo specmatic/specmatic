@@ -1,5 +1,7 @@
 package io.specmatic.core.pattern.fold
 
+import io.specmatic.core.KeyWithPattern
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.AdditionalProperties
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.Value
@@ -17,6 +19,12 @@ data class ObjectPatternCase<P : Pattern, C>(
             AdditionalProperties.FreeForm -> value?.deepPattern()
             is AdditionalProperties.PatternConstrained -> additional.pattern
         }
+    }
+
+    fun patternAndResolverForProperty(name: String, value: Value, resolver: Resolver): PatternAndResolver? {
+        val childPattern = patternForProperty(name, value) ?: return null
+        val childResolver = resolver.updateLookupPath(pattern.typeAlias, KeyWithPattern(name, childPattern))
+        return PatternAndResolver(childPattern, childResolver)
     }
 
     fun <R> projectProperties(visitor: PatternVisitor<C, R>): List<R> {

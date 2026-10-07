@@ -6,7 +6,7 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.pattern.fold.OneOfPatternCase
-import io.specmatic.core.pattern.fold.PatternSelector
+import io.specmatic.core.pattern.fold.PatternAndResolver
 import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.Value
@@ -29,6 +29,7 @@ data class XMLSubstitutionGroupPattern(
                 alternatives = candidates,
                 selector = { value, resolver ->
                     candidates.firstOrNull { it.matches(value, resolver).isSuccess() }
+                        ?.let { candidate -> PatternAndResolver(candidate, resolver) }
                 },
             ),
         )
