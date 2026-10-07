@@ -19,6 +19,17 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     },
     STATUS("STATUS", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
+            val statusClass = statusClassToken(value)
+            if (statusClass != null) {
+                // `4xx` matches generated negatives and declared 4xx response scenarios. Keeping
+                // declared 4xx scenarios executable is required so negative generation can still
+                // resolve BadRequestOrDefault when 2xx scenarios are Skip'd by the same filter.
+                if (statusClass == 4) {
+                    return scenario.isNegative || scenario.status in 400..499
+                }
+                return !scenario.isNegative && scenario.status / 100 == statusClass
+            }
+
             return scenario.status == value.toIntOrNull()
         }
     },
@@ -128,11 +139,16 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     abstract fun includes(scenario: Scenario, key: String, value: String): Boolean
 
     companion object {
+        private val STATUS_CLASS_TOKEN = Regex("^([1-5])xx$", RegexOption.IGNORE_CASE)
+
         fun fromKey(key: String): HTTPFilterKeys {
             entries.firstOrNull { it.key == key }?.let { return it }
             return entries.firstOrNull { it.isPrefix && key.startsWith(it.key) }
                 ?: throw IllegalArgumentException("Invalid filter key: $key")
         }
+
+        private fun statusClassToken(value: String): Int? =
+            STATUS_CLASS_TOKEN.matchEntire(value.trim())?.groupValues?.get(1)?.toIntOrNull()
 
         private fun matchesPath(scenarioValue: String, value: String): Boolean {
             return value.contains("*") && Pattern.compile(value.replace("*", ".*")).matcher(scenarioValue).matches()

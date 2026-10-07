@@ -1100,11 +1100,18 @@ data class Feature(
     }
 
     fun negativeTestScenariosWithDecision(scenarios: Sequence<Decision<Scenario, Scenario>>, originalScenarios: List<Scenario>): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
-        return scenarios.mapNotNull { scenarioDecision ->
+        val scenarioDecisions = scenarios.toList()
+        return scenarioDecisions.asSequence().mapNotNull { scenarioDecision ->
             val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
-            val badRequestOrDefault = getBadRequestsOrDefault(scenario)
-            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
-                return@mapNotNull null
+            val badRequestResolution = resolveBadRequestOrDefaultForNegativeGeneration(
+                scenarioDecision = scenarioDecision,
+                scenario = scenario,
+                scenarioDecisions = scenarioDecisions,
+                originalScenarios = originalScenarios,
+            )
+            val badRequestOrDefault = when (badRequestResolution) {
+                NegativeBadRequestResolution.Suppress -> return@mapNotNull null
+                is NegativeBadRequestResolution.Use -> badRequestResolution.badRequestOrDefault
             }
 
             scenario.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
@@ -1130,11 +1137,50 @@ data class Feature(
         return Reasoning(mainReason = TestExecutionReason.executedPositiveGen(), otherReasons = otherReasons)
     }
 
-    private fun badRequestOrDefaultWasFilteredOut(
-        badRequestOrDefault: BadRequestOrDefault?,
-        originalScenario: Scenario,
-        originalScenarios: List<Scenario>
-    ): Boolean = badRequestOrDefault == null && getBadRequestsOrDefault(originalScenario, originalScenarios) != null
+    private fun resolveBadRequestOrDefaultForNegativeGeneration(
+        scenarioDecision: Decision<Scenario, Scenario>,
+        scenario: Scenario,
+        scenarioDecisions: List<Decision<Scenario, Scenario>>,
+        originalScenarios: List<Scenario>,
+    ): NegativeBadRequestResolution {
+        val badRequestOrDefaultOnFeature = getBadRequestsOrDefault(scenario)
+        if (badRequestOrDefaultOnFeature != null) {
+            return NegativeBadRequestResolution.Use(badRequestOrDefaultOnFeature)
+        }
+
+        val badRequestOrDefaultOnOriginal = getBadRequestsOrDefault(scenario, originalScenarios)
+        val sameOperationHasExecute = scenarioDecisions.any { decision ->
+            decision is Decision.Execute && scenariosMatchingPathAndMethod(scenario, listOf(decision.value)).isNotEmpty()
+        }
+
+        // Operation still has Execute responses but no 4xx/default among them (e.g. STATUS='200').
+        if (badRequestOrDefaultOnOriginal != null && sameOperationHasExecute) {
+            return NegativeBadRequestResolution.Suppress
+        }
+
+        // Filter excluded every response of the operation (e.g. STATUS='4xx' && STATUS!='429').
+        // Fall back to the original contract's 4xx/default so Skip'd 2xx can still seed negatives;
+        // the post-generation STATUS filter then keeps only matching tests.
+        if (
+            badRequestOrDefaultOnOriginal != null &&
+            scenarioDecision is Decision.Skip &&
+            scenarioDecision.reasoning.hasReason(TestSkipReason.EXCLUDED)
+        ) {
+            return NegativeBadRequestResolution.Use(badRequestOrDefaultOnOriginal)
+        }
+
+        if (badRequestOrDefaultOnOriginal != null) {
+            return NegativeBadRequestResolution.Suppress
+        }
+
+        // Operation never declared 4xx/default — preserve null BadRequestOrDefault negatives.
+        return NegativeBadRequestResolution.Use(null)
+    }
+
+    private sealed interface NegativeBadRequestResolution {
+        data class Use(val badRequestOrDefault: BadRequestOrDefault?) : NegativeBadRequestResolution
+        data object Suppress : NegativeBadRequestResolution
+    }
 
     fun negativeScenarioFor(scenario: Scenario): Scenario {
         return scenario.negativeBasedOn(getBadRequestsOrDefault(scenario))

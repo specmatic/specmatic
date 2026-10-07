@@ -15,7 +15,7 @@ class StatusFilterResiliencyTest {
         val tests = generateFilteredTests(
             filter = "METHOD='POST' && PATH='/orders'",
             resiliencyAll = true,
-            include429Example = true,
+            fixture = SpecFixture.DECLARED_429,
         )
 
         assertThat(tests.any { !it.isNegative && it.status == 200 }).isTrue()
@@ -28,7 +28,7 @@ class StatusFilterResiliencyTest {
         val tests = generateFilteredTests(
             filter = "METHOD='POST' && PATH='/orders'",
             resiliencyAll = false,
-            include429Example = true,
+            fixture = SpecFixture.DECLARED_429,
         )
 
         assertThat(tests.map { it.status }.toSet()).isEqualTo(setOf(200, 429))
@@ -40,7 +40,7 @@ class StatusFilterResiliencyTest {
         val tests = generateFilteredTests(
             filter = "METHOD='POST' && PATH='/orders' && STATUS='429'",
             resiliencyAll = true,
-            include429Example = true,
+            fixture = SpecFixture.DECLARED_429,
         )
 
         assertThat(tests).isNotEmpty
@@ -52,7 +52,7 @@ class StatusFilterResiliencyTest {
         val tests = generateFilteredTests(
             filter = "METHOD='POST' && PATH='/orders' && STATUS='429'",
             resiliencyAll = false,
-            include429Example = true,
+            fixture = SpecFixture.DECLARED_429,
         )
 
         assertThat(tests).isNotEmpty
@@ -64,18 +64,84 @@ class StatusFilterResiliencyTest {
         val tests = generateFilteredTests(
             filter = "METHOD='POST' && PATH='/orders' && STATUS='429'",
             resiliencyAll = false,
-            include429Example = false,
+            fixture = SpecFixture.TWO_HUNDRED_ONLY,
         )
 
         assertThat(tests).isEmpty()
     }
 
+    @Test
+    fun `STATUS 429 with 200 and default and resiliency off yields no tests`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS='429'",
+            resiliencyAll = false,
+            fixture = SpecFixture.TWO_HUNDRED_AND_DEFAULT,
+        )
+
+        assertThat(tests).isEmpty()
+    }
+
+    @Test
+    fun `STATUS 429 with 200 and default and resiliency all yields no tests`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS='429'",
+            resiliencyAll = true,
+            fixture = SpecFixture.TWO_HUNDRED_AND_DEFAULT,
+        )
+
+        assertThat(tests).isEmpty()
+    }
+
+    @Test
+    fun `STATUS 4xx with resiliency all keeps generated negatives and declared 4xx tests`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS='4xx'",
+            resiliencyAll = true,
+            fixture = SpecFixture.DECLARED_429,
+        )
+
+        assertThat(tests).isNotEmpty
+        assertThat(tests.any { it.isNegative }).isTrue()
+        assertThat(tests.any { !it.isNegative && it.status == 429 }).isTrue()
+        assertThat(tests.none { !it.isNegative && it.status == 200 }).isTrue()
+    }
+
+    @Test
+    fun `STATUS 4xx excluding exact 429 keeps only generated negative tests`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS='4xx' && STATUS!='429'",
+            resiliencyAll = true,
+            fixture = SpecFixture.DECLARED_429,
+        )
+
+        assertThat(tests).isNotEmpty
+        assertThat(tests).allMatch { it.isNegative }
+    }
+
+    @Test
+    fun `resiliency all on 2xx-only operation still generates negatives with null bad request expectation`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders'",
+            resiliencyAll = true,
+            fixture = SpecFixture.TWO_HUNDRED_ONLY,
+        )
+
+        assertThat(tests.any { !it.isNegative && it.status == 200 }).isTrue()
+        assertThat(tests.any { it.isNegative }).isTrue()
+    }
+
+    private enum class SpecFixture {
+        DECLARED_429,
+        TWO_HUNDRED_ONLY,
+        TWO_HUNDRED_AND_DEFAULT,
+    }
+
     private fun generateFilteredTests(
         filter: String,
         resiliencyAll: Boolean,
-        include429Example: Boolean,
+        fixture: SpecFixture,
     ): List<Scenario> {
-        val feature = openApiFeature(include429Example).let {
+        val feature = openApiFeature(fixture).let {
             if (resiliencyAll) it.enableGenerativeTesting() else it
         }
         val metadataFilter = ScenarioMetadataFilter.from(filter)
@@ -104,9 +170,9 @@ class StatusFilterResiliencyTest {
             .toList()
     }
 
-    private fun openApiFeature(include429Example: Boolean): Feature {
-        val spec = if (include429Example) {
-            """
+    private fun openApiFeature(fixture: SpecFixture): Feature {
+        val spec = when (fixture) {
+            SpecFixture.DECLARED_429 -> """
             openapi: "3.0.1"
             info:
               title: Orders API
@@ -165,8 +231,7 @@ class StatusFilterResiliencyTest {
                               value:
                                 message: slow down
             """.trimIndent()
-        } else {
-            """
+            SpecFixture.TWO_HUNDRED_ONLY -> """
             openapi: "3.0.1"
             info:
               title: Orders API
@@ -206,6 +271,58 @@ class StatusFilterResiliencyTest {
                             CREATE_ORDER:
                               value:
                                 id: "1"
+            """.trimIndent()
+            SpecFixture.TWO_HUNDRED_AND_DEFAULT -> """
+            openapi: "3.0.1"
+            info:
+              title: Orders API
+              version: "1"
+            paths:
+              /orders:
+                post:
+                  summary: Create order
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                        examples:
+                          CREATE_ORDER:
+                            value:
+                              name: widget
+                  responses:
+                    "200":
+                      description: Created
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+                          examples:
+                            CREATE_ORDER:
+                              value:
+                                id: "1"
+                    default:
+                      description: Error
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
             """.trimIndent()
         }
 
