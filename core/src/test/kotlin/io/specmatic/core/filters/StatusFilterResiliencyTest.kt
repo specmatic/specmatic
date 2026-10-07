@@ -130,6 +130,59 @@ class StatusFilterResiliencyTest {
         assertThat(tests.any { it.isNegative }).isTrue()
     }
 
+    @Test
+    fun `STATUS not equal 429 with 200 and default and resiliency all keeps 200 example and negatives`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS!='429'",
+            resiliencyAll = true,
+            fixture = SpecFixture.TWO_HUNDRED_AND_DEFAULT,
+        )
+
+        assertThat(tests.map { it.status to it.isNegative }.toSet()).isEqualTo(
+            setOf(200 to false, 400 to true)
+        )
+    }
+
+    @Test
+    fun `STATUS 2xx with resiliency all keeps only the 200 example`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS='2xx'",
+            resiliencyAll = true,
+            fixture = SpecFixture.DECLARED_429,
+        )
+
+        assertThat(tests.map { it.status to it.isNegative }.toSet()).isEqualTo(
+            setOf(200 to false)
+        )
+    }
+
+    @Test
+    fun `STATUS 4xx with 200 and default and resiliency all keeps only generated negatives`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS='4xx'",
+            resiliencyAll = true,
+            fixture = SpecFixture.TWO_HUNDRED_AND_DEFAULT,
+        )
+
+        assertThat(tests).isNotEmpty
+        assertThat(tests.map { it.status to it.isNegative }.toSet()).isEqualTo(
+            setOf(400 to true)
+        )
+    }
+
+    @Test
+    fun `STATUS 4xx with resiliency off keeps only the declared 429 example`() {
+        val tests = generateFilteredTests(
+            filter = "METHOD='POST' && PATH='/orders' && STATUS='4xx'",
+            resiliencyAll = false,
+            fixture = SpecFixture.DECLARED_429,
+        )
+
+        assertThat(tests.map { it.status to it.isNegative }.toSet()).isEqualTo(
+            setOf(429 to false)
+        )
+    }
+
     private enum class SpecFixture {
         DECLARED_429,
         TWO_HUNDRED_ONLY,
