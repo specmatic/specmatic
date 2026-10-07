@@ -5,9 +5,13 @@ import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.AlternativeSequencesPatternCase
+import io.specmatic.core.pattern.fold.IndexedListPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
+import io.specmatic.core.value.fold.Item
 import kotlin.math.max
 
 data class XMLChoiceGroupPattern(
@@ -16,6 +20,16 @@ data class XMLChoiceGroupPattern(
     val maxOccurs: Int? = 1,
     override val typeAlias: String? = null
 ) : Pattern, XMLChildGenerationPattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.alternativeSequences(
+            case = AlternativeSequencesPatternCase(
+                pattern = this,
+                context = context,
+                alternatives = choices,
+            ),
+        )
+    }
+
     override val pattern: Any
         get() = choices
 
@@ -477,6 +491,16 @@ data class XMLSequencePattern(
     val members: List<Pattern>,
     override val typeAlias: String? = null
 ) : Pattern, XMLChildGenerationPattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.indexedList(
+            case = IndexedListPatternCase(
+                pattern = this,
+                context = context,
+                items = members.mapIndexed { index, member -> Item(index, member) },
+            ),
+        )
+    }
+
     override val pattern: Any
         get() = members
 

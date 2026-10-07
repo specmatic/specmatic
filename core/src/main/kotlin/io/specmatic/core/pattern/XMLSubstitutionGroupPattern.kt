@@ -5,6 +5,9 @@ import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.OneOfPatternCase
+import io.specmatic.core.pattern.fold.PatternSelector
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
@@ -18,6 +21,19 @@ data class XMLSubstitutionGroupPattern(
     val substitutionGroupMembers: List<WSDLSubstitutionGroupMember> = emptyList(),
     override val typeAlias: String? = null
 ) : Pattern, XMLChildGenerationPattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.oneOf(
+            case = OneOfPatternCase(
+                pattern = this,
+                context = context,
+                alternatives = candidates,
+                selector = { value, resolver ->
+                    candidates.firstOrNull { it.matches(value, resolver).isSuccess() }
+                },
+            ),
+        )
+    }
+
     override val pattern: Any
         get() = candidates
 

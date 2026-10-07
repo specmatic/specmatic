@@ -2,6 +2,8 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.RepeatedListPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.value.*
 
 const val LIST_BREAD_CRUMB = "[]"
@@ -13,6 +15,16 @@ data class ListPattern(
     override val extensions: Map<String, Any>  = emptyMap(),
     val itemsPointer: String? = null
 ) : Pattern, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLChildGenerationPattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.repeatedList(
+            case = RepeatedListPatternCase(
+                pattern = this,
+                context = context,
+                itemPattern = pattern,
+            ),
+        )
+    }
+
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(this, value).isSuccess()) return value
         val updatedResolver = resolver.addPatternAsSeen(this).updateLookupPathForArrayItem(this, this.pattern)

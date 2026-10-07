@@ -3,6 +3,9 @@ package io.specmatic.core.pattern
 import io.ktor.http.*
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.ObjectPatternCase
+import io.specmatic.core.pattern.fold.ObjectPropertyPattern
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.substitution.ValueSubstitutionVisitor
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.stringToPatternMap
@@ -99,6 +102,23 @@ data class JSONObjectPattern(
     val propertyPointers: Map<String, String> = emptyMap(),
     val schemaPointer: String? = null
 ) : Pattern, PossibleJsonObjectPatternContainer {
+
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.objectProperties(
+            case = ObjectPatternCase(
+                pattern = this,
+                context = context,
+                additionalProperties = additionalProperties,
+                properties = pattern.map { (name, propertyPattern) ->
+                    ObjectPropertyPattern(
+                        pattern = propertyPattern,
+                        required = !isOptional(name),
+                        name = withoutOptionality(name),
+                    )
+                },
+            ),
+        )
+    }
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(this, value).isSuccess()) return value

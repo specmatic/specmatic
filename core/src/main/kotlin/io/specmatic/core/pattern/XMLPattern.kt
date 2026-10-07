@@ -4,9 +4,13 @@ import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.PatternVisitor
+import io.specmatic.core.pattern.fold.XmlElementPatternCase
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.*
+import io.specmatic.core.value.fold.Item
+import io.specmatic.core.value.fold.XmlAttribute
 import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 
@@ -86,6 +90,17 @@ data class XMLPattern(
     val schemaPointer: String? = null,
     val attributePointers: Map<String, String> = emptyMap()
 ) : Pattern, XMLChildGenerationPattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.xmlElement(
+            case = XmlElementPatternCase(
+                pattern = this,
+                context = context,
+                children = pattern.nodes.mapIndexed { index, childPattern -> Item(index, childPattern) },
+                attributes = pattern.attributes.map { (name, attributePattern) -> XmlAttribute(name, attributePattern) },
+            ),
+        )
+    }
+
     constructor(
         node: XMLNode,
         typeAlias: String? = null,

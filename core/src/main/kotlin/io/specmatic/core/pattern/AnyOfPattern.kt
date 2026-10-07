@@ -6,6 +6,8 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.SourceLocation
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.patternMismatchResult
+import io.specmatic.core.pattern.fold.AnyOfPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
@@ -31,6 +33,18 @@ data class AnyOfPattern(
     HasDefaultExample by delegate,
     PossibleJsonObjectPatternContainer by delegate,
     SubSchemaCompositePattern by delegate {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.anyOf(
+            case = AnyOfPatternCase(
+                pattern = this,
+                context = context,
+                alternatives = pattern,
+                discriminator = discriminator,
+                selector = { value, resolver -> delegate.selectPattern(value, resolver) },
+            ),
+        )
+    }
+
     override fun matches(
         sampleData: Value?,
         resolver: Resolver,

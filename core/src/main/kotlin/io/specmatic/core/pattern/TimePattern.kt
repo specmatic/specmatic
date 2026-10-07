@@ -5,11 +5,17 @@ import io.specmatic.core.Result
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.PatternVisitor
+import io.specmatic.core.pattern.fold.TextPatternCase
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 object TimePattern : Pattern, ScalarType {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.text(TextPatternCase(pattern = this, context = context))
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if(sampleData?.hasSupportedTemplate() == true)
             return Result.Success()

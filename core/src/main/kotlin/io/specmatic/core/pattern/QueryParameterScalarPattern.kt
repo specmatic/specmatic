@@ -6,8 +6,14 @@ import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.Substitution
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.value.*
+import io.specmatic.core.pattern.fold.DelegatedPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 
 data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern by pattern, ScalarType {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.delegated(DelegatedPatternCase(pattern = this, context = context, delegate = pattern))
+    }
+
     override fun resolveSubstitutions(
         substitution: Substitution,
         value: Value,

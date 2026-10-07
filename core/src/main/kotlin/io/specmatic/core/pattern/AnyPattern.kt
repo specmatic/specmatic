@@ -7,6 +7,8 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.OneOfPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.utilities.EarlyResult
 import io.specmatic.core.utilities.firstSuccessOrFailures
 import io.specmatic.core.utilities.getOrElse
@@ -45,13 +47,25 @@ data class AnyPattern(
 
     data class AnyPatternMatch(val pattern: Pattern, val result: Result)
 
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.oneOf(
+            case = OneOfPatternCase(
+                pattern = this,
+                context = context,
+                alternatives = pattern,
+                discriminator = discriminator,
+                selector = { value, resolver -> selectPattern(value, resolver) },
+            ),
+        )
+    }
+
     private fun extractDiscriminatorValue(value: Value): String? {
         return if (discriminator != null && value is JSONObjectValue && discriminator.property in value.jsonObject) {
             value.jsonObject.getValue(discriminator.property).toStringLiteral()
         } else null
     }
 
-    private fun selectPattern(
+    internal fun selectPattern(
         value: Value,
         resolver: Resolver,
         updatedPatterns: List<Pattern> = getUpdatedPattern(resolver),

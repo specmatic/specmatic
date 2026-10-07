@@ -5,9 +5,11 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.DelegatedPatternCase
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.pattern.fold.PatternVisitor
 
 private fun validEnumValues(values: List<Value>, key: String?, typeAlias: String?, example: String?, nullable: Boolean, multiType: Boolean): AnyPattern {
     validateEnumValues(values, nullable, multiType)
@@ -41,6 +43,10 @@ private infix fun Boolean.yet(otherBooleanValue: Boolean): Boolean {
 }
 
 data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) : Pattern by pattern, ScalarType {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.delegated(case = DelegatedPatternCase(pattern = this, context = context, delegate = pattern))
+    }
+
     constructor(
         values: List<Value>,
         key: String? = null,
