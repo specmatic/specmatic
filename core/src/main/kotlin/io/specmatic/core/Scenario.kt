@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
@@ -9,6 +10,7 @@ import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.core.filters.ExpressionContextPopulator
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
 import io.specmatic.core.pattern.*
+import io.specmatic.core.pipeline.Pipeline
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.capitalizeFirstChar
@@ -508,8 +510,13 @@ data class Scenario(
         if (row.requestExample == null || this.isGherkinScenario) return HasValue(row)
 
         return runCatching {
-            fillInTheBlanks(row.requestExample, resolver)
-        }.mapCatching { filledInResolvedRequest ->
+            val data = row.scenarioStub?.data ?: JSONObjectValue()
+            val updatedResolver = resolver.copy(isNegative = httpResponsePattern.status in invalidRequestStatuses)
+            val filledInResolvedRequest = Pipeline.from(row.requestExample)
+                .then { httpRequestPattern.resolveTemplates(updatedResolver, it, data) }
+                .then { HasValue(httpRequestPattern.fillInTheBlanks(it, updatedResolver)) }
+                .run()
+                .value
             row.updateRequest(filledInResolvedRequest, httpRequestPattern, resolver)
         }.map(::HasValue).getOrElse { e ->
             when(e) {
@@ -517,11 +524,6 @@ data class Scenario(
                 else -> HasException(e, message = row.name, breadCrumb = "")
             }
         }
-    }
-
-    private fun fillInTheBlanks(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
-        val updatedResolver = resolver.copy(isNegative = httpResponsePattern.status in invalidRequestStatuses)
-        return httpRequestPattern.fillInTheBlanks(httpRequest, updatedResolver)
     }
 
     private fun newBasedOnBackwardCompatibility(row: Row): Sequence<Scenario> {
@@ -727,12 +729,20 @@ data class Scenario(
         }
     }
 
-    fun resolverAndResponseForExpectation(response: HttpResponse): Pair<Resolver, HttpResponse> =
-        scenarioBreadCrumb(this) {
+    fun resolverAndResponseForExpectation(response: HttpResponse): Pair<Resolver, HttpResponse> {
+        return scenarioBreadCrumb(this) {
             attempt(breadCrumb = "RESPONSE") {
-                Pair(this.resolver, httpResponsePattern.fromResponseExpectation(response, resolver).fillInTheBlanks(this.resolver))
+                val updatedResponse = response
+                    .withSuccessResultHeader()
+                    .let {
+                        val contentType = responseContentType ?: return@let it
+                        it.addHeaderIfMissing(HttpHeaders.ContentType, contentType)
+                    }
+
+                return@attempt Pair(first = resolver, second = updatedResponse)
             }
         }
+    }
 
     private fun baseApiDescription(): String {
         val soapActionInfo = httpRequestPattern.getSOAPAction()

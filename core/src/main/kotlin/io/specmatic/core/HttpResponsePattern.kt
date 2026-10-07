@@ -3,7 +3,10 @@ package io.specmatic.core
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.matchers.MatcherResolutionMode
+import io.specmatic.core.matchers.MatcherEngine.Companion.resolveTemplates
 import io.specmatic.core.pattern.*
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.softCastValueToXML
@@ -176,6 +179,33 @@ data class HttpResponsePattern(
         return substitutedHeaders.combine(substitutedBody) { fullHeaders, fullBody ->
             response.copy(headers = fullHeaders, body = fullBody)
         }.breadCrumb("RESPONSE")
+    }
+
+    fun resolveTemplates(
+        resolver: Resolver,
+        partial: HttpResponse,
+        data: JSONObjectValue = JSONObjectValue(),
+        resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
+    ): ReturnValue<HttpResponse> {
+        val headers = headersPattern.resolveTemplates(
+            data = data,
+            headers = partial.headers,
+            resolutionMode = resolutionMode,
+            resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value),
+        ).breadCrumb(BreadCrumb.HEADER.value)
+
+        val body = resolveTemplates(
+            data = data,
+            pattern = body,
+            resolver = resolver,
+            value = partial.body,
+            resolutionMode = resolutionMode,
+        ).breadCrumb("BODY")
+
+        return HasValue(partial)
+            .combine(headers) { current, resolvedHeaders -> current.copy(headers = resolvedHeaders) }
+            .combine(body) { current, resolvedBody -> current.copy(body = resolvedBody) }
+            .breadCrumb("RESPONSE")
     }
 
     fun fillInTheBlanks(partial: HttpResponse, resolver: Resolver): HttpResponse {

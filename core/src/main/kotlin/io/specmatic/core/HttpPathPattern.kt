@@ -5,10 +5,13 @@ import io.specmatic.conversions.TemplateTokenizer
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
+import io.specmatic.core.matchers.MatcherResolutionMode
+import io.specmatic.core.matchers.MatcherEngine.Companion.resolveTemplates
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.SegmentCounts
 import io.specmatic.core.utilities.ensurePrefix
 import io.specmatic.core.utilities.ensureSuffix
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.net.URI
@@ -439,6 +442,17 @@ data class HttpPathPattern(
     fun fillInTheBlanks(path: String?, resolver: Resolver): ReturnValue<String> {
         return resolvePathSegments(path, resolver) { urlPathPattern, value, segmentResolver ->
             urlPathPattern.fillInTheBlanks(value = value, resolver = segmentResolver)
+        }
+    }
+
+    fun resolveTemplates(
+        path: String?,
+        resolver: Resolver,
+        data: JSONObjectValue,
+        resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
+    ): ReturnValue<String> {
+        return resolvePathSegments(path, resolver) { urlPathPattern, value, segmentResolver ->
+            resolveTemplates(urlPathPattern.pattern, value, segmentResolver, data, resolutionMode)
         }
     }
 

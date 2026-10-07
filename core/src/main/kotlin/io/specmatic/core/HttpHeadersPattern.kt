@@ -3,6 +3,8 @@ package io.specmatic.core
 import io.ktor.http.*
 import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.log.logger
+import io.specmatic.core.matchers.MatcherResolutionMode
+import io.specmatic.core.matchers.MatcherEngine.Companion.resolveTemplates
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.utilities.withNullPattern
@@ -440,6 +442,25 @@ data class HttpHeadersPattern(
                 resolver = updatedResolver,
                 typeAlias = null
             )
+        }
+    }
+
+    fun resolveTemplates(
+        resolver: Resolver,
+        data: JSONObjectValue,
+        headers: Map<String, String>,
+        resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
+    ): ReturnValue<Map<String, String>> {
+        return resolveHeaders(headers = headers, resolver = resolver) { patterns, values, updatedResolver ->
+            resolveTemplates(
+                data = data,
+                resolver = updatedResolver,
+                value = JSONObjectValue(values),
+                resolutionMode = resolutionMode,
+                pattern = JSONObjectPattern(patterns),
+            ).ifValue { resolved ->
+                (resolved as? JSONObjectValue)?.jsonObject ?: values
+            }
         }
     }
 

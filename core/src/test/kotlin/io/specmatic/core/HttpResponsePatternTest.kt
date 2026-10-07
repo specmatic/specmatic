@@ -1,18 +1,91 @@
 package io.specmatic.core
 
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
-import org.junit.jupiter.api.Nested
+import io.specmatic.core.pipeline.Pipeline
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.params.provider.CsvSource
+import java.util.stream.Stream
 
 internal class HttpResponsePatternTest {
+    @Nested
+    inner class MatcherResolution {
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.HttpResponsePatternTest#matcherResponseCases")
+        fun `resolves exact matcher values in complete response messages`(example: MatcherResponseExample) {
+            val matcherEngine = MatcherEngineTestSupport()
+            mockkObject(MatcherEngine.Companion)
+            every { MatcherEngine.load() } returns matcherEngine
+
+            try {
+                val tagMatcher = $$"$match(exact: $(data.tag))"
+                val nameMatcher = $$"$match(exact: $(data.name))"
+                val roleMatcher = $$"$match(exact: $(data.role))"
+
+                val bodyPattern = JSONObjectPattern(
+                    mapOf(
+                        "profile" to JSONObjectPattern(mapOf("name" to StringPattern())),
+                        "roles" to ListPattern(StringPattern()),
+                    ),
+                )
+
+                val body = JSONObjectValue(
+                    mapOf(
+                        "profile" to JSONObjectValue(mapOf("name" to StringValue(nameMatcher))),
+                        "roles" to JSONArrayValue(listOf(StringValue(roleMatcher))),
+                    ),
+                )
+
+                val partial = HttpResponse(
+                    body = body,
+                    status = 200,
+                    headers = mapOf("X-Tag" to tagMatcher),
+                )
+
+                val responsePattern = HttpResponsePattern(
+                    status = 200,
+                    body = bodyPattern,
+                    headersPattern = HttpHeadersPattern(mapOf("X-Tag" to StringPattern())),
+                )
+
+                val resolver = Resolver()
+                val data = example.data ?: JSONObjectValue()
+                val filled = Pipeline.from(partial)
+                    .then { responsePattern.resolveTemplates(resolver, it, data) }
+                    .then { HasValue(responsePattern.fillInTheBlanks(it, resolver)) }
+                    .run()
+                    .value
+
+                assertThat(filled).isEqualTo(example.expectedResponse)
+                assertThat(matcherEngine.resolutionCalls).isEqualTo(
+                    listOf(
+                        MatcherResolutionCall(
+                            data = data,
+                            pattern = JSONObjectPattern(mapOf("X-Tag" to StringPattern())),
+                            value = JSONObjectValue(mapOf("X-Tag" to StringValue(tagMatcher))),
+                        ),
+                        MatcherResolutionCall(pattern = bodyPattern, value = body, data = data),
+                    ),
+                )
+            } finally {
+                unmockkObject(MatcherEngine.Companion)
+            }
+        }
+    }
+
     @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = ["\$(NAME)", "\$(dataLookup.dept[DEPARTMENT].city)"])
     fun `response expectation preserves lookups until a request is available`(lookup: String) {
@@ -509,6 +582,66 @@ internal class HttpResponsePatternTest {
             assertThat(resolved.headers["X-Trace"]).isEqualTo("trace-from-dictionary")
             assertThat(resolved.body).isEqualTo(
                 parsedJSONObject("""{"message": "done", "addresses": [{"street": "Baker Street"}]}""")
+            )
+        }
+    }
+
+    companion object {
+        data class MatcherResponseExample(
+            val name: String,
+            val data: JSONObjectValue?,
+            val expectedResponse: HttpResponse,
+        )
+
+        @JvmStatic
+        fun matcherResponseCases(): Stream<Arguments> {
+            val emptyDataResponse = HttpResponse(
+                status = 200,
+                headers = mapOf("X-Tag" to "\$match(exact: \$(data.tag))"),
+                body = JSONObjectValue(
+                    mapOf(
+                        "profile" to JSONObjectValue(mapOf("name" to StringValue("\$match(exact: \$(data.name))"))),
+                        "roles" to JSONArrayValue(listOf(StringValue("\$match(exact: \$(data.role))"))),
+                    ),
+                ),
+            )
+
+            val populatedDataResponse = HttpResponse(
+                status = 200,
+                headers = mapOf("X-Tag" to "release"),
+                body = JSONObjectValue(
+                    mapOf(
+                        "profile" to JSONObjectValue(mapOf("name" to StringValue("Ada"))),
+                        "roles" to JSONArrayValue(listOf(StringValue("admin"))),
+                    ),
+                ),
+            )
+
+            return Stream.of(
+                Arguments.of(
+                    MatcherResponseExample(
+                        data = null,
+                        name = "default empty data",
+                        expectedResponse = emptyDataResponse,
+                    )
+                ),
+                Arguments.of(
+                    MatcherResponseExample(
+                        name = "populated data",
+                        expectedResponse = populatedDataResponse,
+                        data = JSONObjectValue(
+                            mapOf(
+                                "data" to JSONObjectValue(
+                                    mapOf(
+                                        "tag" to StringValue("release"),
+                                        "name" to StringValue("Ada"),
+                                        "role" to StringValue("admin"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
             )
         }
     }

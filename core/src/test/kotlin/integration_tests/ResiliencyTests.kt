@@ -3,6 +3,7 @@ package integration_tests
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.slot
 import io.mockk.unmockkAll
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
@@ -17,6 +18,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
@@ -2452,7 +2454,12 @@ class GenerativeTests {
 
     @Test
     fun `negative tests generated from an external 200 example should not run the 200 example response matcher`(@TempDir tempDir: File) {
+        val valueSlot = slot<Value>()
         val matcherEngine = mockk<MatcherEngine>()
+        every { matcherEngine.resolveValue(capture(valueSlot), any(), any(), any(), any()) } answers {
+            HasValue(valueSlot.captured)
+        }
+
         var negativeMatcherCallCount = 0
         var currentScenarioIsNegative = false
         mockkObject(MatcherEngine.Companion)

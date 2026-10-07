@@ -155,7 +155,10 @@ And response-header X-ResponseKey (number)
         val requestPattern = request.toPattern()
         assertThat(requestPattern.matches(HttpRequest("GET", "/resource", mapOf("X-RequestKey" to "10")), Resolver())).isInstanceOf(Result.Success::class.java)
 
-        val matchingResponse = feature.matchingStub(stub)
+        val matchingResponse = feature.matchingStub(stub).let {
+            it.withResponse(it.responsePattern.fillInTheBlanks(it.response, it.resolver))
+        }
+
         assertDoesNotThrow { matchingResponse.response.headers.getValue("X-ResponseKey").toInt() }
     }
 
@@ -369,7 +372,10 @@ And response-body (number)
         val requestPattern = request.toPattern()
         assertThat(requestPattern.matches(HttpRequest("POST", "/resource", body = StringValue("10")), Resolver())).isInstanceOf(Result.Success::class.java)
 
-        val matchingResponse = feature.matchingStub(stub)
+        val matchingResponse = feature.matchingStub(stub).let {
+            it.withResponse(it.responsePattern.fillInTheBlanks(it.response, it.resolver))
+        }
+
         assertDoesNotThrow { matchingResponse.response.body.toStringLiteral().toInt() }
     }
 

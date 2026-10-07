@@ -99,6 +99,10 @@ data class HttpResponse(
         return this.copy(headers = this.headers.plus(SPECMATIC_TYPE_HEADER to "random"))
     }
 
+    fun withSuccessResultHeader(): HttpResponse {
+        return this.copy(headers = this.headers.plus(SPECMATIC_RESULT_HEADER to "success"))
+    }
+
     fun withoutSpecmaticResultHeader(): HttpResponse {
         return this.copy(headers = this.headers.minus(SPECMATIC_RESULT_HEADER))
     }

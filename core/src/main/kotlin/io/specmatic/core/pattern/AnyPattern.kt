@@ -162,7 +162,6 @@ data class AnyPattern(
     }
 
     override fun fillInTheBlanks(value: Value, resolver: Resolver, removeExtraKeys: Boolean): ReturnValue<Value> {
-        generateValueFromMatcher(value, resolver, this)?.let { return it }
         val patternToConsider = when (val resolvedPattern = resolveToPattern(value, resolver, this)) {
             is ReturnFailure -> return resolvedPattern.cast()
             else -> resolvedPattern.value

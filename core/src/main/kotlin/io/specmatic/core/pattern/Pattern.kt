@@ -138,19 +138,7 @@ fun patternFromValueUsing(
     return parseValueToType(value)
 }
 
-fun generateValueFromMatcher(value: Value, resolver: Resolver, self: Pattern): ReturnValue<Value>? {
-    if (value is StringValue && isDollarMethodOrLookup(value) && !isSubstitution(value)) {
-        return runCatching {
-            val generated = resolver.generate(patternFromValueUsing(self, value, resolver) { it.deepPattern() })
-            if (resolver.isNegative) return@runCatching HasValue(generated)
-            self.matches(generated, resolver).toReturnValue(generated)
-        }.getOrElse(::HasException)
-    }
-    return null
-}
-
 fun fillInTheBlanksWithPattern(value: Value, resolver: Resolver, self: Pattern): ReturnValue<Value> {
-    generateValueFromMatcher(value, resolver, self)?.let { return it }
     val resolvedPattern = when (val resolvedPattern = resolveToPattern(value, resolver, self)) {
         is ReturnFailure -> return resolvedPattern.cast()
         else -> resolvedPattern.value

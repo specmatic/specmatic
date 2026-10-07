@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.specmatic.core.matchers.MatcherEngine.Companion.resolveTemplates
+import io.specmatic.core.matchers.MatcherResolutionMode
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.URIUtils
@@ -391,6 +393,25 @@ data class HttpQueryParamPattern(
                 resolver = updatedResolver,
                 typeAlias = null,
             )
+        }
+    }
+
+    fun resolveTemplates(
+        resolver: Resolver,
+        data: JSONObjectValue,
+        queryParams: QueryParameters?,
+        resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
+    ): ReturnValue<QueryParameters> {
+        return resolveQueryParams(queryParams = queryParams, resolver = resolver) { patterns, values, updatedResolver ->
+            resolveTemplates(
+                data = data,
+                resolver = updatedResolver,
+                value = JSONObjectValue(values),
+                resolutionMode = resolutionMode,
+                pattern = JSONObjectPattern(patterns),
+            ).ifValue { resolved ->
+                (resolved as? JSONObjectValue)?.jsonObject ?: values
+            }
         }
     }
 
