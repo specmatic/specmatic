@@ -9,6 +9,7 @@ import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.core.filters.ExpressionContextPopulator
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
+import io.specmatic.core.matchers.MatcherResolutionMode
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pipeline.Pipeline
 import io.specmatic.core.utilities.Decision
@@ -625,8 +626,17 @@ data class Scenario(
         } else resolverForExample
 
         if (responseExample != null) {
-            val responseMatchResult =
-                httpResponsePatternBasedOnAttributeSelection.matchesResponse(responseExample, updatedResolver)
+            val resolvedResponse = httpResponsePattern.resolveTemplates(
+                response = responseExample,
+                resolver = resolverForExample,
+                resolutionMode = MatcherResolutionMode.LOAD_TIME,
+                data = row.scenarioStub?.data ?: JSONObjectValue(),
+            )
+
+            val responseMatchResult = when (resolvedResponse) {
+                is HasValue -> httpResponsePatternBasedOnAttributeSelection.matchesResponse(resolvedResponse.value, updatedResolver)
+                is ReturnFailure -> resolvedResponse.toFailure().updateScenario(this)
+            }
 
             return responseMatchResult
         }
@@ -635,8 +645,19 @@ data class Scenario(
     }
 
     private fun validateRequestExample(row: Row, resolverForExample: Resolver): Result {
-        if(row.requestExample != null) {
-            val result = matchesRequestExample(row.requestExample, resolverForExample)
+        if (row.requestExample != null) {
+            val resolvedRequest = httpRequestPattern.resolveTemplates(
+                request = row.requestExample,
+                resolver = resolverForExample,
+                resolutionMode = MatcherResolutionMode.LOAD_TIME,
+                data = row.scenarioStub?.data ?: JSONObjectValue(),
+            )
+
+            val result = when (resolvedRequest) {
+                is HasValue -> matchesRequestExample(resolvedRequest.value, resolverForExample)
+                is ReturnFailure -> return resolvedRequest.toFailure().updateScenario(this)
+            }
+
             if(result is Result.Failure && !status.toString().startsWith("4"))
                 return result
             if(result is Result.Failure && httpRequestPattern.hasUndeclaredRequestVariant())

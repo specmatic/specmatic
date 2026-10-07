@@ -5,6 +5,7 @@ import io.specmatic.core.RequestScore.Companion.orEmpty
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.invalidRequestStatuses
+import io.specmatic.core.matchers.MatcherResolutionMode
 import io.specmatic.core.mostSpecificMatchingBaseUrl
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.HasValue
@@ -241,8 +242,19 @@ class ThreadSafeListOfStubs(
             }.map { (stubData, partial) ->
                 val (requestPattern, _, resolver) = stubData
                 val partialResolver = resolver.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
-                val partialResult = requestPattern.generateExactHttpRequestPatternFrom(partial.request, resolver)
-                    .matches(httpRequest, partialResolver, partialResolver)
+                val partialResult = requestPattern.resolveTemplates(
+                    resolver = resolver,
+                    data = stubData.data,
+                    request = partial.request,
+                    resolutionMode = MatcherResolutionMode.LOAD_TIME,
+                ).realise(
+                    orFailure = { it.toFailure() },
+                    orException = { it.toFailure() },
+                    hasValue = { resolvedRequest, _ ->
+                        requestPattern.generateExactHttpRequestPatternFrom(resolvedRequest, resolver)
+                            .matches(httpRequest, partialResolver, partialResolver)
+                    },
+                )
 
                 if (!partialResult.isSuccess()) return@map partialResult to stubData
                 if (partial.response.status in invalidRequestStatuses) return@map partialResult to stubData

@@ -183,13 +183,13 @@ data class HttpResponsePattern(
 
     fun resolveTemplates(
         resolver: Resolver,
-        partial: HttpResponse,
+        response: HttpResponse,
         data: JSONObjectValue = JSONObjectValue(),
         resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
     ): ReturnValue<HttpResponse> {
         val headers = headersPattern.resolveTemplates(
             data = data,
-            headers = partial.headers,
+            headers = response.headers,
             resolutionMode = resolutionMode,
             resolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value),
         ).breadCrumb(BreadCrumb.HEADER.value)
@@ -198,11 +198,11 @@ data class HttpResponsePattern(
             data = data,
             pattern = body,
             resolver = resolver,
-            value = partial.body,
+            value = response.body,
             resolutionMode = resolutionMode,
         ).breadCrumb("BODY")
 
-        return HasValue(partial)
+        return HasValue(response)
             .combine(headers) { current, resolvedHeaders -> current.copy(headers = resolvedHeaders) }
             .combine(body) { current, resolvedBody -> current.copy(body = resolvedBody) }
             .breadCrumb("RESPONSE")

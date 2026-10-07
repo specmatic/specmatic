@@ -452,12 +452,17 @@ data class HttpHeadersPattern(
         resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
     ): ReturnValue<Map<String, String>> {
         return resolveHeaders(headers = headers, resolver = resolver) { patterns, values, updatedResolver ->
+            val patternsByHeaderName = values.keys.mapNotNull { headerName ->
+                val (_, pattern) = patterns.getCaseInsensitiveCheckOptional(headerName) ?: return@mapNotNull null
+                Pair(headerName, pattern)
+            }.toMap()
+
             resolveTemplates(
                 data = data,
                 resolver = updatedResolver,
                 value = JSONObjectValue(values),
                 resolutionMode = resolutionMode,
-                pattern = JSONObjectPattern(patterns),
+                pattern = JSONObjectPattern(patternsByHeaderName),
             ).ifValue { resolved ->
                 (resolved as? JSONObjectValue)?.jsonObject ?: values
             }
