@@ -2,9 +2,13 @@ package io.specmatic.core
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.specmatic.GENERATION
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
+import io.specmatic.core.matchers.MatcherEngine
+import io.specmatic.core.matchers.MatcherResolutionMode
 import io.specmatic.core.pattern.*
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
@@ -474,6 +478,37 @@ class HttpQueryParamPatternTest {
         )
 
         assertThat(result).isInstanceOf(Success::class.java)
+    }
+
+    @Test
+    fun `returns original query params when nested query key syntax is invalid`() {
+        val matcherEngine = MatcherEngineTestSupport()
+        val queryParams = QueryParameters(
+            listOf(
+                "price[min]" to "50",
+                "price.max" to "150",
+                "category" to "shoes",
+                "variants[0].sizes[0]" to "9",
+                "variants[0].color" to $$"$match(exact: $(data.color))",
+            )
+        )
+
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        try {
+            val result = ecommerceNestedFilterQueryParamPattern().resolveTemplates(
+                resolver = Resolver(),
+                queryParams = queryParams,
+                resolutionMode = MatcherResolutionMode.LOAD_TIME,
+                data = JSONObjectValue(mapOf("data" to JSONObjectValue(mapOf("color" to StringValue("green"))))),
+            )
+
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat(result.value).isEqualTo(queryParams)
+            assertThat(matcherEngine.resolutionCalls).isEmpty()
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
     }
 
     @Test

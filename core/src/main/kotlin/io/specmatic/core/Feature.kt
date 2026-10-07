@@ -799,7 +799,6 @@ data class Feature(
 
         return matchRequestScenariosWithEarlySuccess(
             request = request,
-            scenarios = scenarios,
             responseStatus = response.status,
             prepare = { scenario ->
                 scenario.resolveExample(
@@ -807,7 +806,10 @@ data class Feature(
                     request = request,
                     response = response,
                     resolver = scenario.resolver,
-                )
+                ).ifValue { resolved ->
+                    val updatedScenario = resolved.scenario.newBasedOnAttributeSelectionFields(resolved.request.queryParams)
+                    resolved.copy(scenario = updatedScenario)
+                }
             },
             match = { resolved ->
                 resolved.scenario.matchesMock(
@@ -1206,6 +1208,7 @@ data class Feature(
         }
 
         val request = scenarioStub.requestElsePartialRequest()
+        val partialStub = checkNotNull(scenarioStub.partial)
         val result = matchRequestScenariosWithEarlySuccess(
             request = request,
             prepare = { scenario ->
@@ -1217,8 +1220,8 @@ data class Feature(
                 )
             },
             match = { resolved ->
-                val resolvedStub = scenarioStub.updateRequest(resolved.request).updateResponse(resolved.response)
-                resolved.scenario.matchesPartial(resolvedStub, mismatchMessages)
+                val resolvedPartialStub = partialStub.updateRequest(resolved.request).updateResponse(resolved.response)
+                resolved.scenario.matchesPartial(resolvedPartialStub, mismatchMessages)
             },
             onSuccess = { (scenario) ->
                 val requestTypeWithAncestors = scenario.httpRequestPattern.copy(headersPattern = scenario.httpRequestPattern.headersPattern.copy(ancestorHeaders = scenario.httpRequestPattern.headersPattern.pattern))

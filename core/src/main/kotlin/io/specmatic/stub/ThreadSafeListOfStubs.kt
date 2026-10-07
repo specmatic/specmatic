@@ -211,7 +211,9 @@ class ThreadSafeListOfStubs(
 
         return runCatching {
             Pipeline.from(stubResponse)
-                .then { response -> HasValue(response.resolveSubstitutions(httpRequest, originalRequest ?: httpRequest, stubData.data)) }
+                .then { response ->
+                    HasValue(response.resolveSubstitutions(httpRequest, originalRequest ?: httpRequest, stubData.data))
+                }
                 .then { substituted ->
                     stubData.responsePattern.resolveTemplates(stubData.resolver, substituted.response, stubData.data)
                         .ifValue(substituted::withResponse)

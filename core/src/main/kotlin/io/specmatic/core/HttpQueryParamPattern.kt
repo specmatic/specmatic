@@ -399,9 +399,19 @@ data class HttpQueryParamPattern(
     fun resolveTemplates(
         resolver: Resolver,
         data: JSONObjectValue,
-        queryParams: QueryParameters?,
+        queryParams: QueryParameters,
         resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
     ): ReturnValue<QueryParameters> {
+        val hasInvalidNestedQueryParam = nestedObjectQueryParams.isNotEmpty() && parseNestedObjectQueryParams(
+            resolver = resolver,
+            queryParams = queryParams,
+            nestedObjectQueryParams = nestedObjectQueryParams,
+            effectivePatterns = effectiveQueryPatterns(queryParams),
+        ).let {
+            it.failures.isNotEmpty() || it.remainingQueryParams.isNotEmpty()
+        }
+
+        if (hasInvalidNestedQueryParam) return HasValue(queryParams)
         return resolveQueryParams(queryParams = queryParams, resolver = resolver) { patterns, values, updatedResolver ->
             resolveTemplates(
                 data = data,

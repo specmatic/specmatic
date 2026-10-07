@@ -474,7 +474,8 @@ data class HttpPathPattern(
         if (path == null) return HasFailure("Path cannot be null")
         val pathSegments = extractPathSegments(path)
         if (pathSegmentPatterns.size != pathSegments.size) {
-            return HasFailure("Expected ${pathSegmentPatterns.size} path segments but got ${pathSegments.size}")
+            val message = "Expected ${pathSegmentPatterns.size} path segments but got ${pathSegments.size}"
+            return HasFailure(failure = Failure(message, failureReason = FailureReason.URLPathMisMatch))
         }
 
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.PATH.value)

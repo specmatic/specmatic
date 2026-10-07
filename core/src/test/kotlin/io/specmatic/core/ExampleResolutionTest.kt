@@ -84,7 +84,7 @@ internal class ExampleResolutionTest {
     @Nested
     inner class HeaderNameCasing {
         @Test
-        fun `resolves header references without making json property lookup case insensitive`() {
+        fun `matches headers case insensitively without changing json property names`() {
             val matcherValue = StringValue($$"$match(exact: $(data.responseId))")
             val resolvedHeaders = HttpHeadersPattern(mapOf("X-Trace-Id" to StringPattern()))
                 .resolveTemplates(
@@ -96,16 +96,31 @@ internal class ExampleResolutionTest {
 
             val jsonPattern = JSONObjectPattern(mapOf("X-Trace-Id" to StringPattern()))
             val jsonValue = JSONObjectValue(mapOf("x-trace-id" to matcherValue))
-            val resolvedJson = MatcherEngine.resolveTemplates(
+            MatcherEngine.resolveTemplates(
                 data = data,
                 value = jsonValue,
                 pattern = jsonPattern,
                 resolver = Resolver(),
                 resolutionMode = MatcherResolutionMode.LOAD_TIME,
-            ).value
+            )
 
             assertThat(resolvedHeaders).isEqualTo(mapOf("x-trace-id" to "response-from-data"))
-            assertThat(resolvedJson).isEqualTo(jsonValue)
+            assertThat(matcherEngine.resolutionCalls).isEqualTo(
+                listOf(
+                    MatcherResolutionCall(
+                        data = data,
+                        resolutionMode = MatcherResolutionMode.LOAD_TIME,
+                        value = JSONObjectValue(mapOf("x-trace-id" to matcherValue)),
+                        pattern = JSONObjectPattern(mapOf("x-trace-id" to StringPattern())),
+                    ),
+                    MatcherResolutionCall(
+                        data = data,
+                        value = jsonValue,
+                        pattern = jsonPattern,
+                        resolutionMode = MatcherResolutionMode.LOAD_TIME,
+                    ),
+                ),
+            )
         }
     }
 
