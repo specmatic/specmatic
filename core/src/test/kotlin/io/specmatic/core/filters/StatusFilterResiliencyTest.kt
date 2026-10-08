@@ -145,7 +145,7 @@ class StatusFilterResiliencyTest {
     }
 
     @Test
-    fun `STATUS 4xx with 200 and default and resiliency all yields no tests without Case 10 fallback`() {
+    fun `STATUS 4xx with 200 and default and resiliency all yields no tests`() {
         val tests = generateFilteredTests(
             filter = "METHOD='POST' && PATH='/orders' && STATUS='4xx'",
             resiliencyAll = true,
