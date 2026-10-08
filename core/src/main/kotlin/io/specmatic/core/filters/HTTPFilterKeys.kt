@@ -21,9 +21,6 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
             val statusClass = statusClassToken(value)
             if (statusClass != null) {
-                // `4xx` matches generated negatives and declared 4xx response scenarios. Keeping
-                // declared 4xx scenarios executable is required so negative generation can still
-                // resolve BadRequestOrDefault when 2xx scenarios are Skip'd by the same filter.
                 if (statusClass == 4) {
                     return scenario.isNegative || scenario.status in 400..499
                 }
