@@ -146,10 +146,8 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
         )
 
         val scenarioResult = feature.matchResultFlagBased(
-            request = example.request,
-            response = example.response,
+            scenarioStub = example.scenarioStub,
             mismatchMessages = ExampleMismatchMessages,
-            isPartial = example.isPartial()
         ).toResultIfAnyWithCauses()
 
         val scenarioResultWithBreadCrumb = example.breadCrumbIfPartial(scenarioResult)

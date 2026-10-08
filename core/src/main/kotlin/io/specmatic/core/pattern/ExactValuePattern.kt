@@ -5,6 +5,8 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.ConstantPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.utilities.firstSuccessOrFailures
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.ScalarValue
@@ -12,6 +14,10 @@ import io.specmatic.core.value.Value
 import io.specmatic.core.valueMismatchResult
 
 data class ExactValuePattern(override val pattern: Value, override val typeAlias: String? = null, val discriminator: Boolean = false) : Pattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.constant(ConstantPatternCase(pattern = this, context = context))
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (pattern == sampleData) {
             true -> Result.Success()

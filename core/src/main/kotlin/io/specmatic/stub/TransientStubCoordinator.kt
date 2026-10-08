@@ -28,13 +28,13 @@ internal class TransientStubCoordinator(
     fun <T> withMatchingTransientStub(
         httpRequest: HttpRequest,
         initialCandidateView: ThreadSafeListOfStubs,
-        onMatch: (HttpStubData) -> T
+        onMatch: (ThreadSafeListOfStubs.TransientMatch) -> T
     ): T? {
         // Perf: Reuse the initial view instead of calling freshCandidateView() for the pre-check; non-candidates then skip the transaction lock.
         if (!initialCandidateView.hasPotentialTransientMatch(httpRequest)) return null
         synchronized(transactionLock) {
             val authoritativeCandidateView = freshCandidateView()
-            val match = authoritativeCandidateView.matchingTransientStub(httpRequest) ?: return null
+            val match = authoritativeCandidateView.matchingTransientStubWithOriginal(httpRequest) ?: return null
             return onMatch(match.first)
         }
     }

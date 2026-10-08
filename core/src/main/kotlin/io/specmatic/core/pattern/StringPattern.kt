@@ -8,6 +8,8 @@ import io.specmatic.core.Result
 import io.specmatic.core.constraintMismatchResult
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.PatternVisitor
+import io.specmatic.core.pattern.fold.TextPatternCase
 import io.specmatic.core.value.CDATAValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
@@ -25,6 +27,10 @@ data class StringPattern (
     private val downsampledMax: Boolean = false,
     private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH,
 ) : Pattern, ScalarType, HasDefaultExample {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.text(TextPatternCase(pattern = this, context = context))
+    }
+
     internal val regExSpec = RegExSpec(regex, matchMode)
     private val effectiveMinLength = minLength ?: 0
 

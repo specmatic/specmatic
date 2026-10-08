@@ -5,12 +5,18 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.OpaquePatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 interface Pattern {
+    fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C = visitor.rootContext): R {
+        return visitor.opaque(OpaquePatternCase(pattern = this, context = context))
+    }
+
     fun matches(sampleData: Value?, resolver: Resolver): Result
     fun matches(sampleData: List<Value>, resolver: Resolver): ConsumeResult<Value, Value> {
         val sample = sampleData.firstOrNull() ?: return ConsumeResult(Result.Failure("No data found. There should have been at least one."), emptyList())
@@ -132,19 +138,7 @@ fun patternFromValueUsing(
     return parseValueToType(value)
 }
 
-fun generateValueFromMatcher(value: Value, resolver: Resolver, self: Pattern): ReturnValue<Value>? {
-    if (value is StringValue && isDollarMethodOrLookup(value) && !isSubstitution(value)) {
-        return runCatching {
-            val generated = resolver.generate(patternFromValueUsing(self, value, resolver) { it.deepPattern() })
-            if (resolver.isNegative) return@runCatching HasValue(generated)
-            self.matches(generated, resolver).toReturnValue(generated)
-        }.getOrElse(::HasException)
-    }
-    return null
-}
-
 fun fillInTheBlanksWithPattern(value: Value, resolver: Resolver, self: Pattern): ReturnValue<Value> {
-    generateValueFromMatcher(value, resolver, self)?.let { return it }
     val resolvedPattern = when (val resolvedPattern = resolveToPattern(value, resolver, self)) {
         is ReturnFailure -> return resolvedPattern.cast()
         else -> resolvedPattern.value

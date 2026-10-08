@@ -2951,7 +2951,7 @@ class OpenApiSpecification(
         val oneOfs = schemasWithOneOf.flatMap { (schemaToProcess, schemaPatternName, schemaCollectorContext) ->
             schemaToProcess.oneOf.mapIndexed { index, schema ->
                 val indexContext = schemaCollectorContext.at("oneOf").at(index)
-                val resolvedRef = resolveSchemaIfRef(schema, schemaPatternName, indexContext)
+                val resolvedRef = resolveSchemaIfRef(schema, schemaPatternName ?: patternName, indexContext)
                 val requiredFields = resolvedRef.resolvedSchema.required.orEmpty().plus(topLevelRequired)
                 resolvedRef.componentName to SchemaProperty(
                     resolvedRef.resolvedSchema.extensions.orEmpty(), toSchemaProperties(

@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.ktor.http.*
 import io.specmatic.core.filters.caseInsensitiveContains
 import io.specmatic.core.log.logger
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.utilities.withNullPattern
@@ -440,6 +441,29 @@ data class HttpHeadersPattern(
                 resolver = updatedResolver,
                 typeAlias = null
             )
+        }
+    }
+
+    fun resolveTemplates(
+        resolver: Resolver,
+        data: JSONObjectValue,
+        headers: Map<String, String>,
+        engine: TemplateResolver
+    ): ReturnValue<Map<String, String>> {
+        return resolveHeaders(headers = headers, resolver = resolver) { patterns, values, updatedResolver ->
+            val patternsByHeaderName = values.keys.mapNotNull { headerName ->
+                val (_, pattern) = patterns.getCaseInsensitiveCheckOptional(headerName) ?: return@mapNotNull null
+                Pair(headerName, pattern)
+            }.toMap()
+
+            engine.resolve(
+                data = data,
+                resolver = updatedResolver,
+                value = JSONObjectValue(values),
+                pattern = JSONObjectPattern(patternsByHeaderName),
+            ).ifValue { resolved ->
+                (resolved as? JSONObjectValue)?.jsonObject ?: values
+            }
         }
     }
 

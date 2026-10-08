@@ -8,8 +8,14 @@ import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.pattern.fold.DelegatedPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 
 class CsvPattern(override val pattern: Pattern) : Pattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.delegated(DelegatedPatternCase(pattern = this, context = context, delegate = pattern))
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is StringValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         val results: List<Result> = sampleData.string.split(",").mapIndexed { index, value ->

@@ -6,12 +6,18 @@ import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.PatternVisitor
+import io.specmatic.core.pattern.fold.TextPatternCase
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.net.URI
 
 data class URLPattern(val scheme: URLScheme = URLScheme.HTTPS, override val typeAlias: String? = null): Pattern, ScalarType {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.text(TextPatternCase(pattern = this, context = context))
+    }
+
     override val pattern: String = "(url)"
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {

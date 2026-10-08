@@ -5,10 +5,12 @@ import io.specmatic.conversions.TemplateTokenizer
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.SegmentCounts
 import io.specmatic.core.utilities.ensurePrefix
 import io.specmatic.core.utilities.ensureSuffix
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.net.URI
@@ -442,6 +444,17 @@ data class HttpPathPattern(
         }
     }
 
+    fun resolveTemplates(
+        path: String?,
+        resolver: Resolver,
+        data: JSONObjectValue,
+        engine: TemplateResolver,
+    ): ReturnValue<String> {
+        return resolvePathSegments(path, resolver) { urlPathPattern, value, segmentResolver ->
+            engine.resolve(data = data, value = value, resolver = segmentResolver, pattern = urlPathPattern.pattern)
+        }
+    }
+
     fun resolveSubstitutions(
         substitution: Substitution,
         path: String?,
@@ -460,7 +473,8 @@ data class HttpPathPattern(
         if (path == null) return HasFailure("Path cannot be null")
         val pathSegments = extractPathSegments(path)
         if (pathSegmentPatterns.size != pathSegments.size) {
-            return HasFailure("Expected ${pathSegmentPatterns.size} path segments but got ${pathSegments.size}")
+            val message = "Expected ${pathSegmentPatterns.size} path segments but got ${pathSegments.size}"
+            return HasFailure(failure = Failure(message, failureReason = FailureReason.URLPathMisMatch))
         }
 
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.PATH.value)

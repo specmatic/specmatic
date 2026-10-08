@@ -4,6 +4,8 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.DeferredPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.Value
 
@@ -12,6 +14,16 @@ data class DeferredPattern(
     val key: String? = null,
     override val extensions: Map<String, Any> = emptyMap()
 ) : Pattern, PossibleJsonObjectPatternContainer {
+
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.deferred(
+            case = DeferredPatternCase(
+                pattern = this,
+                context = context,
+                resolvePattern = ::resolvePattern,
+            ),
+        )
+    }
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         return resolvePattern(resolver).fixValue(value, resolver)

@@ -7,6 +7,9 @@ import io.specmatic.core.UnexpectedKeyCheck
 import io.specmatic.core.ValidateUnexpectedKeys
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.ObjectPatternCase
+import io.specmatic.core.pattern.fold.ObjectPropertyPattern
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.stringToPatternMap
 import io.specmatic.core.utilities.withNullPattern
@@ -35,6 +38,27 @@ data class TabularPattern(
     private val unexpectedKeyCheck: UnexpectedKeyCheck = ValidateUnexpectedKeys,
     override val typeAlias: String? = null
 ) : Pattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.objectProperties(
+            case = ObjectPatternCase(
+                pattern = this,
+                context = context,
+                properties = pattern.map { (name, propertyPattern) ->
+                    ObjectPropertyPattern(
+                        pattern = propertyPattern,
+                        required = !isOptional(name),
+                        name = withoutOptionality(name),
+                    )
+                },
+                additionalProperties = if (unexpectedKeyCheck == IgnoreUnexpectedKeys) {
+                    AdditionalProperties.FreeForm
+                } else {
+                    AdditionalProperties.NoAdditionalProperties
+                },
+            ),
+        )
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is JSONObjectValue) return dataTypeMismatchResult("JSON object", sampleData, resolver.mismatchMessages)
 

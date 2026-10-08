@@ -9,8 +9,16 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.StringPattern
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
@@ -26,6 +34,89 @@ import java.util.concurrent.TimeUnit.SECONDS
 
 class TransientStubCoordinatorTest {
     private val request = HttpRequest("GET", "/orders")
+
+    @Nested
+    inner class ResponsePreparation {
+        @Test
+        fun `transient serving uses a response-filled copy and utilization receives the queued instance`() {
+            val originalRequest = HttpRequest("GET", "/orders/(ID:number)")
+            val runningRequest = HttpRequest("GET", "/orders/42")
+            val partialResponse = HttpResponse(status = 200, body = StringValue("$(ID)"))
+            val queuedStub = responseReadyTransientStub(
+                response = partialResponse,
+                originalRequest = originalRequest,
+                responsePattern = HttpResponsePattern(status = 200, body = NumberPattern()),
+            )
+
+            val expectations = spyk(HttpExpectations(static = mutableListOf(), transient = mutableListOf(queuedStub)))
+            var preparedStub: HttpStubData? = null
+            val responseForServing = expectations.withMatchingStub(runningRequest) {
+                preparedStub = it
+                it.response
+            }.first
+
+            assertThat(responseForServing).isNotNull
+            assertThat(responseForServing).isNotSameAs(partialResponse)
+            assertThat(responseForServing)
+                .isEqualTo(
+                    HttpResponse(
+                        status = 200,
+                        headers = mapOf("Content-Type" to "text/plain"),
+                        body = NumberValue(42)
+                    ),
+                )
+
+            assertThat(preparedStub).isNotSameAs(queuedStub)
+            assertThat(expectations.transientStubCount).isZero()
+            assertThat(queuedStub.response).isEqualTo(partialResponse)
+            assertThat(preparedStub?.response).isEqualTo(responseForServing)
+            verify(exactly = 1) { expectations.utilizeMock(match { it === queuedStub }) }
+        }
+
+        @Test
+        fun `a transient candidate with missing substitution data falls through without consuming that candidate`() {
+            val originalRequest = HttpRequest("GET", "/orders/(ID:number)")
+            val runningRequest = HttpRequest("GET", "/orders/42")
+            val validStub = responseReadyTransientStub(
+                token = "valid",
+                originalRequest = originalRequest,
+                response = HttpResponse(status = 200, body = StringValue("$(ID)")),
+                responsePattern = HttpResponsePattern(status = 200, body = NumberPattern()),
+            )
+
+            val missingData = JSONObjectValue(
+                mapOf(
+                    "lookupData" to JSONObjectValue(
+                        mapOf("dictionary" to JSONObjectValue()),
+                    ),
+                ),
+            )
+
+            val missingDataStub = responseReadyTransientStub(
+                data = missingData,
+                token = "missing-data",
+                originalRequest = originalRequest,
+                responsePattern = HttpResponsePattern(status = 200, body = StringPattern()),
+                response = HttpResponse(status = 200, body = StringValue("$(lookupData.dictionary[MISSING_VAR].message)")),
+            )
+
+            val registrations = mutableListOf(missingDataStub, validStub)
+            val expectations = spyk(HttpExpectations(static = mutableListOf(), transient = registrations))
+            val responseForServing = expectations.withMatchingStub(runningRequest) { it.response }.first
+            assertThat(responseForServing)
+                .isEqualTo(
+                    HttpResponse(
+                        status = 200,
+                        body = NumberValue(42),
+                        headers = mapOf("Content-Type" to "text/plain"),
+                    ),
+                )
+
+            assertThat(registrations).singleElement().isSameAs(missingDataStub)
+            verify(exactly = 1) { expectations.utilizeMock(match { it === validStub }) }
+            verify(exactly = 0) { expectations.utilizeMock(match { it === missingDataStub }) }
+        }
+    }
 
     @Nested
     inner class TransactionBoundary {
@@ -315,7 +406,7 @@ class TransientStubCoordinatorTest {
             }
 
             assertThat(selections.filterNotNull()).hasSize(1)
-            assertThat(selections.filterNotNull().single()).isSameAs(stub)
+            assertThat(selections.filterNotNull().single()).isNotSameAs(stub)
             assertThat(expectations.transientStubCount).isZero
         }
 
@@ -323,32 +414,35 @@ class TransientStubCoordinatorTest {
         fun `removing a selected equal registration removes that registration by identity`() {
             val first = transientStub()
             val second = first.copy()
-            val expectations = HttpExpectations(
+            val expectations = spyk(HttpExpectations(
                 static = mutableListOf(),
                 transient = mutableListOf(first, second),
-            )
+            ))
 
             val selected = expectations.withMatchingStub(httpRequest = request, onMatch = { it }).first
-            assertThat(selected).isSameAs(second)
+            assertThat(selected).isNotSameAs(second)
+            verify(exactly = 1) { expectations.utilizeMock(match { it === second }) }
             assertThat(expectations.transientStubCount).isEqualTo(1)
 
             val nextSelected = expectations.withMatchingStub(request, onMatch = { it }).first
-            assertThat(nextSelected).isSameAs(first)
+            assertThat(nextSelected).isNotSameAs(first)
+            verify(exactly = 1) { expectations.utilizeMock(match { it === first }) }
             assertThat(expectations.transientStubCount).isZero()
         }
 
         @Test
         fun `utilizing a registration appearing twice consumes one occurrence at a time`() {
             val stub = transientStub()
-            val expectations = HttpExpectations(
+            val expectations = spyk(HttpExpectations(
                 static = mutableListOf(),
                 transient = mutableListOf(stub, stub),
-            )
+            ))
 
-            assertThat(expectations.withMatchingStub(request) { it }.first).isSameAs(stub)
+            assertThat(expectations.withMatchingStub(request) { it }.first).isNotSameAs(stub)
             assertThat(expectations.transientStubCount).isEqualTo(1)
 
-            assertThat(expectations.withMatchingStub(request) { it }.first).isSameAs(stub)
+            assertThat(expectations.withMatchingStub(request) { it }.first).isNotSameAs(stub)
+            verify(exactly = 2) { expectations.utilizeMock(match { it === stub }) }
             assertThat(expectations.transientStubCount).isZero()
         }
     }
@@ -367,6 +461,38 @@ class TransientStubCoordinatorTest {
         )
     }
 
+    private fun responseReadyTransientStub(
+        response: HttpResponse,
+        token: String = "transient",
+        originalRequest: HttpRequest,
+        responsePattern: HttpResponsePattern,
+        data: JSONObjectValue = JSONObjectValue(),
+    ): HttpStubData {
+        val requestPattern = originalRequest.toPattern()
+        val scenario = Scenario(
+            name = "Transient response preparation fixture",
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = responsePattern,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
+        )
+
+        return HttpStubData(
+            response = response,
+            scenario = scenario,
+            resolver = Resolver(),
+            requestType = requestPattern,
+            responsePattern = responsePattern,
+            originalRequest = originalRequest,
+            scenarioStub = ScenarioStub(
+                data = data,
+                stubToken = token,
+                response = response,
+                request = originalRequest,
+            ),
+        )
+    }
+
     private fun fakeStatefulMatcher(
         initialCount: Int,
         onMatch: (Int) -> Unit = {},
@@ -379,12 +505,19 @@ class TransientStubCoordinatorTest {
         private var committed = initialCount
         private var staged = initialCount
         val firstMatchEntered = CountDownLatch(1)
-        val stub = mockk<HttpStubData>()
+        val stub = mockk<HttpStubData>(relaxed = true)
+        val response = HttpResponse(
+            status = 200,
+            body = StringValue("ok"),
+            headers = mapOf("Content-Type" to "text/plain"),
+        )
 
         init {
             every { stub.matchesRequestPattern(any()) } returns Result.Success()
-            every { stub.responsePattern } returns HttpResponsePattern(HttpResponse.OK)
+            every { stub.response } returns response
+            every { stub.responsePattern } returns HttpResponsePattern(response)
             every { stub.partial } returns null
+            every { stub.scenario } returns null
             every { stub.hasCompleteAuthoredSecurityRequirement() } returns false
             every { stub.matches(any()) } answers {
                 synchronized(stateLock) {

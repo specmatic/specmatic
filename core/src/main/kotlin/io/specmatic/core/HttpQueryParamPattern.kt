@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.URIUtils
@@ -391,6 +392,34 @@ data class HttpQueryParamPattern(
                 resolver = updatedResolver,
                 typeAlias = null,
             )
+        }
+    }
+
+    fun resolveTemplates(
+        resolver: Resolver,
+        data: JSONObjectValue,
+        queryParams: QueryParameters,
+        engine: TemplateResolver,
+    ): ReturnValue<QueryParameters> {
+        val hasInvalidNestedQueryParam = nestedObjectQueryParams.isNotEmpty() && parseNestedObjectQueryParams(
+            resolver = resolver,
+            queryParams = queryParams,
+            nestedObjectQueryParams = nestedObjectQueryParams,
+            effectivePatterns = effectiveQueryPatterns(queryParams),
+        ).let {
+            it.failures.isNotEmpty() || it.remainingQueryParams.isNotEmpty()
+        }
+
+        if (hasInvalidNestedQueryParam) return HasValue(queryParams)
+        return resolveQueryParams(queryParams = queryParams, resolver = resolver) { patterns, values, updatedResolver ->
+            engine.resolve(
+                data = data,
+                resolver = updatedResolver,
+                value = JSONObjectValue(values),
+                pattern = JSONObjectPattern(patterns),
+            ).ifValue { resolved ->
+                (resolved as? JSONObjectValue)?.jsonObject ?: values
+            }
         }
     }
 

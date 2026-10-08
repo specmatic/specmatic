@@ -8,6 +8,7 @@ import io.specmatic.core.Result.Success
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorBasedValueGenerator
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.EmptyStringPattern
 import io.specmatic.core.pattern.ExactValuePattern
@@ -37,6 +38,7 @@ import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.returnValues
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.matchers.MatcherResolutionMode
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.EmptyString
@@ -1183,6 +1185,51 @@ data class HttpRequestPattern(
             val fixedSecurityRequest = securityMatch.scheme.fixValue(originalRequest, resolver)
             securityMatch.scheme.copyFromTo(fixedSecurityRequest, fixedRequest)
         }
+    }
+
+    fun resolveTemplates(
+        resolver: Resolver,
+        request: HttpRequest,
+        data: JSONObjectValue = JSONObjectValue(),
+        resolutionMode: MatcherResolutionMode = MatcherResolutionMode.RUNTIME,
+    ): ReturnValue<HttpRequest> {
+        val engine = TemplateResolver.create(resolutionMode)
+            ?: return HasValue(request)
+
+        val path = httpPathPattern?.resolveTemplates(
+            data = data,
+            engine = engine,
+            resolver = resolver,
+            path = request.path,
+        )?.breadCrumb(BreadCrumb.PARAM_PATH.value) ?: HasValue(null)
+
+        val queryParams = httpQueryParamPattern.resolveTemplates(
+            data = data,
+            engine = engine,
+            resolver = resolver,
+            queryParams = request.queryParams,
+        ).breadCrumb(BreadCrumb.PARAM_QUERY.value)
+
+        val headers = headersPattern.resolveTemplates(
+            data = data,
+            engine = engine,
+            headers = request.headers,
+            resolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value),
+        ).breadCrumb(BreadCrumb.PARAM_HEADER.value)
+
+        val body = engine.resolve(
+            data = data,
+            pattern = body,
+            resolver = resolver,
+            value = request.body,
+        ).breadCrumb("BODY")
+
+        return HasValue(request)
+            .combine(path) { req, it -> req.copy(path = it) }
+            .combine(queryParams) { req, it -> req.copy(queryParams = it) }
+            .combine(headers) { req, it -> req.copy(headers = it) }
+            .combine(body) { req, it -> req.copy(body = it) }
+            .breadCrumb("REQUEST")
     }
 
     fun fillInTheBlanks(request: HttpRequest, resolver: Resolver): HttpRequest {

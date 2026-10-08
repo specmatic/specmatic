@@ -7,6 +7,9 @@ import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.OneOfPatternCase
+import io.specmatic.core.pattern.fold.PatternAndResolver
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.utilities.EarlyResult
 import io.specmatic.core.utilities.firstSuccessOrFailures
 import io.specmatic.core.utilities.getOrElse
@@ -45,6 +48,18 @@ data class AnyPattern(
 
     data class AnyPatternMatch(val pattern: Pattern, val result: Result)
 
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.oneOf(
+            case = OneOfPatternCase(
+                pattern = this,
+                context = context,
+                alternatives = pattern,
+                discriminator = discriminator,
+                selector = { value, resolver -> selectPatternAndResolver(value, resolver) },
+            ),
+        )
+    }
+
     private fun extractDiscriminatorValue(value: Value): String? {
         return if (discriminator != null && value is JSONObjectValue && discriminator.property in value.jsonObject) {
             value.jsonObject.getValue(discriminator.property).toStringLiteral()
@@ -69,6 +84,12 @@ data class AnyPattern(
         }
         val bestMatch = patternMatches.minBy { (it.result as? Failure)?.failureCount() ?: 0 }
         return bestMatch.pattern
+    }
+
+    internal fun selectPatternAndResolver(value: Value, resolver: Resolver): PatternAndResolver {
+        val updatedPatterns = getUpdatedPattern(resolver)
+        val selectedPattern = selectPattern(value, resolver, updatedPatterns)
+        return PatternAndResolver(selectedPattern, resolverForEvaluation(resolver, updatedPatterns))
     }
 
     override fun fixValue(
@@ -148,7 +169,6 @@ data class AnyPattern(
     }
 
     override fun fillInTheBlanks(value: Value, resolver: Resolver, removeExtraKeys: Boolean): ReturnValue<Value> {
-        generateValueFromMatcher(value, resolver, this)?.let { return it }
         val patternToConsider = when (val resolvedPattern = resolveToPattern(value, resolver, this)) {
             is ReturnFailure -> return resolvedPattern.cast()
             else -> resolvedPattern.value
@@ -187,14 +207,7 @@ data class AnyPattern(
         patternsToEvaluate: List<Pattern> = updatedPatterns,
         crossinline evaluate: (Pattern, Resolver) -> ReturnValue<Value>
     ): ReturnValue<Value> {
-        val newPatterns = updatedPatterns
-            .filter { it.typeAlias != null && it !is DeferredPattern }
-            .associateBy { it.typeAlias.orEmpty() }
-
-        val updatedResolver = resolver
-            .copy(newPatterns = resolver.newPatterns.plus(newPatterns))
-            .updateLookupPath(this.typeAlias)
-
+        val updatedResolver = resolverForEvaluation(resolver, updatedPatterns)
         val result = patternsToEvaluate.firstSuccessOrFailures(
             evaluate = { evaluate(it, updatedResolver) },
             isSuccess = { it is HasValue },
@@ -204,6 +217,15 @@ data class AnyPattern(
         return result.getOrElse { failures ->
             HasFailure(Failure.fromFailures(failures.map { it.toFailure() }))
         }
+    }
+
+    private fun resolverForEvaluation(resolver: Resolver, updatedPatterns: List<Pattern>): Resolver {
+        val newPatterns = updatedPatterns
+            .filter { it.typeAlias != null && it !is DeferredPattern }
+            .associateBy { it.typeAlias.orEmpty() }
+
+        return resolver.copy(newPatterns = resolver.newPatterns.plus(newPatterns))
+            .updateLookupPath(this.typeAlias)
     }
 
     override fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {

@@ -1,6 +1,13 @@
 package io.specmatic.core.pattern
 
-interface ScalarType: Pattern
+import io.specmatic.core.pattern.fold.PatternVisitor
+import io.specmatic.core.pattern.fold.ScalarPatternCase
+
+interface ScalarType : Pattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.scalar(ScalarPatternCase(pattern = this, context = context))
+    }
+}
 
 fun scalarAnnotation(pattern: Pattern, negativePatterns: Sequence<Pattern>): Sequence<ReturnValue<Pattern>> {
     return negativePatterns.map {

@@ -3,6 +3,8 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.patternMismatchResult
+import io.specmatic.core.pattern.fold.DelegatedPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -12,6 +14,10 @@ data class RegexConstrainedPattern(
     private val resolver: Resolver,
     private val eagerRegexValidation: Boolean = true,
 ) : Pattern by basePattern, ScalarType {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.delegated(DelegatedPatternCase(pattern = this, context = context, delegate = basePattern))
+    }
+
     private val regexPattern = StringPattern(regex = regex)
 
     init {

@@ -5,14 +5,27 @@ import io.specmatic.core.Result
 import io.specmatic.core.constraintMismatchResult
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.IndexedListPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.utilities.stringTooPatternArray
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.utilities.withNumberType
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.value.fold.Item
 import java.util.*
 
 data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), override val typeAlias: String? = null) : Pattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.indexedList(
+            case = IndexedListPatternCase(
+                pattern = this,
+                context = context,
+                items = pattern.mapIndexed { index, childPattern -> Item(index, childPattern) },
+            ),
+        )
+    }
+
     constructor(jsonString: String, typeAlias: String?) : this(stringTooPatternArray(jsonString), typeAlias = typeAlias)
 
     @Throws(Exception::class)

@@ -12,6 +12,7 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.*
+import io.specmatic.core.pipeline.Pipeline
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -29,6 +30,113 @@ import java.net.URI
 import java.util.stream.Stream
 
 internal class HttpRequestPatternTest {
+    @Nested
+    inner class MatcherResolution {
+        @Test
+        fun `resolves matcher values in the path query headers and nested body before filling`() {
+            val matcherEngine = MatcherEngineTestSupport()
+            mockkObject(MatcherEngine.Companion)
+            every { MatcherEngine.load() } returns matcherEngine
+
+            try {
+                val data = JSONObjectValue(
+                    mapOf(
+                        "data" to JSONObjectValue(
+                            mapOf(
+                                "id" to NumberValue(42),
+                                "filter" to StringValue("active"),
+                                "region" to StringValue("west"),
+                                "name" to StringValue("Ada"),
+                                "role" to StringValue("admin"),
+                            ),
+                        ),
+                    ),
+                )
+
+                val nameMatcher = $$"$match(exact: $(data.name))"
+                val roleMatcher = $$"$match(exact: $(data.role))"
+                val bodyPattern = JSONObjectPattern(
+                    mapOf(
+                        "profile" to JSONObjectPattern(mapOf("name" to StringPattern())),
+                        "roles" to ListPattern(StringPattern()),
+                    ),
+                )
+
+                val body = JSONObjectValue(
+                    mapOf(
+                        "profile" to JSONObjectValue(mapOf("name" to StringValue(nameMatcher))),
+                        "roles" to JSONArrayValue(listOf(StringValue(roleMatcher))),
+                    ),
+                )
+
+                val requestPattern = HttpRequestPattern(
+                    body = bodyPattern,
+                    httpPathPattern = buildHttpPathPattern("/users/(id:number)"),
+                    headersPattern = HttpHeadersPattern(mapOf("X-Region" to StringPattern())),
+                    httpQueryParamPattern = HttpQueryParamPattern(mapOf("filter" to StringPattern())),
+                )
+
+                val request = HttpRequest(
+                    body = body,
+                    method = "GET",
+                    path = $$"/users/$match(exact: $(data.id))",
+                    headers = mapOf("X-Region" to $$"$match(exact: $(data.region))"),
+                    queryParams = QueryParameters(mapOf("filter" to $$"$match(exact: $(data.filter))")),
+                )
+
+                val resolver = Resolver()
+                val filledRequest = Pipeline.from(request)
+                    .then { requestPattern.resolveTemplates(resolver, it, data) }
+                    .then { HasValue(requestPattern.fillInTheBlanks(it, resolver)) }
+                    .run()
+                    .value
+
+                assertThat(matcherEngine.resolutionCalls).isEqualTo(
+                    listOf(
+                        MatcherResolutionCall(
+                            data = data,
+                            value = StringValue("/users/"),
+                            pattern = ExactValuePattern(StringValue("/users/")),
+                        ),
+                        MatcherResolutionCall(
+                            data = data,
+                            pattern = NumberPattern(),
+                            value = StringValue($$"$match(exact: $(data.id))"),
+                        ),
+                        MatcherResolutionCall(
+                            data = data,
+                            pattern = JSONObjectPattern(mapOf("filter" to StringPattern())),
+                            value = JSONObjectValue(mapOf("filter" to StringValue($$"$match(exact: $(data.filter))"))),
+                        ),
+                        MatcherResolutionCall(
+                            data = data,
+                            pattern = JSONObjectPattern(mapOf("X-Region" to StringPattern())),
+                            value = JSONObjectValue(mapOf("X-Region" to StringValue($$"$match(exact: $(data.region))"))),
+                        ),
+                        MatcherResolutionCall(pattern = bodyPattern, value = body, data = data),
+                    ),
+                )
+
+                assertThat(filledRequest).isEqualTo(
+                    HttpRequest(
+                        method = "GET",
+                        path = "/users/42",
+                        headers = mapOf("X-Region" to "west"),
+                        queryParams = QueryParameters(mapOf("filter" to "active")),
+                        body = JSONObjectValue(
+                            mapOf(
+                                "profile" to JSONObjectValue(mapOf("name" to StringValue("Ada"))),
+                                "roles" to JSONArrayValue(listOf(StringValue("admin"))),
+                            ),
+                        ),
+                    ),
+                )
+            } finally {
+                unmockkObject(MatcherEngine.Companion)
+            }
+        }
+    }
+
     @Test
     fun `should not match when url does not match`() {
         val httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern(URI("/matching_path")))

@@ -2,6 +2,8 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.DelegatedPatternCase
+import io.specmatic.core.pattern.fold.PatternVisitor
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import java.util.*
@@ -20,6 +22,10 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
 
     companion object {
         val emailRegex = Regex(EMAIL_REGEX)
+    }
+
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.delegated(case = DelegatedPatternCase(pattern = this, context = context, delegate = stringPatternDelegate))
     }
 
     override fun resolveSubstitutions(

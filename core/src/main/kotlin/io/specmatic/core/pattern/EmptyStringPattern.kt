@@ -6,9 +6,15 @@ import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.valueMismatchResult
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.pattern.fold.PatternVisitor
+import io.specmatic.core.pattern.fold.TextPatternCase
 import io.specmatic.core.value.*
 
 object EmptyStringPattern : Pattern {
+    override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
+        return visitor.text(TextPatternCase(pattern = this, context = context))
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
             EmptyString -> Result.Success()
