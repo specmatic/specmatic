@@ -7,6 +7,8 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 internal const val WORD_BOUNDARY = "\\b"
+private const val MIXED_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#"
+private val POSITIVE_LOOKAHEAD = Regex("""\(\?=([^)]*)\)""")
 private const val GENERATABLE_WHITESPACE = " \t\n\u000B\u000C\r"
 internal const val DOT_WITHOUT_LINE_TERMINATORS = "[^\n\r\u0085\u2028\u2029]"
 private const val ECMASCRIPT_WHITESPACE = "$GENERATABLE_WHITESPACE\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF"
@@ -18,7 +20,10 @@ enum class RegexMatchMode {
 
 class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH) {
     private val originalRegex = regex
-    private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
+    private val regexGenerator = regex
+        ?.takeUnless { it.containsLookaround() }
+        ?.let(::cleanRegex)
+        ?.let(::RegexBasedStringGenerator)
     private val regexForRuntimeMatch = originalRegex?.let { Regex(it.toRuntimeRegex(matchMode)) }
 
     init {
@@ -61,10 +66,13 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateShortestStringOrRandom(minLen: Int): String {
-        if (regexGenerator == null) return randomString(minLen)
-        val shortestExample = regexGenerator.generateShortest()
-        if (minLen <= shortestExample.length) return shortestExample
-        return regexGenerator.random(minLen, minLen)
+        if (regexGenerator != null) {
+            val shortestExample = regexGenerator.generateShortest()
+            val candidate = if (minLen <= shortestExample.length) shortestExample else regexGenerator.random(minLen, minLen)
+            if (matchesRuntimeRegex(candidate)) return candidate
+        }
+        if (regexForRuntimeMatch != null) return generateMatchingString(minLen, minLen)
+        return randomString(minLen)
     }
 
     fun negativeBasedOn(minLength: Int?, maxLength: Int?): Triple<String, Int?, Int?>? {
@@ -78,9 +86,16 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
-        if (regexGenerator == null) return randomString(maxLen)
-        if (regexGenerator.isInfinite) return regexGenerator.random(maxLen, maxLen)
-        return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
+        if (regexGenerator != null) {
+            val candidate = if (regexGenerator.isInfinite) {
+                regexGenerator.random(maxLen, maxLen)
+            } else {
+                regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
+            }
+            if (matchesRuntimeRegex(candidate)) return candidate
+        }
+        if (regexForRuntimeMatch != null) return generateMatchingString(maxLen, maxLen)
+        return randomString(maxLen)
     }
 
     fun match(sampleData: StringValue) = matchesRuntimeRegex(sampleData.toStringLiteral())
@@ -93,9 +108,54 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
-        return regexGenerator?.let {
-            StringValue(regexGenerator.random(minLength, maxLength))
-        } ?: StringValue(randomString(patternBaseLength(minLength, maxLength)))
+        regexGenerator?.random(minLength, maxLength)?.let { generated ->
+            if (matchesRuntimeRegex(generated)) return StringValue(generated)
+        }
+        if (regexForRuntimeMatch != null) return StringValue(generateMatchingString(minLength, maxLength))
+        return StringValue(randomString(patternBaseLength(minLength, maxLength)))
+    }
+
+    private fun generateMatchingString(minLength: Int, maxLength: Int?): String {
+        val length = patternBaseLength(minLength, maxLength).let { base ->
+            val withMin = base.coerceAtLeast(minLength)
+            if (maxLength != null) withMin.coerceAtMost(maxLength).coerceAtLeast(minLength) else withMin
+        }
+        val seed = lookaroundSeed(length)
+        if (matchesRuntimeRegex(seed)) return seed
+        repeat(40) {
+            val candidate = mixedString(length)
+            if (matchesRuntimeRegex(candidate)) return candidate
+        }
+        return seed
+    }
+
+    private fun lookaroundSeed(length: Int): String {
+        val requiredChars = POSITIVE_LOOKAHEAD.findAll(originalRegex.orEmpty()).mapNotNull { match ->
+            sampleFromLookaheadAtom(match.groupValues[1].removePrefix(".*").removePrefix(".+"))
+        }.toList()
+        if (requiredChars.isEmpty()) return mixedString(length)
+        val builder = StringBuilder()
+        requiredChars.forEach(builder::append)
+        while (builder.length < length) builder.append('a')
+        return builder.toString()
+    }
+
+    private fun sampleFromLookaheadAtom(atom: String): Char? {
+        return when {
+            atom == "\\d" || atom == "[0-9]" -> '0'
+            atom == "\\w" -> 'a'
+            atom == "\\s" -> ' '
+            atom.startsWith("[^") -> '!'
+            atom.startsWith("[") && atom.endsWith("]") && atom.length > 2 -> atom[1]
+            atom.length == 1 -> atom[0]
+            else -> null
+        }
+    }
+
+    private fun mixedString(length: Int): String {
+        return buildString(length) {
+            repeat(length) { append(MIXED_ALPHABET.random()) }
+        }
     }
 
     private fun patternBaseLength(minLength: Int, maxLength: Int?): Int {
@@ -104,6 +164,41 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
             maxLength != null && 5 > maxLength -> maxLength
             else -> 5
         }
+    }
+
+    private fun String.containsLookaround(): Boolean {
+        var escaped = false
+        var insideCharClass = false
+        var index = 0
+        while (index < length) {
+            val ch = this[index]
+            when {
+                escaped -> {
+                    escaped = false
+                    index++
+                }
+                ch == '\\' -> {
+                    escaped = true
+                    index++
+                }
+                insideCharClass -> {
+                    if (ch == ']') insideCharClass = false
+                    index++
+                }
+                ch == '[' -> {
+                    insideCharClass = true
+                    index++
+                }
+                ch == '(' && index + 2 < length && this[index + 1] == '?' && (this[index + 2] == '=' || this[index + 2] == '!') -> {
+                    return true
+                }
+                ch == '(' && index + 3 < length && this[index + 1] == '?' && this[index + 2] == '<' && (this[index + 3] == '=' || this[index + 3] == '!') -> {
+                    return true
+                }
+                else -> index++
+            }
+        }
+        return false
     }
 
     private fun cleanRegex(regex: String): String {

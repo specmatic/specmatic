@@ -730,12 +730,13 @@ internal class StringPatternTest {
 
     @Test
     fun `generated values match a password pattern that uses lookaheads`() {
+        val regex = """^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).*$"""
         val pattern = StringPattern(
-            regex = """^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).*$""",
+            regex = regex,
             minLength = 5,
             maxLength = 401,
         )
-        val generated = pattern.generate(Resolver())
+        val generated = StringValue(pattern.regExSpec.generateShortestStringOrRandom(5))
         assertThat(pattern.matches(generated, Resolver()).isSuccess())
             .withFailMessage("$generated does not match the password lookahead regex")
             .isTrue

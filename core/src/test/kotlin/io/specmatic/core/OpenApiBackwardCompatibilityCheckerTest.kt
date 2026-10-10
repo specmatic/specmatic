@@ -1,6 +1,10 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.StringPattern
+import io.specmatic.core.pattern.resolvedHop
+import io.specmatic.core.value.StringValue
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -67,13 +71,35 @@ class OpenApiBackwardCompatibilityCheckerTest {
 
     @Test
     fun `request body password pattern is compatible when only a path description changes`() {
+        val passwordRegex = """^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).*$"""
         val oldSpec = OpenApiSpecification.fromYAML(passwordRecoverySpec("Sets a new password."), "old.yaml", lenientMode = true).toFeature()
         val newSpec = OpenApiSpecification.fromYAML(passwordRecoverySpec("Sets a new password for a staff account."), "new.yaml", lenientMode = true).toFeature()
+
+        val oldPassword = passwordPatternFrom(oldSpec)
+        val newPassword = passwordPatternFrom(newSpec)
+        assertThat(oldPassword.regex).isEqualTo(passwordRegex)
+        assertThat(newPassword.regex).isEqualTo(passwordRegex)
+
+        val generatedPassword = oldPassword.regExSpec.generateShortestStringOrRandom(5)
+        assertThat(
+            oldPassword.matches(
+                StringValue(generatedPassword),
+                oldSpec.scenarios.first().resolver,
+            ).isSuccess()
+        )
+            .withFailMessage("old spec generated $generatedPassword which does not match $passwordRegex")
+            .isTrue
 
         val records = OpenApiBackwardCompatibilityChecker(oldSpec, newSpec).run()
         val failures = records.map { it.compatResult }.filterIsInstance<Result.Failure>()
 
-        assertThat(failures).isEmpty()
+        assertThat(failures.map { it.reportString() }).isEmpty()
+    }
+
+    private fun passwordPatternFrom(feature: Feature): StringPattern {
+        val scenario = feature.scenarios.first()
+        val body = resolvedHop(scenario.httpRequestPattern.body, scenario.resolver) as JSONObjectPattern
+        return body.pattern.getValue("password") as StringPattern
     }
 
     private fun passwordRecoverySpec(pathDescription: String): String {
