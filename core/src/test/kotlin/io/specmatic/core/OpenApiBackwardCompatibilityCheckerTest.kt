@@ -64,4 +64,55 @@ class OpenApiBackwardCompatibilityCheckerTest {
         }
         """.trimIndent())
     }
+
+    @Test
+    fun `request body password pattern is compatible when only a path description changes`() {
+        val oldSpec = OpenApiSpecification.fromYAML(passwordRecoverySpec("Sets a new password."), "old.yaml", lenientMode = true).toFeature()
+        val newSpec = OpenApiSpecification.fromYAML(passwordRecoverySpec("Sets a new password for a staff account."), "new.yaml", lenientMode = true).toFeature()
+
+        val records = OpenApiBackwardCompatibilityChecker(oldSpec, newSpec).run()
+        val failures = records.map { it.compatResult }.filterIsInstance<Result.Failure>()
+
+        assertThat(failures).isEmpty()
+    }
+
+    private fun passwordRecoverySpec(pathDescription: String): String {
+        return """
+        openapi: 3.0.3
+        info:
+          title: Pet Shelter API
+          version: 1.0.0
+        paths:
+          /shelters/{shelterId}/staff/password-recovery:
+            post:
+              description: $pathDescription
+              parameters:
+                - name: shelterId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      ${'$'}ref: '#/components/schemas/StaffPasswordRecoveryRequest'
+              responses:
+                '204':
+                  description: Shelter account password reset successfully
+        components:
+          schemas:
+            StaffPasswordRecoveryRequest:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  minLength: 5
+                  maxLength: 401
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).*$'
+        """.trimIndent()
+    }
 }
