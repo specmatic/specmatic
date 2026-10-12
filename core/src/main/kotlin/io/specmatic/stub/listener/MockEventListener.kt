@@ -27,6 +27,7 @@ data class MockEvent (
     val scenario: Scenario?,
     val stubResult: TestResult,
     val terminatedConnection: Boolean,
+    val exampleName: String? = null,
 ) {
     constructor(logMessage: HttpLogMessage, terminatedConnection: Boolean = false) : this(
         name = logMessage.toName(),
@@ -47,5 +48,6 @@ data class MockEvent (
         scenario = logMessage.scenario,
         stubResult = logMessage.toResult(),
         terminatedConnection = terminatedConnection,
+        exampleName = logMessage.exampleName,
     )
 }

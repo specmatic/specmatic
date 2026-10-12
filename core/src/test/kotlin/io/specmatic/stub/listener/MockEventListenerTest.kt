@@ -66,7 +66,8 @@ class MockEventListenerTest {
             it.generateHttpRequest() to it.generateHttpResponse().copy(headers = emptyMap())
         }
 
-        val exampleStub = ScenarioStub(request = request, response = response, filePath = "examples/example.json")
+        val exampleName = "my-custom-example"
+        val exampleStub = ScenarioStub(request = request, response = response, filePath = "examples/example.json").withName(exampleName)
         val captureMockEvents = captureMockEvents { listener ->
             HttpStub(feature, scenarioStubs = listOf(exampleStub), listeners = listOf(listener)).use { stub ->
                 stub.client.execute(request)
@@ -75,8 +76,11 @@ class MockEventListenerTest {
 
         assertThat(captureMockEvents).hasSize(1)
         val event = captureMockEvents.single()
-        assertThat(event.name).contains("external example 'example.json'")
-        assertThat(event.details).contains("Request Matched External Example: examples/example.json")
+        val scenario = requireNotNull(event.scenario)
+        val apiDescription = scenario.customAPIDescription ?: scenario.defaultAPIDescription
+        assertThat(event.name).isEqualTo("Scenario: $apiDescription with the request from the external example '$exampleName'")
+        assertThat(event.details).isEqualTo("Request Matched External Example: $exampleName")
+        assertThat(event.exampleName).isEqualTo(exampleName)
         assertThat(event.stubResult).isEqualTo(TestResult.Success)
     }
 
