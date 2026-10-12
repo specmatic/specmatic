@@ -63,8 +63,17 @@ class WSDLFaultExampleAndDictionaryInvestigationTest {
         assertThat(getProduct.examples.flatMap { it.rows }.map { it.name }).containsExactly("POST_200_1")
         assertThat(getInventory.examples).isEmpty()
 
+        val generatedRequests = feature.generateContractTests().map { it.scenario.generateHttpRequest() }.toList()
+        val getProductBodies = generatedRequests.map { it.body.toStringLiteral() }.filter { it.contains("GetProduct") }
+        assertThat(getProductBodies).isNotEmpty
+        assertThat(getProductBodies).allMatch { it.contains("<ProductVariantIdentifier>000123</ProductVariantIdentifier>") }
+        assertThat(generatedRequests.joinToString { it.body.toStringLiteral() }).doesNotContain("999999")
+
+        val twoHundredStubs = examplesDir.listFiles().orEmpty()
+            .filter { it.name != "POST_500_1.json" }
+            .map(ScenarioStub::readFromFile)
         val requestBodies = mutableListOf<String>()
-        val result = HttpStub(feature, examplesDir.listFiles().orEmpty().map(ScenarioStub::readFromFile)).use { stub ->
+        val result = HttpStub(feature, twoHundredStubs).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     requestBodies.add(request.body.toStringLiteral())
@@ -74,9 +83,8 @@ class WSDLFaultExampleAndDictionaryInvestigationTest {
         }
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
-        val getProductBodies = requestBodies.filter { it.contains("GetProduct") }
-        assertThat(getProductBodies).isNotEmpty
-        assertThat(getProductBodies).allMatch { it.contains("<ProductVariantIdentifier>000123</ProductVariantIdentifier>") }
+        assertThat(requestBodies.filter { it.contains("GetProduct") })
+            .allMatch { it.contains("<ProductVariantIdentifier>000123</ProductVariantIdentifier>") }
         assertThat(requestBodies.joinToString()).doesNotContain("999999")
     }
 
