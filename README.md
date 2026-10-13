@@ -2,7 +2,7 @@ Specmatic
 =========
 [![Maven Central](https://img.shields.io/maven-central/v/io.specmatic/specmatic-core.svg)](https://mvnrepository.com/artifact/io.specmatic/specmatic-core) [![GitHub release](https://img.shields.io/github/v/release/specmatic/specmatic.svg)](https://github.com/specmatic/specmatic/releases) ![CI Build](https://github.com/specmatic/specmatic/workflows/Java%20Build%20with%20Gradle/badge.svg) [![Twitter Follow](https://img.shields.io/twitter/follow/specmatic.svg?style=social&label=Follow)](https://twitter.com/specmatic) [![Docker Pulls](https://img.shields.io/docker/pulls/specmatic/specmatic.svg)](https://hub.docker.com/r/specmatic/specmatic)
 
-##### Shift-left API Integration and auto-fix integration drift before integration
+## Shift-left API Integration and auto-fix integration drift before integration
 
 Specmatic turns API specifications into executable contracts, continuously verifying that every change made by AI coding agents and engineers stays true to the desired behaviour. Ship AI-ready APIs 10x faster, from intent to implementation, with Spec-Driven API Development.
 
