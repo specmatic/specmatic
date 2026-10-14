@@ -57,11 +57,10 @@ dependencies {
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.1")
 }
 
-tasks.test {
-    jvmArgumentProviders.add(CommandLineArgumentProvider {
-        val junit5SystemExit =
-            configurations.testRuntimeClasspath.get().files.find { it.name.contains("junit5-system-exit") }
+val junit5SystemExitJvmArgumentProvider = objects.newInstance(JUnit5SystemExitArgumentProvider::class.java).apply {
+    runtimeClasspath.from(configurations.testRuntimeClasspath)
+}
 
-        listOf("-javaagent:$junit5SystemExit")
-    })
+tasks.test {
+    jvmArgumentProviders.add(junit5SystemExitJvmArgumentProvider)
 }
