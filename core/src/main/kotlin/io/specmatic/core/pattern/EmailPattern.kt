@@ -25,7 +25,15 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
     }
 
     override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
-        return visitor.delegated(case = DelegatedPatternCase(pattern = this, context = context, delegate = stringPatternDelegate))
+        return visitor.delegated(
+            case = DelegatedPatternCase(
+                pattern = this,
+                context = context,
+                delegate = stringPatternDelegate,
+                delegateClass = StringPattern::class.java,
+                rewrapPattern = { delegate -> EmailPattern(delegate, example) },
+            ),
+        )
     }
 
     override fun resolveSubstitutions(

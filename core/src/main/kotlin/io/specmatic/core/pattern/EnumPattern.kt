@@ -44,7 +44,15 @@ private infix fun Boolean.yet(otherBooleanValue: Boolean): Boolean {
 
 data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) : Pattern by pattern, ScalarType {
     override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
-        return visitor.delegated(case = DelegatedPatternCase(pattern = this, context = context, delegate = pattern))
+        return visitor.delegated(
+            case = DelegatedPatternCase(
+                pattern = this,
+                context = context,
+                delegate = pattern,
+                delegateClass = AnyPattern::class.java,
+                rewrapPattern = { delegate -> copy(pattern = delegate) },
+            ),
+        )
     }
 
     constructor(

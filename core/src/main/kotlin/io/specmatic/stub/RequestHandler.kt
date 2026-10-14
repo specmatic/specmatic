@@ -4,5 +4,5 @@ import io.specmatic.core.HttpRequest
 
 interface RequestHandler {
     val name: String
-    fun handleRequest(httpRequest: HttpRequest): HttpStubResponse?
+    fun handleRequest(httpRequest: HttpRequest, baseUrl: String): HttpStubResponse?
 }

@@ -8,7 +8,10 @@ data class IndexedListPatternCase<P : Pattern, C>(
     override val pattern: P,
     override val context: C,
     val items: List<Item<Pattern>>,
+    private val rebuildPattern: (List<Item<Pattern>>) -> P,
 ) : PatternCase<P, C> {
+    fun rebuild(items: List<Item<Pattern>>): P = rebuildPattern(items)
+
     fun patternFor(index: Int): Pattern? = items.firstOrNull { it.index == index }?.value
 
     fun patternAndResolverForIndex(index: Int, resolver: Resolver): PatternAndResolver? {
@@ -28,7 +31,10 @@ data class RepeatedListPatternCase<P : Pattern, C>(
     override val pattern: P,
     override val context: C,
     val itemPattern: Pattern,
+    private val rebuildPattern: (Pattern) -> P,
 ) : PatternCase<P, C> {
+    fun rebuild(itemPattern: Pattern): P = rebuildPattern(itemPattern)
+
     fun resolverForItem(resolver: Resolver): Resolver = resolver.updateLookupPathForArrayItem(pattern, itemPattern)
 
     fun <R> projectItem(visitor: PatternVisitor<C, R>, index: Int): R {

@@ -21,6 +21,7 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
             case = IndexedListPatternCase(
                 pattern = this,
                 context = context,
+                rebuildPattern = { items -> copy(pattern = items.map { it.value }) },
                 items = pattern.mapIndexed { index, childPattern -> Item(index, childPattern) },
             ),
         )

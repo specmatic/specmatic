@@ -55,6 +55,7 @@ data class AnyPattern(
                 context = context,
                 alternatives = pattern,
                 discriminator = discriminator,
+                rebuildPattern = { alternatives -> copy(pattern = alternatives) },
                 selector = { value, resolver -> selectPatternAndResolver(value, resolver) },
             ),
         )

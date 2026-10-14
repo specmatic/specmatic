@@ -125,6 +125,7 @@ class PatternVisitorTest {
                     ObjectPropertyPattern("count", countPattern, required = false),
                 ),
             )
+            assertThat(case.rebuild(case.properties)).isEqualTo(pattern)
 
             assertThat(case.patternForProperty("count")).isEqualTo(countPattern)
             assertThat(case.patternForProperty("unknown")).isNull()
@@ -252,6 +253,7 @@ class PatternVisitorTest {
             assertThat(case.itemPattern).isEqualTo(itemPattern)
             assertThat(case.projectItem(visitor, 0)).isEqualTo(Visit(itemPattern, "body[0]", "text"))
             assertThat(case.projectItem(visitor, 4)).isEqualTo(Visit(itemPattern, "body[4]", "text"))
+            assertThat(case.rebuild(itemPattern)).isEqualTo(pattern)
             assertThat(case.resolverForItem(Resolver()))
                 .isEqualTo(Resolver().updateLookupPathForArrayItem(pattern, itemPattern))
         }
@@ -283,6 +285,7 @@ class PatternVisitorTest {
                     Item(1, Visit(secondPattern, "body[1]", "scalar")),
                 ),
             )
+            assertThat(case.rebuild(case.items)).isEqualTo(pattern)
         }
     }
 
@@ -312,6 +315,7 @@ class PatternVisitorTest {
             assertThat(anyVisitor.lastKind).isEqualTo("oneOf")
             assertThat(anyCase.alternatives).isEqualTo(patterns)
             assertThat(anyCase.discriminator).isEqualTo(discriminator)
+            assertThat(anyCase.rebuild(anyCase.alternatives)).isEqualTo(anyPattern)
 
             val resolver = Resolver()
             val sample = JSONObjectValue(mapOf("kind" to StringValue("second")))
@@ -342,6 +346,7 @@ class PatternVisitorTest {
             assertThat(anyOfVisitor.lastKind).isEqualTo("anyOf")
             assertThat(anyOfCase.alternatives).isEqualTo(patterns)
             assertThat(anyOfCase.discriminator).isEqualTo(discriminator)
+            assertThat(anyOfCase.rebuild(anyOfCase.alternatives)).isEqualTo(anyOfPattern)
             assertThat(anyOfCase.choosePatternAndResolver(sample, resolver))
                 .isEqualTo(PatternAndResolver(second, expectedResolver))
 
@@ -394,7 +399,7 @@ class PatternVisitorTest {
             val visitor = RecordingPatternVisitor()
 
             enumPattern.accept(visitor, "enum")
-            val enumCase = visitor.observed as DelegatedPatternCase<*, String>
+            val enumCase = visitor.observed as DelegatedPatternCase<*, *, String>
 
             assertThat(enumCase.pattern).isEqualTo(enumPattern)
             assertThat(enumCase.delegate).isEqualTo(enumPattern.pattern)
@@ -412,12 +417,33 @@ class PatternVisitorTest {
             val visitor = RecordingPatternVisitor()
 
             val result = pattern.accept(visitor, "query")
-            val case = visitor.observed as DelegatedPatternCase<*, String>
+            val case = visitor.observed as DelegatedPatternCase<*, *, String>
 
             assertThat(result).isEqualTo(Visit(pattern, "query", "delegated"))
             assertThat(case.pattern).isEqualTo(pattern)
             assertThat(case.delegate).isEqualTo(delegate)
             assertThat(case.projectDelegate(visitor)).isEqualTo(Visit(delegate, "query", "text"))
+            assertThat(case.rewrapProjected(delegate)?.javaClass).isEqualTo(pattern.javaClass)
+        }
+
+        @Test
+        fun `delegated rebuild requires the original delegate type`() {
+            val pattern = EmailPattern(example = "person@example.com")
+            val visitor = RecordingPatternVisitor()
+            pattern.accept(visitor, "email")
+
+            @Suppress("UNCHECKED_CAST")
+            val case = visitor.observed as DelegatedPatternCase<EmailPattern, StringPattern, String>
+            val projectedDelegate = StringPattern()
+            val rebuilt = case.rewrap(projectedDelegate)
+
+            rebuilt.accept(visitor)
+            val rebuiltObserved = visitor.observed
+
+            assertThat(rebuilt).isInstanceOf(EmailPattern::class.java)
+            assertThat(rebuiltObserved).isInstanceOf(DelegatedPatternCase::class.java); rebuiltObserved as DelegatedPatternCase<*, *, *>
+            assertThat(rebuiltObserved.delegate).isEqualTo(projectedDelegate)
+            assertThat(case.rewrapProjected(NumberPattern())).isNull()
         }
     }
 
@@ -458,6 +484,7 @@ class PatternVisitorTest {
                     )
                 ),
             )
+            assertThat(case.rebuild(case.attributes, case.children)).isEqualTo(xmlPattern)
         }
 
         @Test
@@ -493,6 +520,7 @@ class PatternVisitorTest {
             choiceGroup.accept(visitor, "xml")
             val case = visitor.observed as AlternativeSequencesPatternCase<*, String>
             assertThat(case.alternatives).isEqualTo(branches)
+            assertThat(case.rebuild(case.alternatives)).isEqualTo(choiceGroup)
             assertThat(case.projectAlternatives(visitor)).isEqualTo(
                 listOf(
                     listOf(
@@ -569,7 +597,7 @@ private class RecordingPatternVisitor(override val rootContext: String = "root")
     override fun oneOf(case: OneOfPatternCase<out Pattern, String>): Visit = capture(case, "oneOf")
     override fun anyOf(case: AnyOfPatternCase<out Pattern, String>): Visit = capture(case, "anyOf")
     override fun alternativeSequences(case: AlternativeSequencesPatternCase<out Pattern, String>): Visit = capture(case, "alternativeSequences")
-    override fun delegated(case: DelegatedPatternCase<out Pattern, String>): Visit = capture(case, "delegated")
+    override fun delegated(case: DelegatedPatternCase<out Pattern, out Pattern, String>): Visit = capture(case, "delegated")
     override fun deferred(case: DeferredPatternCase<out Pattern, String>): Visit = capture(case, "deferred")
     override fun xmlElement(case: XmlElementPatternCase<out Pattern, String>): Visit = capture(case, "xmlElement")
 

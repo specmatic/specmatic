@@ -34,7 +34,7 @@ interface PatternVisitor<C, R> {
     fun alternativeSequences(case: AlternativeSequencesPatternCase<out Pattern, C>): R =
         opaque(OpaquePatternCase(case.pattern, case.context))
 
-    fun delegated(case: DelegatedPatternCase<out Pattern, C>): R =
+    fun delegated(case: DelegatedPatternCase<out Pattern, out Pattern, C>): R =
         opaque(OpaquePatternCase(case.pattern, case.context))
 
     fun deferred(case: DeferredPatternCase<out Pattern, C>): R =

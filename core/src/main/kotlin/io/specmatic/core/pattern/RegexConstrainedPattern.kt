@@ -15,7 +15,15 @@ data class RegexConstrainedPattern(
     private val eagerRegexValidation: Boolean = true,
 ) : Pattern by basePattern, ScalarType {
     override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
-        return visitor.delegated(DelegatedPatternCase(pattern = this, context = context, delegate = basePattern))
+        return visitor.delegated(
+            DelegatedPatternCase(
+                pattern = this,
+                context = context,
+                delegate = basePattern,
+                delegateClass = Pattern::class.java,
+                rewrapPattern = { delegate -> copy(basePattern = delegate) },
+            ),
+        )
     }
 
     private val regexPattern = StringPattern(regex = regex)

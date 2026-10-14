@@ -26,6 +26,7 @@ data class XMLChoiceGroupPattern(
                 pattern = this,
                 context = context,
                 alternatives = choices,
+                rebuildPattern = { alternatives -> copy(choices = alternatives) },
             ),
         )
     }
@@ -497,6 +498,7 @@ data class XMLSequencePattern(
                 pattern = this,
                 context = context,
                 items = members.mapIndexed { index, member -> Item(index, member) },
+                rebuildPattern = { items -> copy(members = items.map { it.value }) },
             ),
         )
     }

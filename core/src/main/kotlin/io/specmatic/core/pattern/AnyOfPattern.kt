@@ -40,6 +40,7 @@ data class AnyOfPattern(
                 context = context,
                 alternatives = pattern,
                 discriminator = discriminator,
+                rebuildPattern = { alternatives -> copy(pattern = alternatives) },
                 selector = { value, resolver -> delegate.selectPatternAndResolver(value, resolver) },
             ),
         )
