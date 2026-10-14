@@ -21,9 +21,9 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.27.7")
 }
 
-val enableConformanceTests: String? by project
-val specmaticVersionForConformanceTests: String? by project
-val succeedOnExpectedFailures: String? by project
+val enableConformanceTests = findProperty("enableConformanceTests") as String?
+val specmaticVersionForConformanceTests = findProperty("specmaticVersionForConformanceTests") as String?
+val succeedOnExpectedFailures = findProperty("succeedOnExpectedFailures") as String?
 
 val conformanceTestResultsJsonlFile = layout.buildDirectory.file("conformance-test-results.jsonl")
 
@@ -49,7 +49,7 @@ tasks.test {
     }
 }
 
-val generateConformanceTests by tasks.registering(GenerateConformanceTestsTask::class) {
+val generateConformanceTests = tasks.register<GenerateConformanceTestsTask>("generateConformanceTests") {
     specsDirectory.set(layout.projectDirectory.dir("src/test/resources/specs"))
     generatedSourcesDirectory.set(layout.buildDirectory.dir("generated/sources/conformance/kotlin"))
 }
