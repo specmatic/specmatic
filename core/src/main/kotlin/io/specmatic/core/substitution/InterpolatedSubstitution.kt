@@ -1,8 +1,9 @@
 package io.specmatic.core.substitution
 
 import io.specmatic.core.Resolver
-import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.isBuiltInPattern
+import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.isMatcherTemplate
@@ -48,6 +49,7 @@ internal object InterpolatedSubstitution {
         val placeholders = captureRegex
             .findAll(original)
             .filterNot { isDollarFunctionCall(original, it.range.first) }
+            .filter { isKnownCaptureType(it.value, resolver) }
             .toList()
 
         if (placeholders.isEmpty()) return ExtractionResult.Success(emptyMap())
@@ -128,6 +130,12 @@ internal object InterpolatedSubstitution {
 
     private fun isDollarFunctionCall(value: String, openParenIndex: Int): Boolean {
         return dollarFunctionBeforeParenRegex.containsMatchIn(value.substring(0, openParenIndex))
+    }
+
+    private fun isKnownCaptureType(token: String, resolver: Resolver): Boolean {
+        val typeName = placeholderParts(token)?.second ?: return false
+        val patternToken = "($typeName)"
+        return resolver.hasPattern(patternToken) || (':' !in typeName && isBuiltInPattern(patternToken))
     }
 
     private sealed interface ExtractionResult {
