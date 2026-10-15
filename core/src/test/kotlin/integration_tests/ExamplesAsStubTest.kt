@@ -1,5 +1,6 @@
 package integration_tests
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.pattern.parsedJSONArray
@@ -238,7 +239,7 @@ security:
 
         val credentials = "Basic " + Base64.getEncoder().encodeToString("user:password".toByteArray())
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val response = it.client.execute(HttpRequest(
                 "POST",
                 "/hello",
@@ -306,7 +307,7 @@ components:
 
         val credentials = "Basic " + Base64.getEncoder().encodeToString("user:password".toByteArray())
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val response = it.client.execute(HttpRequest(
                 "POST",
                 "/hello",
@@ -365,7 +366,7 @@ paths:
          """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val response = it.client.execute(HttpRequest(
                 "POST",
                 "/hello",
@@ -427,7 +428,7 @@ security:
 
         val credentials = "Basic " + Base64.getEncoder().encodeToString("user:password".toByteArray())
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val response = it.client.execute(HttpRequest(
                 "GET",
                 "/hello",
@@ -441,7 +442,7 @@ security:
 
     @Test
     fun `expectations for query params from examples`() {
-        HttpStub(featureWithQueryParamExamples).use { stub ->
+        HttpStub(featureWithQueryParamExamples, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/?type=data"))
                 .let { response ->
                     assertThat(response.status).isEqualTo(200)
@@ -452,7 +453,7 @@ security:
 
     @Test
     fun `expectations for path params from examples`() {
-        HttpStub(featureWithPathParamExamples).use { stub ->
+        HttpStub(featureWithPathParamExamples, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/xyz123"))
                 .let { response ->
                     assertThat(response.status).isEqualTo(200)
@@ -468,7 +469,7 @@ security:
 
     @Test
     fun `expectations for header params from examples`() {
-        HttpStub(featureWithHeaderParamExamples).use { stub ->
+        HttpStub(featureWithHeaderParamExamples, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/hello", headers = mapOf("userId" to "John")))
                 .let { response ->
                     assertThat(response.status).isEqualTo(200)
@@ -484,7 +485,7 @@ security:
 
     @Test
     fun `expectations from examples ignores omitted parameters while matching stub request`() {
-        HttpStub(featureWithOmittedParamExamples).use { stub ->
+        HttpStub(featureWithOmittedParamExamples, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/hello", headers = mapOf("userId" to "John")))
                 .let { response ->
                     assertThat(response.status).isEqualTo(200)
@@ -555,7 +556,7 @@ components:
         name: 'Macbook'""".trimIndent()
 
         val contract = OpenApiSpecification.fromYAML(spec, "").toFeature()
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("POST", "/products", emptyMap(), parsedJSONObject("""{"name": "Macbook"}""")))
                 .let { response ->
                     assertThat(response.status).isEqualTo(200)
@@ -627,7 +628,7 @@ paths:
 """.trimIndent()
 
         val contract = OpenApiSpecification.fromYAML(spec, "").toFeature()
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             val request = HttpRequest(
                 "POST",
                 "/products/10",
@@ -692,7 +693,7 @@ paths:
         val contract = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val (output, _) = captureStandardOutput {
             try {
-                HttpStub(contract).close()
+                HttpStub(contract, port = testPort()).close()
             } catch(_: Throwable) {
             }
         }
@@ -708,7 +709,7 @@ paths:
             assertThat(it.toInt()).isIn(123, 456)
         }
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val request201 = feature.scenarios.first().generateHttpRequest(DefaultStrategies)
             val response201 = stub.client.execute(request201)
             val response201Body = (response201.body as JSONObjectValue).jsonObject
@@ -720,7 +721,7 @@ paths:
             assertThat(response201Body["name"]!!.toStringLiteral()).isIn("Tom", "Jerry")
         }
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val request400 = feature.scenarios.first().generateHttpRequest(DefaultStrategies)
             val response400 = stub.client.execute(request400.updateHeader(SPECMATIC_RESPONSE_CODE_HEADER, "400"))
             val response400Body = (response400.body as JSONObjectValue).jsonObject
@@ -761,7 +762,7 @@ paths:
             val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
             val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-            HttpStub(feature, stubScenarios).use {
+            HttpStub(feature, stubScenarios, port = testPort()).use {
                 val response = it.client.execute(HttpRequest(
                     "GET",
                     "/employeesObjectResponse",
@@ -784,7 +785,7 @@ paths:
             val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
             val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-            HttpStub(feature, stubScenarios).use {
+            HttpStub(feature, stubScenarios, port = testPort()).use {
                 val response = it.client.execute(HttpRequest(
                     "GET",
                     "/employeesObjectResponse"
@@ -806,7 +807,7 @@ paths:
             val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
             val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-            HttpStub(feature, stubScenarios).use {
+            HttpStub(feature, stubScenarios, port = testPort()).use {
                 val response = it.client.execute(HttpRequest(
                     "GET",
                     "/employeesArrayResponse",
@@ -829,7 +830,7 @@ paths:
             val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
             val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-            HttpStub(feature, stubScenarios).use {
+            HttpStub(feature, stubScenarios, port = testPort()).use {
                 val response = it.client.execute(HttpRequest(
                     "GET",
                     "/employeesArrayResponse"
@@ -851,7 +852,7 @@ paths:
             val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
             val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-            HttpStub(feature, stubScenarios).use {
+            HttpStub(feature, stubScenarios, port = testPort()).use {
                 val response = it.client.execute(HttpRequest(
                     "GET",
                     "/employeesAllOfResponse",
@@ -874,7 +875,7 @@ paths:
             val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
             val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-            HttpStub(feature, stubScenarios).use {
+            HttpStub(feature, stubScenarios, port = testPort()).use {
                 val response = it.client.execute(HttpRequest(
                     "GET",
                     "/employeesAllOfResponse"
@@ -896,7 +897,7 @@ paths:
             val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
             val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-            HttpStub(feature, stubScenarios).use {
+            HttpStub(feature, stubScenarios, port = testPort()).use {
                 val response = it.client.execute(HttpRequest(
                     "GET",
                     "/employeesObjectResponse",

@@ -1,5 +1,7 @@
 package io.specmatic.stub
 
+import io.specmatic.testPort
+
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Flags
 import io.specmatic.osAgnosticPath
@@ -113,7 +115,7 @@ internal class StubStrictModeTest {
             val configFile = File(osAgnosticPath("src/test/resources/stub_strict_mode/specmatic_strict_true_with_spec.yaml"))
 
             assertDoesNotThrow {
-                val stub = createStub(timeoutMillis = HTTP_STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = configFile.canonicalPath)
+                val stub = createStub(timeoutMillis = HTTP_STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = configFile.canonicalPath, port = testPort())
                 stub.close()
             }
         }

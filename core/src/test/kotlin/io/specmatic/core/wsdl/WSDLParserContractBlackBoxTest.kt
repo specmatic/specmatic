@@ -1,5 +1,6 @@
 package io.specmatic.core.wsdl
 
+import io.specmatic.testPort
 import io.ktor.http.ContentType
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
@@ -26,7 +27,7 @@ class WSDLParserContractBlackBoxTest {
 
         val seenRequestBodies = mutableListOf<String>()
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     seenRequestBodies += request.body.toStringLiteral()
@@ -64,7 +65,7 @@ class WSDLParserContractBlackBoxTest {
 
         val seenRequestBodies = mutableListOf<String>()
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     seenRequestBodies += request.body.toStringLiteral()
@@ -275,7 +276,7 @@ class WSDLParserContractBlackBoxTest {
 
         val seenRequestBodies = mutableListOf<String>()
 
-        val result = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        val result = HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             fixture.feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.path).isEqualTo("/choice-ref")
@@ -311,7 +312,7 @@ class WSDLParserContractBlackBoxTest {
 
         val seenRequestBodies = mutableListOf<String>()
 
-        val result = HttpStub(fixture.feature).use { stub ->
+        val result = HttpStub(fixture.feature, port = testPort()).use { stub ->
             fixture.feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     seenRequestBodies += request.body.toStringLiteral()
@@ -338,7 +339,7 @@ class WSDLParserContractBlackBoxTest {
 
         val seenRequestBodies = mutableListOf<String>()
 
-        val result = HttpStub(fixture.feature).use { stub ->
+        val result = HttpStub(fixture.feature, port = testPort()).use { stub ->
             fixture.feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     seenRequestBodies += request.body.toStringLiteral()
@@ -357,7 +358,7 @@ class WSDLParserContractBlackBoxTest {
     fun `contract test for no input wsdl sends no request body`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/no_input.wsdl"))
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.path).isEqualTo("/no-input")
@@ -376,7 +377,7 @@ class WSDLParserContractBlackBoxTest {
     fun `contract test for empty message part sends empty soap payload`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/empty_part.wsdl"))
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.path).isEqualTo("/empty-part")
@@ -398,7 +399,7 @@ class WSDLParserContractBlackBoxTest {
             "src/test/resources/wsdl/state_machine/element_ref_examples",
         )
 
-        val result = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        val result = HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             fixture.feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertHttpRequestMatches(request, fixture.scenarioStub.request)
@@ -419,7 +420,7 @@ class WSDLParserContractBlackBoxTest {
             "src/test/resources/wsdl/state_machine/type_ref_examples",
         )
 
-        val result = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        val result = HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             fixture.feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertHttpRequestMatches(request, fixture.scenarioStub.request)
@@ -472,7 +473,7 @@ class WSDLParserContractBlackBoxTest {
     fun `contract test for wsdl header part sends the header xml element inside the soap envelope`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/header_part.wsdl"))
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.path).isEqualTo("/header-part")

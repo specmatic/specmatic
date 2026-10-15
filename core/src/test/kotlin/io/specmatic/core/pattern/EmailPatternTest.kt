@@ -1,10 +1,12 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.testPort
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.test.LegacyHttpClient
 import io.specmatic.stub.HttpStub
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
@@ -94,8 +96,8 @@ class EmailPatternTest {
         val feature = OpenApiSpecification.fromFile(specFilepath.absolutePath).toFeature()
         val stubScenarios = specFilepath.getExternalExamplesFromContract()
 
-        HttpStub(feature, stubScenarios).use {
-            val response = it.client.execute(
+        HttpStub(feature, stubScenarios, port = testPort()).use {
+            val response = LegacyHttpClient(it.endPoint, timeoutInMilliseconds = 30_000).execute(
                 HttpRequest(
                 "GET",
                 "/pets/2"

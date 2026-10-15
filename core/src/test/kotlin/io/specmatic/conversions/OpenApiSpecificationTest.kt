@@ -1,5 +1,7 @@
 package io.specmatic.conversions
 
+import io.specmatic.testPort
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import integration_tests.testCount
@@ -5401,7 +5403,7 @@ paths:
 
             var testStatus: String
 
-            createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", 9000, timeoutMillis = 0).use {
+            createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", testPort(), timeoutMillis = 0).use {
                 testStatus = "test ran"
 
                 val request = HttpRequest(
@@ -5457,7 +5459,7 @@ paths:
 
             var testStatus: String
 
-            createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", 9000, timeoutMillis = 0).use {
+            createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", testPort(), timeoutMillis = 0).use {
                 testStatus = "test ran"
 
                 val request = HttpRequest(
@@ -5513,7 +5515,7 @@ paths:
 
             var testStatus: String
 
-            createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", 9000, timeoutMillis = 0).use {
+            createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", testPort(), timeoutMillis = 0).use {
                 testStatus = "test ran"
 
                 val request = HttpRequest(
@@ -5984,7 +5986,7 @@ paths:
         assertThat(testedRequests.map { it.multiPartFormData.single().content.toStringLiteral() })
             .containsExactlyInAnyOrder("abc123", "xyz789")
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             requests.forEach { (exampleName, request) ->
                 val response = stub.client.execute(request)
                 assertThat(response.status)
@@ -6909,7 +6911,7 @@ paths:
             HttpResponse(400, "failed")
         )
 
-        HttpStub(feature, listOf(invalidAuthStub, validAuthStub)).use { stub ->
+        HttpStub(feature, listOf(invalidAuthStub, validAuthStub), port = testPort()).use { stub ->
             val request = HttpRequest(
                 "POST",
                 "/test",
@@ -7125,7 +7127,7 @@ paths:
         """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(specification).use { stub ->
+        HttpStub(specification, port = testPort()).use { stub ->
             val base64EncodedRequestBody = Base64.getEncoder().encodeToString("hello world".encodeToByteArray())
 
             val response = stub.client.execute(
@@ -7170,7 +7172,7 @@ paths:
         """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(specification).use { stub ->
+        HttpStub(specification, port = testPort()).use { stub ->
             val base64EncodedRequestBody = Base64.getEncoder().encodeToString("hello world".encodeToByteArray())
 
             val stubbedRequest = HttpRequest(
@@ -7243,7 +7245,7 @@ paths:
         """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(specification).use { stub ->
+        HttpStub(specification, port = testPort()).use { stub ->
             val vanillaNonBase64Request = "]"
 
             stub.client.execute(
@@ -7461,7 +7463,7 @@ paths:
         assertThat(feature.scenarios.single().matches(request)).isInstanceOf(Result.Success::class.java)
 
         val openAPIFile = tempDir.resolve("specification.yaml").apply { writeText(openAPI) }
-        createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", 9000, timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", testPort(), timeoutMillis = 0).use { stub ->
             assertThat(stub.client.execute(request).status).isEqualTo(200)
         }
     }
@@ -8237,7 +8239,7 @@ paths:
             assertThat(matchResult).withFailMessage(matchResult.reportString()).isInstanceOf(Result.Success::class.java)
         }
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val expectedRequest = HttpRequest("POST", "/person", body = parsedJSONObject("""{"id": true}"""))
             val expectedResponse = HttpResponse.ok("succeeded!")
 
@@ -8593,7 +8595,7 @@ paths:
 
         val expectation: ScenarioStub = ScenarioStub.parse(StringValue(rawStub))
 
-        HttpStub(feature, listOf(expectation)).use { stub ->
+        HttpStub(feature, listOf(expectation), port = testPort()).use { stub ->
             val request = expectation.request
 
             val response = stub.client.execute(request)
@@ -8702,7 +8704,7 @@ paths:
         try {
             Configuration.configFilePath = "src/test/resources/openapi/response_expectation_missing_content_type/specmatic.yaml"
 
-            createStub("localhost", 9000, 1000, false, "src/test/resources/openapi/response_expectation_missing_content_type/specmatic.yaml").use { stub ->
+            createStub("localhost", testPort(), 1000, false, "src/test/resources/openapi/response_expectation_missing_content_type/specmatic.yaml").use { stub ->
                 val response = stub.client.execute(
                     HttpRequest("POST", "/person", body = StringValue("hello"))
                 )
@@ -9454,7 +9456,7 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("DELETE", "/items/123-to-be-deleted")).also { response ->
                 assertThat(response.status).isEqualTo(203)
                 assertThat(response.headers).doesNotContainEntry(SPECMATIC_TYPE_HEADER, "random")
@@ -11122,7 +11124,7 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val alphaRequest = HttpRequest(
                 method = "POST",
                 path = "/choice",
@@ -11788,7 +11790,7 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val response = stub.client.execute(HttpRequest("POST", "/products", headers = mapOf("Content-Type" to "application/json; charset=utf-8"), body = parsedJSONObject("""{"name": "Phone", "price": 1000, "category": "Electronics"}""")))
             assertThat(response.headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
         }
@@ -11872,7 +11874,7 @@ paths:
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
         val (output, _) = captureStandardOutput {
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         "POST",
@@ -12354,7 +12356,7 @@ paths:
         val feature = spec.toFeature()
 
         // Test with HttpClient that stub works for HEAD method
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val response = stub.client.execute(
                 HttpRequest("HEAD", "/resource/10"),
             )
@@ -12409,7 +12411,7 @@ paths:
 
         val (output, _) =
             captureStandardOutput {
-                HttpStub(feature).use { stub ->
+                HttpStub(feature, port = testPort()).use { stub ->
                 }
             }
 
@@ -12806,7 +12808,7 @@ paths:
             "duplicate-inline-examples-stub.yaml"
         ).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val productResponse = stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -12869,7 +12871,7 @@ paths:
     fun `should handle stringified json in response header value`() {
         val spec = OpenApiSpecification.fromFile("src/test/resources/openapi/specification/proxy_generated.yaml")
         val feature = spec.toFeature()
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             stub.setExpectation(
                 ScenarioStub(
                     HttpRequest("GET", "/todos/1"),

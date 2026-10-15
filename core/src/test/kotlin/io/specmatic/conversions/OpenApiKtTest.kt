@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.testPort
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -86,21 +87,21 @@ Scenario: zero should return not found
     fun `should create stub from gherkin that includes OpenAPI spec`() {
         val feature = parseGherkinStringToFeature(openAPISpec, sourceSpecPath)
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.exchange(
-                URI.create("http://localhost:9000/hello/1"), HttpMethod.GET,
+                URI.create("http://localhost:${testPort(0)}/hello/1"), HttpMethod.GET,
                 httpEntityWithBearerAuthHeader(), String::class.java
             )
         }
 
         assertThat(response.statusCodeValue).isEqualTo(200)
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             try {
                 restTemplate.exchange(
-                    URI.create("http://localhost:9000/hello/0"),
+                    URI.create("http://localhost:${testPort(0)}/hello/0"),
                     HttpMethod.GET,
                     httpEntityWithBearerAuthHeader(),
                     String::class.java
@@ -553,9 +554,9 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
-            restTemplate.exchange(URI.create("http://localhost:9000/pets/1"), HttpMethod.GET, null, Pet::class.java)
+            restTemplate.exchange(URI.create("http://localhost:${testPort(0)}/pets/1"), HttpMethod.GET, null, Pet::class.java)
         }
 
         assertThat(response.statusCodeValue).isEqualTo(200)
@@ -575,8 +576,8 @@ Background:
         val headers = HttpHeaders()
         headers.set("X-Request-ID", "717e5682-c214-11eb-8529-0242ac130003")
         val requestEntity: HttpEntity<String> = HttpEntity("", headers)
-        listOf("http://localhost:9000/pets", "http://localhost:9000/pets?tag=test&limit=3").forEach { urlString ->
-            val response = HttpStub(feature).use {
+        listOf("http://localhost:${testPort(0)}/pets", "http://localhost:${testPort(0)}/pets?tag=test&limit=3").forEach { urlString ->
+            val response = HttpStub(feature, port = testPort()).use {
                 val restTemplate = RestTemplate()
                 restTemplate.exchange(
                     URI.create(urlString),
@@ -599,11 +600,11 @@ Background:
             )
         }
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             try {
                 restTemplate.exchange(
-                    URI.create("http://localhost:9000/pets?tag=test&limit=three"),
+                    URI.create("http://localhost:${testPort(0)}/pets?tag=test&limit=three"),
                     HttpMethod.GET,
                     requestEntity,
                     object : ParameterizedTypeReference<List<Pet>>() {}
@@ -641,10 +642,10 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.exchange(
-                URI.create("http://localhost:9000/petIds"),
+                URI.create("http://localhost:${testPort(0)}/petIds"),
                 HttpMethod.GET,
                 httpEntityWithBearerAuthHeader(),
                 object : ParameterizedTypeReference<List<Int>>() {}
@@ -669,11 +670,11 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             val httpClientErrorException = assertThrows<HttpClientErrorException> {
                 restTemplate.exchange(
-                    URI.create("http://localhost:9000/petIds"),
+                    URI.create("http://localhost:${testPort(0)}/petIds"),
                     HttpMethod.GET,
                     null,
                     object : ParameterizedTypeReference<List<Int>>() {}
@@ -694,11 +695,11 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             val httpClientErrorException = assertThrows<HttpClientErrorException> {
                 restTemplate.exchange(
-                    URI.create("http://localhost:9000/hello/0"),
+                    URI.create("http://localhost:${testPort(0)}/hello/0"),
                     HttpMethod.GET,
                     null,
                     object : ParameterizedTypeReference<List<Int>>() {}
@@ -748,7 +749,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             val body: MultiValueMap<String, Any> = LinkedMultiValueMap()
             body.add("orderId", HttpEntity("1", HttpHeaders().apply { contentType = MediaType.TEXT_PLAIN }))
@@ -767,7 +768,7 @@ Background:
             headers.contentType = MediaType.MULTIPART_FORM_DATA
             val requestEntity = HttpEntity(body, headers)
             val response: ResponseEntity<String> = restTemplate
-                .postForEntity(URI.create("http://localhost:9000/hello"), requestEntity, String::class.java)
+                .postForEntity(URI.create("http://localhost:${testPort(0)}/hello"), requestEntity, String::class.java)
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         }
     }
@@ -783,7 +784,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             val body: MultiValueMap<String, Any> = LinkedMultiValueMap()
             body.add("orderId", HttpEntity("1", HttpHeaders().apply { contentType = MediaType.TEXT_PLAIN }))
@@ -799,7 +800,7 @@ Background:
             headers.contentType = MediaType.MULTIPART_FORM_DATA
             val requestEntity = HttpEntity(body, headers)
             val response = restTemplate
-                .postForEntity(URI.create("http://localhost:9000/hello"), requestEntity, String::class.java)
+                .postForEntity(URI.create("http://localhost:${testPort(0)}/hello"), requestEntity, String::class.java)
 
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         }
@@ -816,10 +817,10 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val petResponse = HttpStub(feature).use {
+        val petResponse = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.postForObject(
-                URI.create("http://localhost:9000/pets"),
+                URI.create("http://localhost:${testPort(0)}/pets"),
                 NewPet("scooby", "golden"),
                 Pet::class.java
             )
@@ -840,7 +841,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val petResponse = HttpStub(feature).use {
+        val petResponse = HttpStub(feature, port = testPort()).use {
             val requestBody = ObjectMapper().writeValueAsString(Pet("scooby", "golden", 1, "retriever", 1))
             it.client.execute(
                 HttpRequest(
@@ -885,7 +886,7 @@ Background:
         val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
-        val resp = HttpStub(feature).use {
+        val resp = HttpStub(feature, port = testPort()).use {
             it.client.execute(
                 HttpRequest(
                     method = "GET",
@@ -914,7 +915,7 @@ Background:
         val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
-        val resp = HttpStub(feature).use {
+        val resp = HttpStub(feature, port = testPort()).use {
             it.client.execute(
                 HttpRequest(
                     method = "GET",
@@ -944,7 +945,7 @@ Background:
         val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
-        val resp = HttpStub(feature).use {
+        val resp = HttpStub(feature, port = testPort()).use {
             it.client.execute(
                 HttpRequest(
                     method = "GET",
@@ -974,7 +975,7 @@ Background:
         val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
-        val resp = HttpStub(feature).use {
+        val resp = HttpStub(feature, port = testPort()).use {
             it.client.execute(
                 HttpRequest(
                     method = "GET",
@@ -1002,10 +1003,10 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val petResponse = HttpStub(feature).use {
+        val petResponse = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.postForObject(
-                URI.create("http://localhost:9000/pets"),
+                URI.create("http://localhost:${testPort(0)}/pets"),
                 NewPet("scooby", "golden"),
                 Pet::class.java
             )
@@ -1026,10 +1027,10 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val petResponse = HttpStub(feature).use {
+        val petResponse = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.postForObject(
-                URI.create("http://localhost:9000/pets"),
+                URI.create("http://localhost:${testPort(0)}/pets"),
                 NewPet("scooby", null),
                 Pet::class.java
             )
@@ -1050,11 +1051,11 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             try {
                 restTemplate.postForObject(
-                    URI.create("http://localhost:9000/pets"),
+                    URI.create("http://localhost:${testPort(0)}/pets"),
                     NewPetWithUnexpectedFields("scooby", "golden", 4),
                     Pet::class.java
                 )
@@ -1076,10 +1077,10 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val petResponse = HttpStub(feature).use {
+        val petResponse = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.postForObject(
-                URI.create("http://localhost:9000/pets"),
+                URI.create("http://localhost:${testPort(0)}/pets"),
                 NewPetWithMissingTag("scooby"),
                 Pet::class.java
             )
@@ -1100,11 +1101,11 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             try {
                 restTemplate.postForObject(
-                    URI.create("http://localhost:9000/pets"),
+                    URI.create("http://localhost:${testPort(0)}/pets"),
                     NewPetWithMissingName("golden"),
                     Pet::class.java
                 )
@@ -1385,10 +1386,10 @@ Background:
 
         val request: HttpEntity<MultiValueMap<String, String>> = HttpEntity<MultiValueMap<String, String>>(map, headers)
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.postForEntity(
-                URI.create("http://localhost:9000/services/jsonAndNonJsonPayload"),
+                URI.create("http://localhost:${testPort(0)}/services/jsonAndNonJsonPayload"),
                 request,
                 String::class.java
             )
@@ -2307,10 +2308,10 @@ components:
     fun `should work with password and email formats while generating stub`() {
         val feature = OpenApiSpecification.fromFile("openapi/spec_with_password_and_email_format_strings.yaml").toFeature()
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.postForObject(
-                URI.create("http://localhost:9000/users"),
+                URI.create("http://localhost:${testPort(0)}/users"),
                 NewUser("Euclid", "euclid@geometry.com", "password"),
                 CreatedUser::class.java
             )
@@ -2325,10 +2326,10 @@ components:
             OpenApiSpecification.fromFile("openapi/spec_with_password_and_email_format_strings.yaml").toFeature()
 
         val exception = Assertions.assertThrows(HttpClientErrorException::class.java) {
-            HttpStub(feature).use {
+            HttpStub(feature, port = testPort()).use {
                 val restTemplate = RestTemplate()
                 restTemplate.postForObject(
-                    URI.create("http://localhost:9000/users"),
+                    URI.create("http://localhost:${testPort(0)}/users"),
                     NewUser("Euclid", "this.is.not.an.email", "password"),
                     CreatedUser::class.java
                 )
@@ -2336,7 +2337,7 @@ components:
         }
 
         assertThat(exception.message).isEqualToIgnoringWhitespace("""
-        400 Bad Request on POST request for "http://localhost:9000/users": "Error from contract ${feature.path}
+        400 Bad Request on POST request for "http://localhost:${testPort(0)}/users": "Error from contract ${feature.path}
         
         In scenario "POST /users. Response: Details of the new user to register"
         API: POST /users -> 201

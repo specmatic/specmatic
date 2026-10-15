@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.testPort
 import io.ktor.client.request.get
 import io.ktor.http.HttpHeaders
 import io.ktor.server.application.*
@@ -53,7 +54,7 @@ class HttpClientTest {
 
     @Test
     fun clientShouldNotRedirect() {
-        val server = embeddedServer(Netty, port = 8080) {
+        val server = embeddedServer(Netty, port = testPort(2)) {
             routing {
                 get("/some/redirect") {
                     call.respondRedirect("/newUrl")
@@ -69,7 +70,7 @@ class HttpClientTest {
             server.start(wait = false)
 
             val request = HttpRequest().updateMethod("GET").updatePath("/some/redirect")
-            val response = LegacyHttpClient("http://localhost:8080").execute(request)
+            val response = LegacyHttpClient("http://localhost:${testPort(2)}").execute(request)
             Assertions.assertEquals(302, response.status)
             Assertions.assertEquals("/newUrl", response.headers["Location"])
         } finally {
@@ -89,7 +90,7 @@ class HttpClientTest {
                 "    Then status 200\n" +
                 "    And response-body {location-id: 10}"
         val host = "localhost"
-        val port = 8080
+        val port = testPort()
         val url = "http://localhost:$port"
         val client = LegacyHttpClient(url)
         HttpStub(contractGherkin, emptyList(), host, port).use {
@@ -134,7 +135,7 @@ class HttpClientTest {
 
     @Test
     fun setCookieHeadersShouldBeMultipleOnWire() {
-        val server = embeddedServer(Netty, port = 8080) {
+        val server = embeddedServer(Netty, port = testPort(2)) {
             routing {
                 get("/cookies") {
                     val internalResponse = HttpResponse(status = 200, headers = mapOf(HttpHeaders.SetCookie to "a=1; Path=/${SET_COOKIE_SEPARATOR}b=2; HttpOnly"))
@@ -145,7 +146,7 @@ class HttpClientTest {
 
         try {
             server.start(wait = false)
-            val rawResponse = runBlocking { io.ktor.client.HttpClient().use { client -> client.get("http://localhost:8080/cookies") } }
+            val rawResponse = runBlocking { io.ktor.client.HttpClient().use { client -> client.get("http://localhost:${testPort(2)}/cookies") } }
             assertThat(rawResponse.headers.getAll(HttpHeaders.SetCookie)).containsExactly("a=1; Path=/", "b=2; HttpOnly")
         } finally {
             server.stop()

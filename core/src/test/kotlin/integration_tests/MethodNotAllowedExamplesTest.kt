@@ -1,5 +1,6 @@
 package integration_tests
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiLintViolations
@@ -142,7 +143,7 @@ class MethodNotAllowedExamplesTest {
         )
         val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
-        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile)), port = testPort()).use { stub ->
             val response = stub.client.execute(
                 HttpRequest(
                     method = "PATCH",
@@ -473,7 +474,7 @@ class MethodNotAllowedExamplesTest {
     fun `405 without examples is not used by mock even with a response code hint`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(only405Spec()).canonicalPath).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val responseWithoutHint = stub.client.execute(HttpRequest(method = "PATCH", path = "/orders/10"))
             val responseWithHint = stub.client.execute(
                 HttpRequest(

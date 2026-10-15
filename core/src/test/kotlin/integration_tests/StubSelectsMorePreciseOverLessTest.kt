@@ -1,5 +1,7 @@
 package integration_tests
 
+import io.specmatic.testPort
+
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
@@ -19,7 +21,7 @@ class StubSelectsMorePreciseOverLessTest {
         @BeforeAll
         @JvmStatic
         fun setup() {
-            stub = createStubFromContracts(listOf("src/test/resources/spec_with_mixed_examples.yaml"), timeoutMillis = 0)
+            stub = createStubFromContracts(listOf("src/test/resources/spec_with_mixed_examples.yaml"), timeoutMillis = 0, port = testPort())
         }
 
         @AfterAll

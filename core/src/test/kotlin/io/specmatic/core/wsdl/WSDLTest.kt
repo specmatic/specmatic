@@ -1,5 +1,6 @@
 package io.specmatic.core.wsdl
 
+import io.specmatic.testPort
 import io.specmatic.Utils.readTextResource
 import io.specmatic.conversions.wsdlContentToFeature
 import io.specmatic.core.*
@@ -39,7 +40,7 @@ class WSDLTest {
         val wsdlFile = File("src/test/resources/wsdl/order_api.wsdl")
         val feature = wsdlContentToFeature(checkExists(wsdlFile).readText(), wsdlFile.canonicalPath)
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     return stub.client.execute(request)
@@ -64,7 +65,7 @@ class WSDLTest {
         val scenarioStubs = examplesFolder.listFiles()?.map(ScenarioStub::readFromFile).orEmpty()
         assertDoesNotThrow { feature.validateExamplesOrException() }
 
-        val result = HttpStub(feature, scenarioStubs).use { stub ->
+        val result = HttpStub(feature, scenarioStubs, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val response = stub.client.execute(request)
@@ -147,7 +148,7 @@ class WSDLTest {
 
         val requestBodies = mutableListOf<String>()
         val responseBodies = mutableListOf<String>()
-        val result = HttpStub(stubConfig.feature, stubConfig.scenarioStubs).use { stub ->
+        val result = HttpStub(stubConfig.feature, stubConfig.scenarioStubs, port = testPort()).use { stub ->
             testFeature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val response = stub.client.execute(request)
@@ -170,7 +171,7 @@ class WSDLTest {
     fun `simple complex type wsdl loop passes without examples`() {
         val feature = wsdlContentToFeature(simpleComplexTypeWsdl(), "simple-complex.wsdl")
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
             })
@@ -205,7 +206,7 @@ class WSDLTest {
         assertDoesNotThrow { feature.validateExamplesOrException() }
 
         val requestBodies = mutableListOf<String>()
-        val result = HttpStub(feature, scenarioStubs).use { stub ->
+        val result = HttpStub(feature, scenarioStubs, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     requestBodies.add(request.body.toStringLiteral())
@@ -226,7 +227,7 @@ class WSDLTest {
     fun `abstract complex type wsdl loop passes without examples`() {
         val feature = wsdlContentToFeature(abstractDerivedTypeWsdl(), "abstract-derived.wsdl")
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
             })
@@ -265,7 +266,7 @@ class WSDLTest {
     fun `substitution group wsdl loop passes without examples`() {
         val feature = wsdlContentToFeature(substitutionGroupWsdl(), "substitution-group.wsdl")
 
-        val result = HttpStub(feature).use { stub ->
+        val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
             })
@@ -398,7 +399,7 @@ private fun executeWsdlLoopWithExamples(wsdlFile: File, examplesDir: File): Resu
 
     assertDoesNotThrow { feature.validateExamplesOrException() }
 
-    return HttpStub(feature, scenarioStubs).use { stub ->
+    return HttpStub(feature, scenarioStubs, port = testPort()).use { stub ->
         feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
         })

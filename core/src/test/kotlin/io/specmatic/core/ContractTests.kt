@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.testPort
 import integration_tests.testCount
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -714,7 +715,7 @@ Examples:
                             type: string
         """.trimIndent(), "").toFeature()
 
-        val server = embeddedServer(Netty, port = 8080) {
+        val server = embeddedServer(Netty, port = testPort(2)) {
             routing {
                 route("/{...}") {
                     handle {
@@ -728,7 +729,7 @@ Examples:
         try {
             server.start(wait = false)
 
-            val results = spec.executeTests(HttpClient("http://localhost:8080"))
+            val results = spec.executeTests(HttpClient("http://localhost:${testPort(2)}"))
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
             assertThat(results.successCount).isPositive()
         } finally {
@@ -755,7 +756,7 @@ Examples:
                             type: string
         """.trimIndent(), "").toFeature()
 
-        val server = embeddedServer(Netty, port = 8080) {
+        val server = embeddedServer(Netty, port = testPort(2)) {
             routing {
                 route("/{...}") {
                     handle {
@@ -769,7 +770,7 @@ Examples:
         try {
             server.start(wait = false)
 
-            val results = spec.executeTests(HttpClient("http://localhost:8080"))
+            val results = spec.executeTests(HttpClient("http://localhost:${testPort(2)}"))
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
             assertThat(results.successCount).isPositive()
         } finally {

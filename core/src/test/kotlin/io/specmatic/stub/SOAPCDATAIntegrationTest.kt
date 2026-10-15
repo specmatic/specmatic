@@ -1,5 +1,7 @@
 package io.specmatic.stub
 
+import io.specmatic.testPort
+
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.value.toXMLNode
 import org.assertj.core.api.Assertions.assertThat
@@ -9,6 +11,7 @@ internal class SOAPCDATAIntegrationTest {
     @Test
     fun `SOAP 1_1 stub loads WSDL with CDATA in request and escaped XML in response`() {
         createStub(
+            port = testPort(),
             timeoutMillis = 0,
             givenConfigFileName = "src/test/resources/wsdl/cdata_test/specmatic.yaml",
         ).use { stub ->
@@ -40,6 +43,7 @@ internal class SOAPCDATAIntegrationTest {
     @Test
     fun `SOAP 1_2 stub loads WSDL with CDATA and XML escaping via action in Content-Type`() {
         createStub(
+            port = testPort(),
             timeoutMillis = 0,
             givenConfigFileName = "src/test/resources/wsdl/cdata_test_soap12/specmatic.yaml",
         ).use { stub ->

@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.opentest4j.TestAbortedException
 import java.net.ServerSocket
+import java.util.concurrent.ThreadLocalRandom
 import java.util.stream.Stream
 
 private const val MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND = "No tests found to run"
@@ -145,11 +146,12 @@ class FilterIntegrationTest {
         private fun findRandomFreePort(): Int {
             logger.log("Checking for a free port")
 
-            val port = ServerSocket(0).use { it.localPort }
-
-            if (port > 0) {
-                logger.log("Free port found: $port")
-                return port
+            repeat(100) {
+                val port = ThreadLocalRandom.current().nextInt(40_000, 60_000)
+                if (runCatching { ServerSocket(port).use { true } }.getOrDefault(false)) {
+                    logger.log("Free port found: $port")
+                    return port
+                }
             }
             throw RuntimeException("Could not find a free port")
         }

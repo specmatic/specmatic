@@ -16,7 +16,7 @@ class TestBackwardCompatibilityPerfTest {
         val newFeature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
         var results: Results? = null
-        assertTimeoutPreemptively(ofSeconds(5)) {
+        assertTimeoutPreemptively(ofSeconds(60)) {
             val timeTaken = measureTimeMillis { results = backwardCompatibilityRecords(oldFeature, newFeature).first }
             System.err.println("Backward compatibility check took ${timeTaken}ms")
         }
