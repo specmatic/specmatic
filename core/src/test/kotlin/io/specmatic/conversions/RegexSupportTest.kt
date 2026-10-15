@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.testPort
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Results
@@ -314,7 +315,7 @@ class RegexSupportTest {
                 HttpResponse(200, body = parsedJSONObject("""{"id": "$matchesReqex"}"""))
             )
 
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 stub.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = expectation.toJSON())).let { response ->
                     assertThat(response.status).isEqualTo(200)
                 }
@@ -338,7 +339,7 @@ class RegexSupportTest {
                 regexBreakingResponse
             )
 
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 stub.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = badRequestExpectation.toJSON())).let { response ->
                     assertThat(response.status).isEqualTo(400)
                 }
@@ -353,7 +354,7 @@ class RegexSupportTest {
         fun `an API spec with pattern in a request and response should match request values against the regex and generate response values when there are no expectations`() {
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"id": "$matchesReqex"}"""))
 
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 val response = stub.client.execute(request)
 
                 assertThat(response.status).isEqualTo(200)
@@ -367,7 +368,7 @@ class RegexSupportTest {
         fun `an API spec with pattern in a request should reject requests that do not match the pattern when there are no expectations`() {
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"id": "$doesNotMatchRegex"}"""))
 
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 val response = stub.client.execute(request)
 
                 assertThat(response.status).isEqualTo(400)

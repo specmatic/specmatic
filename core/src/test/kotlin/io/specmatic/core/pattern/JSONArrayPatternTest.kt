@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.value.*
@@ -278,7 +279,7 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
 
             val expectations = listOf(
                 ScenarioStub(
@@ -353,7 +354,7 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
 
             val invalidStub = ScenarioStub(
                 HttpRequest("POST", "/orders", body = parsedJSONArray("""[{"name": 10}]""")),

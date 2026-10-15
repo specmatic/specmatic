@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.specmatic.testPort
+
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
@@ -3440,8 +3442,8 @@ paths:
     fun `should be able to stub out enum with string type using substitution`() {
         createStubFromContracts(
             listOf("src/test/resources/openapi/spec_with_empoyee_enum.yaml"),
-            timeoutMillis = 0
-        ).use { stub ->
+            timeoutMillis = 0,
+        port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/person", queryParametersMap = mapOf("type" to "employee"))
             val response = stub.client.execute(request)
 
@@ -3456,8 +3458,8 @@ paths:
     fun `should be able to stub out enum with string type using data substitution`() {
         createStubFromContracts(
             listOf("src/test/resources/openapi/spec_with_empoyee_enum2.yaml"),
-            timeoutMillis = 0
-        ).use { stub ->
+            timeoutMillis = 0,
+        port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/person", queryParametersMap = mapOf("type" to "manager"))
             val response = stub.client.execute(request)
 

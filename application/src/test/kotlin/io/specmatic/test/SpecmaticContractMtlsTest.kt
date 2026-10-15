@@ -44,7 +44,7 @@ class SpecmaticContractMtlsTest {
             assertThat(isBaseURLReachable(baseUrl, keyData = keyData)).isTrue()
 
             val logs = mutableListOf<String>()
-            val response = HttpClient(baseUrl, keyData = keyData, log = captureLogs(logs)).use { client ->
+            val response = HttpClient(baseUrl, timeoutInMilliseconds = 30_000, keyData = keyData, log = captureLogs(logs)).use { client ->
                 client.execute(HttpRequest(path = "/", method = "GET"))
             }
 
@@ -67,7 +67,7 @@ class SpecmaticContractMtlsTest {
             assertThat(isBaseURLReachable(baseUrl, keyData = keyData)).isTrue()
 
             val logs = mutableListOf<String>()
-            val response = HttpClient(baseUrl, keyData = keyData, log = captureLogs(logs)).use { client ->
+            val response = HttpClient(baseUrl, timeoutInMilliseconds = 30_000, keyData = keyData, log = captureLogs(logs)).use { client ->
                 client.execute(HttpRequest(path = "/", method = "GET"))
             }
 

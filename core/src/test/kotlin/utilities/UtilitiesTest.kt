@@ -1,5 +1,7 @@
 package utilities
 
+import io.specmatic.testPort
+
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
@@ -425,7 +427,7 @@ internal class UtilitiesTest {
                                 type: string
             """.trimIndent())
 
-            createStub("localhost", 9000, timeoutMillis = 0).use { stub ->
+            createStub("localhost", testPort(), timeoutMillis = 0).use { stub ->
                 val response = stub.client.execute(HttpRequest("POST", "/random", body = parsedJSONObject("""{"id": 1}""")))
                 assertThat(response.status).isEqualTo(200)
             }
@@ -562,7 +564,7 @@ internal class UtilitiesTest {
                                 type: string
             """.trimIndent())
 
-            val results = createStub("localhost", 9000, timeoutMillis = 0).use { stub ->
+            val results = createStub("localhost", testPort(), timeoutMillis = 0).use { stub ->
                 loadSources(specmaticJSON.path).flatMap { source ->
                     source.testContracts
                 }.map { specPath ->

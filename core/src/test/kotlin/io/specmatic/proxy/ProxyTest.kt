@@ -2,6 +2,7 @@ package io.specmatic.proxy
 
 import io.ktor.http.*
 import io.specmatic.Waiter
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpRequest
@@ -68,13 +69,13 @@ internal class ProxyTest {
 
     @Test
     fun `basic test of the proxy`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
-                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
+                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", testPort(1)))
                 val requestFactory = SimpleClientHttpRequestFactory()
                 requestFactory.setProxy(restProxy)
                 val client = RestTemplate(requestFactory)
-                val response = client.postForEntity("http://localhost:9000/", "10", String::class.java)
+                val response = client.postForEntity("http://localhost:${testPort()}/", "10", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
@@ -97,13 +98,13 @@ internal class ProxyTest {
 
     @Test
     fun `basic test of the proxy with a request containing a path variable`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
-                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
+                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", testPort(1)))
                 val requestFactory = SimpleClientHttpRequestFactory()
                 requestFactory.setProxy(restProxy)
                 val client = RestTemplate(requestFactory)
-                val response = client.postForEntity("http://localhost:9000/multiply", "10", String::class.java)
+                val response = client.postForEntity("http://localhost:${testPort()}/multiply", "10", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
@@ -136,13 +137,13 @@ internal class ProxyTest {
                 """.trimIndent(),
             )
 
-        HttpStub(feature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
-                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+        HttpStub(feature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
+                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", testPort(1)))
                 val requestFactory = SimpleClientHttpRequestFactory()
                 requestFactory.setProxy(restProxy)
                 val client = RestTemplate(requestFactory)
-                val response = client.getForEntity("http://localhost:9000/orders/5432154321", String::class.java)
+                val response = client.getForEntity("http://localhost:${testPort()}/orders/5432154321", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
             }
@@ -153,10 +154,10 @@ internal class ProxyTest {
 
     @Test
     fun `basic test of the reverse proxy`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
                 val client = RestTemplate()
-                val response = client.postForEntity("http://localhost:9001/", "10", String::class.java)
+                val response = client.postForEntity("http://localhost:${testPort(1)}/", "10", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
@@ -199,10 +200,10 @@ internal class ProxyTest {
                     "",
                 ).toFeature()
 
-        HttpStub(spec).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+        HttpStub(spec, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
                 val client = RestTemplate()
-                client.getForEntity("http://localhost:9001/da ta", String::class.java)
+                client.getForEntity("http://localhost:${testPort(1)}/da ta", String::class.java)
             }
         }
 
@@ -247,7 +248,7 @@ internal class ProxyTest {
                 recordedResponse = response
             }
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val bodyWithBaseURL = "Visit ${stub.endPoint}/info"
             val expectation =
                 """
@@ -272,8 +273,8 @@ internal class ProxyTest {
                 RestTemplate().postForEntity<String>(stub.endPoint + "/_specmatic/expectations", expectation)
             assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
-            Proxy(host = "localhost", port = 9001, stub.endPoint, fakeFileWriter, requestObserver = requestObserver).use {
-                val response = RestTemplate().getForEntity("http://localhost:9001/info", String::class.java)
+            Proxy(host = "localhost", port = testPort(1), stub.endPoint, fakeFileWriter, requestObserver = requestObserver).use {
+                val response = RestTemplate().getForEntity("http://localhost:${testPort(1)}/info", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThat(response.body).isEqualTo("Visit /info")
@@ -289,10 +290,10 @@ internal class ProxyTest {
 
     @Test
     fun `should not include standard http headers in the generated specification`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
                 val client = RestTemplate()
-                val response = client.postForEntity("http://localhost:9001/", "10", String::class.java)
+                val response = client.postForEntity("http://localhost:${testPort(1)}/", "10", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
@@ -311,9 +312,9 @@ internal class ProxyTest {
 
     @Test
     fun `should not include transport and browser metadata headers in recorded proxy artifacts`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
-                HttpClient("http://localhost:9001").use { client ->
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
+                HttpClient("http://localhost:${testPort(1)}").use { client ->
                     val response = client.execute(
                         HttpRequest(
                             method = "POST",
@@ -371,10 +372,10 @@ internal class ProxyTest {
 
     @Test
     fun `should not include a body for GET requests with no body`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
                 val client = RestTemplate()
-                val response = client.getForEntity("http://localhost:9001/", String::class.java)
+                val response = client.getForEntity("http://localhost:${testPort(1)}/", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
@@ -413,31 +414,31 @@ internal class ProxyTest {
                     "",
                 ).toFeature()
 
-        HttpStub(featureWithHTMLResponse).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+        HttpStub(featureWithHTMLResponse, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
                 val client = RestTemplate()
-                client.getForEntity("http://localhost:9001/", String::class.java)
+                client.getForEntity("http://localhost:${testPort(1)}/", String::class.java)
             }
         }
 
         assertThat(fakeFileWriter.receivedStub).withFailMessage(fakeFileWriter.receivedStub).contains("text/html")
         assertThat(fakeFileWriter.receivedContract).withFailMessage(fakeFileWriter.receivedContract).contains("text/html")
 
-        HttpStub(OpenApiSpecification.fromYAML(fakeFileWriter.receivedContract!!, "").toFeature()).use { stub ->
+        HttpStub(OpenApiSpecification.fromYAML(fakeFileWriter.receivedContract!!, "").toFeature(), port = testPort()).use { stub ->
         }
     }
 
     @Test
     fun `should return health status as UP if the actuator health endpoint is hit`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9001", fakeFileWriter).use {
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort(1)}", fakeFileWriter).use {
                 val client = RestTemplate()
-                val legacyHealthCheckResponse = client.getForEntity("http://localhost:9001/actuator/health", Map::class.java)
+                val legacyHealthCheckResponse = client.getForEntity("http://localhost:${testPort(1)}/actuator/health", Map::class.java)
 
                 assertThat(legacyHealthCheckResponse.statusCode.value()).isEqualTo(200)
                 assertThat(legacyHealthCheckResponse.body).isEqualTo(mapOf("status" to "UP"))
 
-                val healthCheckResponse = client.getForEntity("http://localhost:9001/_specmatic/health", Map::class.java)
+                val healthCheckResponse = client.getForEntity("http://localhost:${testPort(1)}/_specmatic/health", Map::class.java)
 
                 assertThat(healthCheckResponse.statusCode.value()).isEqualTo(200)
                 assertThat(healthCheckResponse.body).isEqualTo(mapOf("status" to "UP"))
@@ -447,15 +448,15 @@ internal class ProxyTest {
 
     @Test
     fun `should dump the examples and spec if the specmatic proxy dump endpoint is hit`() {
-        HttpStub(simpleFeature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
-                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+        HttpStub(simpleFeature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
+                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", testPort(1)))
                 val requestFactory = SimpleClientHttpRequestFactory()
                 requestFactory.setProxy(restProxy)
                 val client = RestTemplate(requestFactory)
-                client.postForEntity("http://localhost:9000/multiply", "10", String::class.java)
+                client.postForEntity("http://localhost:${testPort()}/multiply", "10", String::class.java)
 
-                val response = client.postForEntity<String>("http://localhost:9001/_specmatic/proxy/dump")
+                val response = client.postForEntity<String>("http://localhost:${testPort(1)}/_specmatic/proxy/dump")
 
                 assertThat(response.statusCode.value()).isEqualTo(202)
                 assertThat(response.body).isEqualTo("Dump process of spec and examples has started in the background")
@@ -492,7 +493,7 @@ internal class ProxyTest {
 
     @Test
     fun `should not timeout if custom timeout is greater than backend service delay`() {
-        HttpStub(simpleFeature).use { stub ->
+        HttpStub(simpleFeature, port = testPort()).use { stub ->
             val expectation =
                 """
                  {
@@ -513,12 +514,12 @@ internal class ProxyTest {
                 RestTemplate().postForEntity<String>(stub.endPoint + "/_specmatic/expectations", expectation)
             assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
-            Proxy(host = "localhost", port = 9001, stub.endPoint, fakeFileWriter, timeoutInMilliseconds = 5000).use {
-                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+            Proxy(host = "localhost", port = testPort(1), stub.endPoint, fakeFileWriter, timeoutInMilliseconds = 5000).use {
+                val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", testPort(1)))
                 val requestFactory = SimpleClientHttpRequestFactory()
                 requestFactory.setProxy(restProxy)
                 val client = RestTemplate(requestFactory)
-                val response = client.postForEntity("http://localhost:9000/", "10", String::class.java)
+                val response = client.postForEntity("http://localhost:${testPort()}/", "10", String::class.java)
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
                 assertThatNoException().isThrownBy { response.body!!.toInt() }
@@ -528,7 +529,7 @@ internal class ProxyTest {
 
     @Test
     fun `should timeout if custom timeout is less than backend service delay`() {
-        HttpStub(simpleFeature).use { fake ->
+        HttpStub(simpleFeature, port = testPort()).use { fake ->
             val expectation =
                 """
                  {
@@ -550,12 +551,12 @@ internal class ProxyTest {
             assertThat(stubResponse.statusCode.value()).isEqualTo(200)
 
             assertThrows<Exception> {
-                Proxy(host = "localhost", port = 9001, "", fakeFileWriter, timeoutInMilliseconds = 100).use {
-                    val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", 9001))
+                Proxy(host = "localhost", port = testPort(1), "", fakeFileWriter, timeoutInMilliseconds = 100).use {
+                    val restProxy = java.net.Proxy(java.net.Proxy.Type.HTTP, InetSocketAddress("localhost", testPort(1)))
                     val requestFactory = SimpleClientHttpRequestFactory()
                     requestFactory.setProxy(restProxy)
                     val client = RestTemplate(requestFactory)
-                    client.postForEntity("http://localhost:9000/", "10", String::class.java)
+                    client.postForEntity("http://localhost:${testPort()}/", "10", String::class.java)
                 }
             }
         }
@@ -566,10 +567,10 @@ internal class ProxyTest {
         val openApiFile = File("src/test/resources/openapi/partial_with_discriminator/openapi.yaml")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
 
-        HttpStub(feature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+        HttpStub(feature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
                 val request = feature.scenarios.first().generateHttpRequest().addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, "201")
-                val response = HttpClient(baseURL = "http://localhost:9001").use { it.execute(request) }
+                val response = HttpClient(baseURL = "http://localhost:${testPort(1)}").use { it.execute(request) }
 
                 assertThat(response.status).isEqualTo(201)
                 assertThat(response.headers.keys.map(String::toLowerCasePreservingASCIIRules)).contains(
@@ -587,14 +588,14 @@ internal class ProxyTest {
         val openApiFile = File("src/test/resources/openapi/partial_with_discriminator/openapi.yaml")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
 
-        HttpStub(feature).use {
-            Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use {
+        HttpStub(feature, port = testPort()).use {
+            Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use {
                 val request = feature.scenarios.first().generateHttpRequest()
                     .addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, "201")
                     .addHeaderIfMissing(HttpHeaders.AccessControlAllowOrigin, "*")
                     .addHeaderIfMissing(HttpHeaders.ContentDisposition, "*")
 
-                val response = HttpClient(baseURL = "http://localhost:9001").use { it.execute(request) }
+                val response = HttpClient(baseURL = "http://localhost:${testPort(1)}").use { it.execute(request) }
                 assertThat(response.status).isEqualTo(201)
                 assertThat(response.headers.keys.map(String::toLowerCasePreservingASCIIRules)).contains(
                     "x-specmatic-result", "x-specmatic-type", "content-type"
@@ -627,7 +628,7 @@ internal class ProxyTest {
 
     @Test
     fun `isFullURL should recognise absolute URLs regardless of scheme case`() {
-        Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use { proxy ->
+        Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use { proxy ->
             // URL schemes are case-insensitive (RFC 3986); an absolute URI must be routed
             // to its target rather than combined with the configured base URL.
             assertThat(proxy.isFullURL("http://example.com/pets")).isTrue()
@@ -639,7 +640,7 @@ internal class ProxyTest {
 
     @Test
     fun `isFullURL should recognise absolute URLs whose host java net URI cannot parse`() {
-        Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use { proxy ->
+        Proxy(host = "localhost", port = testPort(1), "http://localhost:${testPort()}", fakeFileWriter).use { proxy ->
             // Hosts such as Docker/k8s service names contain underscores, which URI.host rejects (returns null)
             // even though the URL is reachable. These must still be treated as absolute and routed as-is.
             assertThat(proxy.isFullURL("http://backend_service/pets")).isTrue()

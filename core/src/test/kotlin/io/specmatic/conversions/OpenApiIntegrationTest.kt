@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.testPort
 import com.google.common.net.HttpHeaders
 import io.specmatic.core.*
 import io.specmatic.core.pattern.ContractException
@@ -721,7 +722,7 @@ Background:
         fun `stub matches basic auth header`() {
             val feature = feature()
 
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 val response = stub.client.execute(HttpRequest("GET", "/hello", headers = mapOf("Authorization" to "Basic $base64EncodedCredentials")))
                 assertThat(response.status).isEqualTo(200)
             }
@@ -772,7 +773,7 @@ Background:
         fun `can set expectations with basic auth header`() {
             val feature = feature()
 
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 val expectedRequest = HttpRequest("GET", "/hello", headers = mapOf("Authorization" to "Basic $base64EncodedCredentials"), body = NoBodyValue)
 
                 stub.setExpectation(ScenarioStub(expectedRequest, HttpResponse.ok("success")))
@@ -967,6 +968,7 @@ Feature: Authenticated
         fun `should generate stub that authenticates with api key in header and query`() {
             createStubFromContracts(
                 listOf("src/test/resources/openapi/apiKeyAuth.yaml"),
+                port = testPort(),
                 timeoutMillis = 0L
             ).use {
                 val requestWithHeader = HttpRequest(
@@ -1117,7 +1119,7 @@ Feature: Authenticated
             )
         }
 
-        val results = HttpStub(feature).use { stub ->
+        val results = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val response = stub.client.execute(request)

@@ -1,5 +1,7 @@
 package integration_tests
 
+import io.specmatic.testPort
+import io.specmatic.test.LegacyHttpClient
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
@@ -46,7 +48,7 @@ class StubSubstitutionTest {
     fun `stub example resolves substitution in nullable response array`() {
         val spec = osAgnosticPath("src/test/resources/openapi/substitutions/nullable_array_response.yaml")
 
-        createStubFromContracts(listOf(spec), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(spec), timeoutMillis = 0, port = testPort()).use { stub ->
             val response = stub.client.execute(
                 HttpRequest("POST", "/echo", body = parsedJSONObject("""{"id":"ECHO-ME"}"""))
             )
@@ -60,7 +62,7 @@ class StubSubstitutionTest {
     fun `stub example with substitution in response body`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_substitution_in_response_body.yaml")
 
-        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Jane"}"""))
             val response = stub.client.execute(request)
 
@@ -74,7 +76,7 @@ class StubSubstitutionTest {
     fun `stub example with substitution in response header`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_substitution_in_response_header.yaml")
 
-        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Jane"}"""))
             val response = stub.client.execute(request)
 
@@ -119,7 +121,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("GET", "/data", headers = mapOf("X-Trace" to "(TRACE:string)"))
         val exampleResponse = HttpResponse(200, mapOf("X-Trace" to "$(TRACE)"))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data", headers = mapOf("X-Trace" to "abc123"))
             val response = stub.client.execute(request)
 
@@ -164,9 +166,9 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("GET", "/data", queryParametersMap = mapOf("traceId" to "(TRACE_ID:string)"))
         val exampleResponse = HttpResponse(200, mapOf("X-Trace" to "$(TRACE_ID)"))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data", queryParametersMap = mapOf("traceId" to "abc123"))
-            val response = stub.client.execute(request)
+            val response = LegacyHttpClient(stub.endPoint, timeoutInMilliseconds = 30_000).execute(request)
 
             assertThat(response.status).isEqualTo(200)
             val responseHeaders = response.headers
@@ -176,7 +178,7 @@ class StubSubstitutionTest {
 
     @Test
     fun `fallback to the spec when substitution data is not found`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/substitutions/spec_with_map_substitution_in_response_body.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf("src/test/resources/openapi/substitutions/spec_with_map_substitution_in_response_body.yaml"), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"department": "facilities"}"""))
             val response = stub.client.execute(request)
             assertThat(response.status).isEqualTo(200)
@@ -219,7 +221,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("GET", "/data/(ID:string)")
         val exampleResponse = HttpResponse(200, headers = mapOf("Content-Type" to "application/json"), body = parsedJSONObject("""{"id": "$(ID)"}"""))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/abc123")
             val response = stub.client.execute(request)
 
@@ -265,7 +267,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("GET", "/data/(ID:string)")
         val exampleResponse = HttpResponse(200, headers = mapOf("Content-Type" to "application/json"), body = parsedJSONObject("""{"id": "$(ID)"}"""))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
 
@@ -316,7 +318,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("POST", "/data", body = parsedJSONObject("""{"id": "(ID:string)"}"""))
         val exampleResponse = HttpResponse(200, headers = mapOf("Content-Type" to "application/json"), body = parsedJSONObject("""{"id": "$(ID)"}"""))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), port = testPort()).use { stub ->
             val response = stub.client.execute(HttpRequest("POST", "/data", body = parsedJSONObject("""{"id": "123"}""")))
 
             assertThat(response.status).isEqualTo(200)
@@ -366,7 +368,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("POST", "/data", body = parsedJSONObject("""{"id": "(ID:string)"}"""))
         val exampleResponse = HttpResponse(200, headers = mapOf("Content-Type" to "application/json"), body = parsedJSONObject("""{"id": "$(ID)"}"""))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), strictMode = true).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), port = testPort(), strictMode = true).use { stub ->
             val response = stub.client.execute(exampleRequest)
 
             assertThat(response.status).isEqualTo(400)
@@ -414,7 +416,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("POST", "/data", body = parsedJSONObject("""{"id": "(ID:string)"}"""))
         val exampleResponse = HttpResponse(200, headers = mapOf("Content-Type" to "text/plain", "X-Id" to "$(ID)"), body = StringValue("success"))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), strictMode = true).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), port = testPort(), strictMode = true).use { stub ->
             val response = stub.client.execute(exampleRequest)
 
             assertThat(response.status).isEqualTo(400)
@@ -427,7 +429,7 @@ class StubSubstitutionTest {
     fun `stub example with data substitution`(department: String, location: String) {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_map_substitution_in_response_body.yaml")
 
-        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"department": "$department"}"""))
             val response = stub.client.execute(request)
 
@@ -442,7 +444,7 @@ class StubSubstitutionTest {
     fun `stub example with data substitution having integer in request`(id: String, location: String) {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_map_substitution_with_int_in_request.yaml")
 
-        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"id": $id}"""))
             val response = stub.client.execute(request)
 
@@ -456,7 +458,7 @@ class StubSubstitutionTest {
     fun `data substitution involving all GET request parts and response parts`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_map_substitution_in_all_get_sections.yaml")
 
-        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/abc", headers = mapOf("X-Routing-Token" to "AB"), queryParametersMap = mapOf("location" to "IN"))
             val response = stub.client.execute(request)
 
@@ -475,7 +477,7 @@ class StubSubstitutionTest {
     fun `data substitution with explicitly referenced data key in response body`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_map_substitution_with_different_lookup_key_in_response_body.yaml")
 
-        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"department": "engineering"}"""))
             val response = stub.client.execute(request)
 
@@ -491,7 +493,7 @@ class StubSubstitutionTest {
     fun `data substitution with explicitly referenced data key in response header`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_map_substitution_with_different_lookup_key_in_response_header.yaml")
 
-        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"department": "engineering"}"""))
             val response = stub.client.execute(request)
 
@@ -507,7 +509,7 @@ class StubSubstitutionTest {
     fun `should log the file in which a substitution error has occurred`() {
         val (output, _) = captureStandardOutput {
             try {
-                val stub = createStubFromContracts(listOf(osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_non_existent_data_key.yaml")), timeoutMillis = 0)
+                val stub = createStubFromContracts(listOf(osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_non_existent_data_key.yaml")), timeoutMillis = 0, port = testPort())
                 stub.close()
             } catch(_: Throwable) {
 
@@ -527,7 +529,7 @@ class StubSubstitutionTest {
     fun `should flag an error when data substitution keys are not found in @data`() {
         val (output, _) = captureStandardOutput {
             try {
-                val stub = createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_example_missing_the_data_section.yaml")), timeoutMillis = 0)
+                val stub = createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_example_missing_the_data_section.yaml")), timeoutMillis = 0, port = testPort())
                 stub.close()
             } catch(_: Throwable) {
 
@@ -575,7 +577,7 @@ class StubSubstitutionTest {
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val example = """
                 {
                   "http-request": {
@@ -648,7 +650,7 @@ class StubSubstitutionTest {
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val example = """
                 {
                   "data": {
@@ -701,7 +703,7 @@ class StubSubstitutionTest {
             dataDirPaths = emptyList(),
             timeoutMillis = 0,
             specmaticConfig = specmaticConfig,
-        ).use { stub ->
+        port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
             val response = stub.client.execute(request)
 
@@ -722,7 +724,7 @@ class StubSubstitutionTest {
         try {
             System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
-            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
                 val response = stub.client.execute(request)
 
@@ -744,7 +746,7 @@ class StubSubstitutionTest {
         try {
             System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
-            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))
                 val response = stub.client.execute(request)
 
@@ -768,7 +770,7 @@ class StubSubstitutionTest {
 
             val (output, _) = captureStandardOutput {
                 try {
-                    val stub = createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0)
+                    val stub = createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort())
                     stub.close()
                 } catch(e: Throwable) {
                     println(e)
@@ -837,9 +839,9 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
-            val response = stub.client.execute(request)
+            val response = LegacyHttpClient(stub.endPoint, timeoutInMilliseconds = 30_000).execute(request)
 
             assertThat(response.status).isEqualTo(400)
             assertThat(response.body.toStringLiteral()).contains("email")
@@ -901,7 +903,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
 
@@ -965,7 +967,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub), strictMode = true).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), strictMode = true, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
             val responseBody = response.body as JSONObjectValue
@@ -1032,7 +1034,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
             val responseBody = response.body as JSONObjectValue
@@ -1098,7 +1100,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
             val responseBody = response.body as JSONObjectValue
@@ -1309,7 +1311,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
 
@@ -1378,7 +1380,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
 
@@ -1448,7 +1450,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
             val responseBody = response.body as JSONObjectValue
@@ -1518,7 +1520,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
             val responseBody = response.body as JSONObjectValue
@@ -1545,6 +1547,7 @@ class StubSubstitutionTest {
                 feature = feature,
                 strictMode = true,
                 scenarioStubs = listOf(example),
+                port = testPort(),
             ).use { stub ->
                 val response = stub.client.execute(example.requestElsePartialRequest())
                 assertThat(response.status).isEqualTo(400)
@@ -1575,7 +1578,8 @@ class StubSubstitutionTest {
                 rawHttpStubs = listOf(example).toStubData(feature),
                 // Stops HttpStub from generating CTRF/HTML Report on close
                 features = listOf(feature.copy(protocol = SpecmaticProtocol.WEB_SOCKET)),
-                specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig),
+                port = testPort()
             ).use { stub ->
                 val response = stub.client.execute(example.requestElsePartialRequest())
                 assertThat(response.status).isEqualTo(200)

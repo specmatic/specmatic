@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.specmatic.testPort
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
@@ -120,7 +121,7 @@ internal class HttpStubTest {
 
         val request = HttpRequest(method = "GET", path = "/")
 
-        HttpStub(gherkin).use { stub ->
+        HttpStub(gherkin, port = testPort()).use { stub ->
             val response = LegacyHttpClient(stub.endPoint).execute(request)
             assertThat(response.headers[SPECMATIC_TYPE_HEADER]).isEqualTo("random")
         }
@@ -140,8 +141,8 @@ internal class HttpStubTest {
 
         HttpStub(
             features = listOf(feature),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
-        ).use { stub ->
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig),
+        port = testPort()).use { stub ->
             val specmaticConfigField = HttpStub::class.java.getDeclaredField("specmaticConfigInstance")
             specmaticConfigField.isAccessible = true
             val resolvedSpecmaticConfig = specmaticConfigField.get(stub)
@@ -157,7 +158,7 @@ internal class HttpStubTest {
         val feature = parseContractFileToFeature(openApiSpec.canonicalPath)
 
         try {
-            HttpStub(features = listOf(feature)).use { stub ->
+            HttpStub(features = listOf(feature), port = testPort()).use { stub ->
                 val response = RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
@@ -177,7 +178,7 @@ internal class HttpStubTest {
         val feature = parseContractFileToFeature(openApiSpec.canonicalPath)
 
         try {
-            HttpStub(features = listOf(feature)).use { stub ->
+            HttpStub(features = listOf(feature), port = testPort()).use { stub ->
                 val response = RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.json")
 
                 assertThat(response.statusCode.value()).isEqualTo(200)
@@ -307,7 +308,7 @@ internal class HttpStubTest {
 
         try {
             val (consoleOutput, _) = captureStandardOutput(trim = false) {
-                HttpStub(features = listOf(feature), log = ::consoleLog).use { stub ->
+                HttpStub(features = listOf(feature), log = ::consoleLog, port = testPort()).use { stub ->
                     RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
 
                     val logResponse = RestTemplate().getForEntity<String>(stub.endPoint + "/_specmatic/log")
@@ -328,7 +329,7 @@ internal class HttpStubTest {
         val feature = parseContractFileToFeature(specFile)
 
         val (consoleOutput, _) = captureStandardOutput(trim = false) {
-            HttpStub(features = listOf(feature), log = ::consoleLog).use { stub ->
+            HttpStub(features = listOf(feature), log = ::consoleLog, port = testPort()).use { stub ->
                 stub.client.execute(
                     HttpRequest(
                         method = "GET",
@@ -351,7 +352,7 @@ internal class HttpStubTest {
         val feature = parseContractFileToFeature(specFile)
 
         val (consoleOutput, _) = captureStandardOutput(trim = false) {
-            HttpStub(features = listOf(feature), log = ::consoleLog).use { stub ->
+            HttpStub(features = listOf(feature), log = ::consoleLog, port = testPort()).use { stub ->
                 stub.client.execute(
                     HttpRequest(
                         method = "GET",
@@ -374,7 +375,7 @@ internal class HttpStubTest {
         val wsdlFeature = parseContractFileToFeature("src/test/resources/wsdl/hello.wsdl")
 
         val (consoleOutput, _) = captureStandardOutput(trim = false) {
-            HttpStub(features = listOf(wsdlFeature), log = ::consoleLog).use { stub ->
+            HttpStub(features = listOf(wsdlFeature), log = ::consoleLog, port = testPort()).use { stub ->
                 val yamlException = Assertions.assertThrows(HttpClientErrorException.Conflict::class.java) {
                     RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.yaml")
                 }
@@ -414,7 +415,7 @@ Scenario: Square of a number
         val request = HttpRequest(method = "POST", path = "/number", body = NumberValue(10))
         val response = HttpResponse(status = 200, body = "100")
 
-        HttpStub(gherkin, listOf(ScenarioStub(request, response))).use { fake ->
+        HttpStub(gherkin, listOf(ScenarioStub(request, response)), port = testPort()).use { fake ->
             val postResponse = RestTemplate().postForEntity<String>(fake.endPoint + "/number", "10")
             assertThat(postResponse.body).isEqualTo("100")
         }
@@ -431,7 +432,7 @@ Scenario: Get a number
   And response-body (number)
 """.trim()
 
-        HttpStub(gherkin).use { fake ->
+        HttpStub(gherkin, port = testPort()).use { fake ->
             val mockData =
                 """{"http-request": {"method": "GET", "path": "/number"}, "http-response": {"status": 200, "body": 10}}"""
             val stubSetupURL = "${fake.endPoint}/_specmatic/expectations"
@@ -460,7 +461,7 @@ Scenario: Multiply a number by 3
 
         val testResourcesDir = Paths.get("src", "test", "resources")
 
-        HttpStub(gherkin).use { fake ->
+        HttpStub(gherkin, port = testPort()).use { fake ->
             val mockData =
                 """{"http-request": {"method": "GET", "path": "/multiply/(value:number)"}, "http-response": {"status": 200, "body": 10, "externalisedResponseCommand": "${testResourcesDir.absolutePathString()}/response.sh 3"}}"""
             val stubSetupURL = "${fake.endPoint}/_specmatic/expectations"
@@ -486,7 +487,7 @@ Scenario: Get a number
   And response-body (number)
 """.trim()
 
-        HttpStub(gherkin).use { fake ->
+        HttpStub(gherkin, port = testPort()).use { fake ->
             testMock(
                 """{"http-request": {"method": "GET", "path": "/number"}, "http-response": {"status": 200, "body": 10}}""",
                 "10",
@@ -558,7 +559,7 @@ And response-body (string)
         val request = HttpRequest("POST", "/date", emptyMap(), StringValue("(datetime)"))
         val mock = ScenarioStub(request, HttpResponse(200, "done"))
 
-        HttpStub(gherkin, listOf(mock)).use { fake ->
+        HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
             val postResponse =
                 RestTemplate().postForEntity<String>(fake.endPoint + "/date", "2020-04-12T00:00:00+05:00")
             assertThat(postResponse.statusCode.value()).isEqualTo(200)
@@ -580,7 +581,7 @@ And response-body (string)
         val mockRequest = HttpRequest("POST", "/date", mapOf("Content-Type" to "application/json"), parsedValue("""{"date": "(datetime)"}"""))
         val mock = ScenarioStub(mockRequest, HttpResponse(200, "done"))
 
-        HttpStub(gherkin, listOf(mock)).use { fake ->
+        HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
             val request = HttpRequest(
                 "POST",
                 "/date",
@@ -607,7 +608,7 @@ And response-body (string)
         val mock = ScenarioStub(request, HttpResponse(200, "done"))
 
         try {
-            HttpStub(gherkin, listOf(mock)).use { fake ->
+            HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 val postResponse =
                     RestTemplate().postForEntity<String>(fake.endPoint + "/date", """2020-04-12T00:00:00""")
                 assertThat(postResponse.statusCode.value()).isEqualTo(200)
@@ -631,7 +632,7 @@ And response-body (string)
         """.trim()
 
         try {
-            HttpStub(gherkin).use { fake ->
+            HttpStub(gherkin, port = testPort()).use { fake ->
                 val expectation = """ {
 "http-request": {
     "method": "GET",
@@ -678,7 +679,7 @@ And response-body (string)
             val delayInSeconds = 3
             val delayInMilliseconds = delayInSeconds * 1000
 
-            HttpStub(gherkin).use { fake ->
+            HttpStub(gherkin, port = testPort()).use { fake ->
                 val expectation = """ {
 "http-request": {
     "method": "GET",
@@ -764,7 +765,7 @@ Scenario: Square of a number
 """.trim()
         )
 
-        HttpStub(listOf(feature, feature)).use { stub ->
+        HttpStub(listOf(feature, feature), port = testPort()).use { stub ->
             val client = LegacyHttpClient(stub.endPoint)
             val request = HttpRequest(method = "POST", path = "/wrong_path", body = NumberValue(10))
             val squareResponse = client.execute(request)
@@ -796,8 +797,8 @@ Scenario: Square of a number
         HttpStub(
             listOf(feature),
             passThroughTargetBase = "http://example.com",
-            httpClientFactory = httpClientFactory
-        ).use { stub ->
+            httpClientFactory = httpClientFactory,
+        port = testPort()).use { stub ->
             val client = LegacyHttpClient(stub.endPoint)
             val response = client.execute(HttpRequest(method = "POST", path = "/", body = NumberValue(10)))
 
@@ -830,8 +831,8 @@ Scenario: Square of a number
         HttpStub(
             listOf(feature),
             passThroughTargetBase = "http://example.com",
-            httpClientFactory = httpClientFactory
-        ).use { stub ->
+            httpClientFactory = httpClientFactory,
+        port = testPort()).use { stub ->
             val client = LegacyHttpClient(stub.endPoint)
             val response = client.execute(HttpRequest(method = "POST", path = "/", body = NumberValue(10)))
 
@@ -862,8 +863,8 @@ Scenario: Square of a number
         HttpStub(
             listOf(feature),
             passThroughTargetBase = "http://example.com",
-            httpClientFactory = httpClientFactory
-        ).use { stub ->
+            httpClientFactory = httpClientFactory,
+        port = testPort()).use { stub ->
             stub.setExpectation(
                 ScenarioStub(
                     HttpRequest("POST", "/", body = NumberValue(10)),
@@ -906,7 +907,7 @@ paths:
 """.trim(), ""
         ).toFeature()
 
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             val stubData = """
                 {
                     "http-request": {
@@ -980,8 +981,8 @@ paths:
                         body = "Hi!"
                     )
                 )
-            )
-        ).use { stub ->
+            ),
+        port = testPort()).use { stub ->
             assertThat(stub.stubCount).isEqualTo(1)
             assertThat(stub.transientStubCount).isEqualTo(0)
         }
@@ -992,7 +993,7 @@ paths:
         val specification =
             OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
 
-        HttpStub(specification).use { stub ->
+        HttpStub(specification, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/_specmatic/health")
 
             val response = stub.client.execute(request)
@@ -1006,7 +1007,7 @@ paths:
             }
         }
 
-        HttpStub(specification).use { stub ->
+        HttpStub(specification, port = testPort()).use { stub ->
             val legacyHealthCheckRequest = HttpRequest("GET", "/actuator/health")
 
             val legacyHealthCheckResponse = stub.client.execute(legacyHealthCheckRequest)
@@ -1027,7 +1028,7 @@ paths:
         val specification =
             OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
 
-        HttpStub(specification).use { stub ->
+        HttpStub(specification, port = testPort()).use { stub ->
             val request = HttpRequest("HEAD", "/")
 
             val response = stub.client.execute(request)
@@ -1092,7 +1093,7 @@ components:
          """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val firstRequest = HttpRequest(
                 "POST",
                 "/hello",
@@ -1118,7 +1119,7 @@ components:
     fun `runtime expectations should match exact API key header and query parameter values`() {
         val feature = OpenApiSpecification.fromFile(osAgnosticPath("src/test/resources/openapi/apiKeyAuthStub.yaml")).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val headerRequestA = HttpRequest(
                 "GET",
                 "/hello/10",
@@ -1161,7 +1162,7 @@ components:
             ScenarioStub.parse(file.readText())
         }
 
-        HttpStub(feature, examples).use { stub ->
+        HttpStub(feature, examples, port = testPort()).use { stub ->
             val request = HttpRequest(
                 "GET",
                 "/hello/10",
@@ -1253,7 +1254,7 @@ components:
         val valid200RespBody = parsedJSONObject("""{"message":"valid"}""")
         val valid200Example = ScenarioStub(valid200Request, HttpResponse(200, body = valid200RespBody))
 
-        HttpStub(feature, listOf(invalid422Example, valid200Example)).use { stub ->
+        HttpStub(feature, listOf(invalid422Example, valid200Example), port = testPort()).use { stub ->
             val validResponse = stub.client.execute(valid200Request)
             assertThat(validResponse.status).isEqualTo(200)
             assertThat(validResponse.body).isEqualTo(valid200RespBody)
@@ -1266,7 +1267,7 @@ components:
 
     @Test
     fun `stub should load an example for a spec with pattern as a path param`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/spec_with_path_param.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/spec_with_path_param.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/users/abc123", queryParametersMap = mapOf("item" to "10"))
             val response = stub.client.execute(request)
 
@@ -1280,7 +1281,7 @@ components:
     fun `stub should flag an error when a path param in an external example has an invalid type`() {
         val (output, _) = captureStandardOutput {
             withLogger(DebugLogger.logger) {
-                val stub = createStubFromContracts(listOf(("src/test/resources/openapi/spec_with_invalid_path_param_example.yaml")), timeoutMillis = 0)
+                val stub = createStubFromContracts(listOf(("src/test/resources/openapi/spec_with_invalid_path_param_example.yaml")), timeoutMillis = 0, port = testPort())
                 stub.close()
             }
         }
@@ -1290,7 +1291,7 @@ components:
 
     @Test
     fun `should stub out a template with only templated request`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_in_response_body.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_in_response_body.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest(
                 "POST",
                 "/person",
@@ -1307,7 +1308,7 @@ components:
 
     @Test
     fun `example should favour concrete value over dictionary value`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_dictionary_conflict.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_dictionary_conflict.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest(
                 "POST",
                 "/person",
@@ -1327,8 +1328,8 @@ components:
         createStubFromContracts(
             contractPaths = listOf("src/test/resources/openapi/hello.yaml"),
             dataDirPaths = emptyList(),
-            timeoutMillis = 0
-        ).use { stub ->
+            timeoutMillis = 0,
+        port = testPort()).use { stub ->
 
             stub.registerRequestInterceptor(object: RequestInterceptor {
                 override val name: String
@@ -1372,7 +1373,7 @@ components:
     @Test
     fun `should apply global request interceptors before spec scoped request interceptors`() {
         val contractPath = "src/test/resources/openapi/hello.yaml"
-        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0, port = testPort()).use { stub ->
             stub.registerRequestInterceptor(object : RequestInterceptor {
                 override val name: String = "global-request-interceptor"
                 override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
@@ -1406,7 +1407,7 @@ components:
     @Test
     fun `should use only global request interceptors when no spec scoped interceptor matches`() {
         val contractPath = "src/test/resources/openapi/hello.yaml"
-        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0, port = testPort()).use { stub ->
             stub.registerRequestInterceptor(object : RequestInterceptor {
                 override val name: String = "global-request-interceptor"
                 override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
@@ -1440,7 +1441,7 @@ components:
     fun `should use first matching spec scoped request interceptor when multiple specs match`() {
         val firstContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product.yaml"
         val secondContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product-2.yaml"
-        createStubFromContracts(contractPaths = listOf(firstContractPath, secondContractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(contractPaths = listOf(firstContractPath, secondContractPath), dataDirPaths = emptyList(), timeoutMillis = 0, port = testPort()).use { stub ->
             stub.registerRequestInterceptor(FileAssociation.FileScoped(
                 file = File(firstContractPath),
                 data = object : RequestInterceptor {
@@ -1550,7 +1551,7 @@ components:
     @Test
     fun `should apply spec scoped response interceptors before global scoped response interceptors`() {
         val contractPath = "src/test/resources/openapi/hello.yaml"
-        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(contractPaths = listOf(contractPath), dataDirPaths = emptyList(), timeoutMillis = 0, port = testPort()).use { stub ->
             stub.registerResponseInterceptor(object : ResponseInterceptor {
                 override val name: String = "global-response-interceptor"
                 override fun interceptResponse(httpRequest: HttpRequest, httpResponse: HttpResponse): HttpResponse {
@@ -1579,7 +1580,7 @@ components:
         val helloContractPath = "src/test/resources/openapi/hello.yaml"
         val productContractPath = "src/test/resources/multi_base_url_dynamic_stubs/specs/product.yaml"
 
-        createStubFromContracts(contractPaths = listOf(helloContractPath, productContractPath), dataDirPaths = emptyList(), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(contractPaths = listOf(helloContractPath, productContractPath), dataDirPaths = emptyList(), timeoutMillis = 0, port = testPort()).use { stub ->
             stub.registerRequestInterceptor(object : RequestInterceptor {
                 override val name: String = "global-request-interceptor"
                 override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
@@ -1629,8 +1630,8 @@ components:
         createStubFromContracts(
             contractPaths = listOf("src/test/resources/openapi/hello.yaml"),
             dataDirPaths = emptyList(),
-            timeoutMillis = 0
-        ).use { stub ->
+            timeoutMillis = 0,
+        port = testPort()).use { stub ->
 
             stub.registerHandler(object: RequestHandler {
                 override val name: String
@@ -1672,8 +1673,8 @@ components:
     fun `should use the 400 response code based externalised example and respond accordingly`() {
         createStubFromContracts(
             contractPaths = listOf("src/test/resources/openapi/has_400_example_for_stub.yaml"),
-            dataDirPaths = listOf("src/test/resources/openapi/has_400_example_for_stub_examples")
-        ).use { stub ->
+            dataDirPaths = listOf("src/test/resources/openapi/has_400_example_for_stub_examples"),
+        port = testPort()).use { stub ->
             val request = HttpRequest(
                 "GET",
                 "/items",
@@ -1725,7 +1726,7 @@ components:
             """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(listOf(feature), strictMode = true).use { stub ->
+        HttpStub(listOf(feature), strictMode = true, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"field": "$fieldValue"}"""))
             val response = stub.client.execute(request)
 
@@ -1784,7 +1785,7 @@ components:
             """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(listOf(feature), strictMode = true).use { stub ->
+        HttpStub(listOf(feature), strictMode = true, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"field": "$fieldValue"}"""))
             val response = stub.client.execute(request)
 
@@ -1815,7 +1816,7 @@ paths:
                 additionalProperties: true
 """.trimIndent()
         val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/data")).let { response ->
                 assertThat(response.status).isEqualTo(200)
                 val responseValue = parsedJSON(response.body.toStringLiteral())
@@ -1854,7 +1855,7 @@ paths:
                 type: string
 """.trimIndent()
         val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             stub.setExpectation(
                 ScenarioStub(
                     HttpRequest(
@@ -1878,7 +1879,7 @@ paths:
 
     @Test
     fun `should return descriptive error message when there are no valid specifications loaded`() {
-        val httpStub = HttpStub(emptyList())
+        val httpStub = HttpStub(emptyList(), port = testPort())
         httpStub.use { stub ->
             val response =
                 stub.client.execute(HttpRequest("POST", "/data", emptyMap(), parsedJSONObject("""{"id": 10}""")))
@@ -1894,7 +1895,7 @@ paths:
         val booleanEndpoints = listOf("/test/latest", "/ABC/reports/DEF")
         val numberEndpoints = listOf("/test/ABC", "/reports/ABC/latest")
 
-        HttpStub(listOf(feature)).use { stub ->
+        HttpStub(listOf(feature), port = testPort()).use { stub ->
             booleanEndpoints.forEach { endpoint ->
                 val request = HttpRequest("POST", endpoint, body = parsedJSONObject("""{"value": true}"""))
                 val response = stub.client.execute(request)
@@ -1942,7 +1943,7 @@ paths:
             """.trimIndent(), ""
                 ).toFeature()
 
-                HttpStub(listOf(feature)).use { stub ->
+                HttpStub(listOf(feature), port = testPort()).use { stub ->
                     val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"name": "John Doe", "age": 30}"""))
                     val response = stub.client.execute(request)
 
@@ -1979,7 +1980,7 @@ paths:
             """.trimIndent(), ""
             ).toFeature()
 
-            HttpStub(listOf(feature)).use { stub ->
+            HttpStub(listOf(feature), port = testPort()).use { stub ->
                 val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"name": "John Doe", "age": 30}"""))
                 val response = stub.client.execute(request)
 
@@ -2044,7 +2045,7 @@ paths:
                     response = HttpResponse(status = 201, body = parsedJSONObject("""{"id": "123"}"""))
                 )
 
-                HttpStub(feature, listOf(example)).use { stub ->
+                HttpStub(feature, listOf(example), port = testPort()).use { stub ->
                     val request = HttpRequest("POST", "/", body = parsedJSONObject("""{"name": "John Doe", "age": 30}"""))
                     val response = stub.client.execute(request)
 
@@ -2103,7 +2104,7 @@ paths:
         val combined = stubScenarioFrom(headerKeys.associateWith { combinedKeys }, combinedKeys)
         val examples = separate.plus(combined)
 
-        HttpStub(feature, examples).use { stub ->
+        HttpStub(feature, examples, port = testPort()).use { stub ->
             headerKeys.forEach {
                 val request = HttpRequest("GET", "/", headers = mapOf(it to it))
                 val response = stub.client.execute(request)
@@ -2164,7 +2165,7 @@ paths:
             response = HttpResponse(status = 200, body = parsedJSONObject("""{"id": "123"}"""))
         )
 
-        HttpStub(feature, listOf(example)).use { stub ->
+        HttpStub(feature, listOf(example), port = testPort()).use { stub ->
             val badRequest = HttpRequest("GET", "/", headers = mapOf("X-Extra" to "Value"))
             val response = stub.client.execute(badRequest)
 
@@ -2237,8 +2238,8 @@ paths:
 
             HttpStub(
                 listOf(feature),
-                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
-            ).use { stub ->
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml"),
+            port = testPort()).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -2302,8 +2303,8 @@ paths:
 
             HttpStub(
                 listOf(feature),
-                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
-            ).use { stub ->
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml"),
+            port = testPort()).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -2372,8 +2373,8 @@ paths:
 
             HttpStub(
                 listOf(feature),
-                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
-            ).use { stub ->
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml"),
+            port = testPort()).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -2437,8 +2438,8 @@ paths:
 
             HttpStub(
                 listOf(feature),
-                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
-            ).use { stub ->
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml"),
+            port = testPort()).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -2502,8 +2503,8 @@ paths:
 
             HttpStub(
                 listOf(feature),
-                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml")
-            ).use { stub ->
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("src/test/resources/specmatic_config_wtih_generate_stub.yaml"),
+            port = testPort()).use { stub ->
                 val request = HttpRequest("POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
                 val response = stub.client.execute(request)
 
@@ -2628,8 +2629,8 @@ paths:
             HttpStub(
                 listOf(feature),
                 strictMode = true,
-                specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config)
-            ).use { stub ->
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config),
+            port = testPort()).use { stub ->
                 val request =
                     HttpRequest(
                         "PUT",
@@ -2693,7 +2694,7 @@ paths:
 
         @Test
         fun `should load and serve expectations for payload from inline examples`() {
-            HttpStub(featureWithInlineExample).use { stub ->
+            HttpStub(featureWithInlineExample, port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         method = "POST",
@@ -2714,7 +2715,7 @@ paths:
                 .fromFile(parameterizedMediaTypeSpec("inline/api.yaml").path)
                 .toFeature()
 
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         method = "POST",
@@ -2742,7 +2743,7 @@ paths:
             )
             val loadedStubs = loadResults.filterIsInstance<FeatureStubsResult.Success>().single()
 
-            HttpStub(loadedStubs.feature, loadedStubs.scenarioStubs).use { stub ->
+            HttpStub(loadedStubs.feature, loadedStubs.scenarioStubs, port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         method = "POST",
@@ -2774,8 +2775,8 @@ paths:
                             body = parsedJSONObject("""{"message":"file_overrides_example_expectation"}""")
                         )
                     )
-                )
-            ).use { stub ->
+                ),
+            port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         method = "POST",
@@ -2796,7 +2797,7 @@ paths:
 
         @Test
         fun `should load and serve expectations from the dynamic expectation over the inline example based expectation`() {
-            HttpStub(featureWithInlineExample).use { stub ->
+            HttpStub(featureWithInlineExample, port = testPort()).use { stub ->
                 stub.setExpectation(
                     ScenarioStub(
                         HttpRequest(
@@ -2933,7 +2934,7 @@ paths:
             val specification =
                 OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
 
-            HttpStub(specification).use { stub ->
+            HttpStub(specification, port = testPort()).use { stub ->
                 val request = HttpRequest("GET", pathWithSpace)
 
                 val response = stub.client.execute(request)
@@ -2953,7 +2954,7 @@ paths:
         fun `should load a stub with a space in the path and return the stubbed response`() {
             val pathWithSpace = "/da ta"
 
-            createStubFromContracts(listOf("src/test/resources/openapi/spec_with_space_in_path.yaml"), timeoutMillis = 0).use { stub ->
+            createStubFromContracts(listOf("src/test/resources/openapi/spec_with_space_in_path.yaml"), timeoutMillis = 0, port = testPort()).use { stub ->
                 val request = HttpRequest("GET", pathWithSpace)
 
                 val response = stub.client.execute(request)
@@ -2972,7 +2973,7 @@ paths:
         fun `should load a stub with query params and a space in the path and return the stubbed response`() {
             val pathWithSpace = "/da ta"
 
-            createStubFromContracts(listOf("src/test/resources/openapi/spec_with_query_and_space_in_path.yaml"), timeoutMillis = 0).use { stub ->
+            createStubFromContracts(listOf("src/test/resources/openapi/spec_with_query_and_space_in_path.yaml"), timeoutMillis = 0, port = testPort()).use { stub ->
                 val request = HttpRequest("GET", pathWithSpace, queryParametersMap = mapOf("id" to "5"))
 
                 val response = stub.client.execute(request)
@@ -3018,7 +3019,7 @@ paths:
         """.trimIndent(), ""
             ).toFeature()
 
-            HttpStub(specification).use { stub ->
+            HttpStub(specification, port = testPort()).use { stub ->
                 val request = HttpRequest("GET", "/data", queryParametersMap = mapOf(queryParamWithSpace to "5"))
 
                 val response = stub.client.execute(request)
@@ -3035,7 +3036,7 @@ paths:
 
         @Test
         fun `should stub out a request for boolean query param with capital T or F in the incoming request`() {
-            val specification = createStubFromContracts(listOf("src/test/resources/openapi/spec_with_boolean_query.yaml"), timeoutMillis = 0)
+            val specification = createStubFromContracts(listOf("src/test/resources/openapi/spec_with_boolean_query.yaml"), timeoutMillis = 0, port = testPort())
 
             specification.use { stub ->
                 val request = HttpRequest("GET", "/data", queryParametersMap = mapOf("enabled" to "True"))
@@ -3082,7 +3083,7 @@ paths:
         """.trimIndent(), ""
             ).toFeature()
 
-            HttpStub(specification).use { stub ->
+            HttpStub(specification, port = testPort()).use { stub ->
                 val request = HttpRequest("GET", "/data", queryParametersMap = mapOf("enabled" to "True"))
 
                 val response = stub.client.execute(request)
@@ -3120,7 +3121,7 @@ paths:
                                 type: integer
         """.trimIndent(), "").toFeature()
 
-            HttpStub(specification).use { stub ->
+            HttpStub(specification, port = testPort()).use { stub ->
                 val request = HttpRequest("GET", "/data", body = NoBodyValue)
 
                 val response = stub.client.execute(request)
@@ -3158,7 +3159,7 @@ paths:
                                 type: integer
         """.trimIndent(), "").toFeature()
 
-            HttpStub(specification).use { stub ->
+            HttpStub(specification, port = testPort()).use { stub ->
                 val request = HttpRequest("GET", "/data", body = NoBodyValue)
 
                 val response = stub.client.execute(request)
@@ -3189,7 +3190,7 @@ Then status 200
             val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data>10</data>"""))
             val mock = ScenarioStub(request, HttpResponse.OK)
 
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
+            val postResponse = HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data>10</data>""")
             }
 
@@ -3208,7 +3209,7 @@ Then status 200
             val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data>10</data>"""))
             val mock = ScenarioStub(request, HttpResponse.OK)
 
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
+            val postResponse = HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data>10</data>""")
             }
 
@@ -3227,7 +3228,7 @@ Then status 200
             val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data>(number)</data>"""))
             val mock = ScenarioStub(request, HttpResponse.OK)
 
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
+            val postResponse = HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data>10</data>""")
             }
 
@@ -3248,14 +3249,14 @@ And response-body (number)
             val expectedNumber = 100000
             val mock = ScenarioStub(request, HttpResponse.ok(NumberValue(expectedNumber)))
 
-            HttpStub(gherkin, listOf(mock)).use { fake ->
+            HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data>10</data>""")
             }.let { postResponse ->
                 assertThat(postResponse.statusCode.value()).isEqualTo(200)
                 assertThat(postResponse.body?.toString()?.toInt() == expectedNumber)
             }
 
-            HttpStub(gherkin, listOf(mock)).use { fake ->
+            HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data>20</data>""")
             }.let { postResponse ->
                 assertThat(postResponse.statusCode.value()).isEqualTo(200)
@@ -3275,7 +3276,7 @@ Then status 200
             val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data></data>"""))
             val mock = ScenarioStub(request, HttpResponse.OK)
 
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
+            val postResponse = HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data></data>""")
             }
 
@@ -3294,7 +3295,7 @@ Then status 200
             val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data></data>"""))
             val mock = ScenarioStub(request, HttpResponse.OK)
 
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
+            val postResponse = HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data/>""")
             }
 
@@ -3313,7 +3314,7 @@ Then status 200
             val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data number="10"/>"""))
             val mock = ScenarioStub(request, HttpResponse.OK)
 
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
+            val postResponse = HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data number="10"/>""")
             }
 
@@ -3332,7 +3333,7 @@ Then status 200
             val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data number="(number)"/>"""))
             val mock = ScenarioStub(request, HttpResponse.OK)
 
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
+            val postResponse = HttpStub(gherkin, listOf(mock), port = testPort()).use { fake ->
                 RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data number="10"/>""")
             }
 
@@ -3343,6 +3344,55 @@ Then status 200
 
     @Nested
     inner class MultiBaseUrlStubTest {
+
+        private fun dynamicMultiPortConfig(configPath: String): File {
+            val source = File(configPath).canonicalFile
+            var contents = source.readText().replace("\r\n", "\n")
+            listOf(9000, 9001, 9002, 9003).forEachIndexed { index, configuredPort ->
+                contents = contents.replace(":$configuredPort", ":${testPort(index)}")
+            }
+            if (!contents.contains("src/test/resources/")) {
+                contents = contents.replace(
+                    "directory: \".\"",
+                    "directory: \"${source.parentFile.canonicalPath.replace('\\', '/')}\""
+                )
+            }
+
+            // These fixtures rely on the implicit 9000 default, which can't be changed by
+            // replacing a literal port in the YAML. Materialize that default in the copied config.
+            contents = when (source.parentFile.name) {
+                "multi_port_stub_without_examples" -> contents.replace(
+                    "- src/test/resources/multi_port_stub_without_examples/product_without_category.yaml",
+                    "- baseUrl: http://localhost:${testPort(0)}\n        specs:\n          - src/test/resources/multi_port_stub_without_examples/product_without_category.yaml"
+                )
+                "multi_port_stub_string_syntax" -> contents.replace(
+                    "- ./product.yaml\n      - ./order.yaml",
+                    "- baseUrl: http://127.0.0.1:${testPort(0)}\n        specs:\n          - ./product.yaml\n          - ./order.yaml"
+                )
+                "multi_spec_stub_on_same_port" -> contents.replace(
+                    "- ./product/product.yaml\n      - ./order/order.yaml",
+                    "- baseUrl: http://127.0.0.1:${testPort(0)}\n        specs:\n          - ./product/product.yaml\n          - ./order/order.yaml"
+                )
+                "multi_port_stub_with_duplicated_spec" -> Regex("(?m)^      - product_with_category.yaml$").replace(
+                    contents,
+                    "      - baseUrl: http://127.0.0.1:${testPort(0)}\n        specs:\n          - product_with_category.yaml"
+                )
+                else -> contents
+            }
+
+            val outputDirectory = File("build/tmp/dynamic-multi-port-configs").apply { mkdirs() }
+            val output = File.createTempFile("multi-port-${testPort()}-", ".yaml", outputDirectory)
+            output.writeText(contents)
+            return output
+        }
+
+        private fun dynamicConfiguredPort(configuredPort: Int): Int = when (configuredPort) {
+            9000 -> testPort(0)
+            9001 -> testPort(1)
+            9002 -> testPort(2)
+            9003 -> testPort(3)
+            else -> configuredPort
+        }
 
         private fun scenarioStubsFrom(
             specmaticConfigFile: File,
@@ -3390,16 +3440,16 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports as configured in specmatic config where stubs are loaded from examples`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
                     body = parsedJSONObject("""{"name": "Xiaomi", "category": "Mobile"}""")
                 )
                 val importedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(request)
                 assertThat(
                     (importedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3407,7 +3457,7 @@ Then status 200
 
 
                 val exportedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9002, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9002), null)
                 ).execute(request)
                 assertThat(
                     (exportedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3415,7 +3465,7 @@ Then status 200
 
 
                 val anotherExportedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9003, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9003), null)
                 ).execute(request)
                 assertThat(
                     (anotherExportedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3425,16 +3475,16 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple baseUrls with a path as configured in specmatic config where stubs are loaded from examples`() {
-            val specmaticConfigFile = "src/test/resources/multi_baseUrl_stub_with_path/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_baseUrl_stub_with_path/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
                     body = parsedJSONObject("""{"name": "Xiaomi", "category": "Mobile"}""")
                 )
                 val importedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(request.copy(path = "/base/products"))
                 assertThat(
                     (importedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3442,7 +3492,7 @@ Then status 200
 
 
                 val exportedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9002, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9002), null)
                 ).execute(request.copy(path = "/random/products"))
                 assertThat(
                     (exportedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3450,7 +3500,7 @@ Then status 200
 
 
                 val anotherExportedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9003, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9003), null)
                 ).execute(request.copy(path = "/random/base/products"))
                 assertThat(
                     (anotherExportedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3460,11 +3510,11 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports as configured in specmatic config where no examples are loaded as stubs`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub_without_examples/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_without_examples/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
                 val productWithoutCategoryResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9000), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3477,7 +3527,7 @@ Then status 200
 
 
                 val productWithCategoryResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3492,9 +3542,9 @@ Then status 200
 
         @Test
         fun `should only start stub server on specified baseUrls`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3503,7 +3553,7 @@ Then status 200
 
                 assertThrows<ConnectException> {
                     LegacyHttpClient(endPointFromHostAndPort(
-                        "localhost", Configuration.DEFAULT_HTTP_STUB_PORT.toInt(), null
+                        "localhost", testPort(4), null
                     )).execute(request)
                 }
             }
@@ -3511,9 +3561,9 @@ Then status 200
 
         @Test
         fun `should return an error if a request for a specific specification is sent to the wrong port`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub_without_examples/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_without_examples/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
 
                 val productWithoutCategoryExampleBasedRequest = HttpRequest(
                     method = "POST",
@@ -3521,7 +3571,7 @@ Then status 200
                     body = parsedJSONObject("""{"name": "Widget", "price": 9.99}""")
                 )
                 val productWithCategoryResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(productWithoutCategoryExampleBasedRequest)
 
                 assertThat(productWithCategoryResponse.status).isEqualTo(400)
@@ -3533,7 +3583,7 @@ Then status 200
                     body = parsedJSONObject("""{"name": "Nokia", "price": 100.0, "category": "Electronics"}""")
                 )
                 val productWithoutCategoryResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9000), null)
                 ).execute(productWithCategoryBasedRequest)
 
                 assertThat(productWithoutCategoryResponse.status).isEqualTo(400)
@@ -3542,9 +3592,9 @@ Then status 200
 
         @Test
         fun `should return generated response even if the request matches the stub being served on another port`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub_with_stubbed_unstubbed_specs/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_with_stubbed_unstubbed_specs/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
                 val exportedProductStubbedRequest = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3552,7 +3602,7 @@ Then status 200
                 )
 
                 val importedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9000), null)
                 ).execute(exportedProductStubbedRequest)
 
                 assertThat(
@@ -3560,7 +3610,7 @@ Then status 200
                 ).isNotEqualTo("Xiaomi").isNotEmpty()
 
                 val exportedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(exportedProductStubbedRequest)
 
                 assertThat(
@@ -3571,7 +3621,7 @@ Then status 200
 
         @Test
         fun `should serve requests where the specs are configured using string based syntax`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub_string_syntax/specmatic.yaml")
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_string_syntax/specmatic.yaml")
             val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
             val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
             val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
@@ -3583,7 +3633,7 @@ Then status 200
                 specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
             ).use {
                 val productsResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("127.0.0.1", dynamicConfiguredPort(9000), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3598,7 +3648,7 @@ Then status 200
                 ).isNotEqualTo("Xiaomi").isNotEmpty()
 
                 val ordersResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("127.0.0.1", dynamicConfiguredPort(9000), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3619,11 +3669,11 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports when the specs are configured using a mixture of string based and object based syntax`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub_string_and_object_syntax/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_string_and_object_syntax/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
                 val productsResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9000), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3639,7 +3689,7 @@ Then status 200
 
 
                 val exportedProductsResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3654,7 +3704,7 @@ Then status 200
                 ).isEqualTo("200")
 
                 val ordersResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3675,7 +3725,7 @@ Then status 200
 
         @Test
         fun `should serve multiple specs on the same port`() {
-            val specmaticConfigFile = File("src/test/resources/multi_spec_stub_on_same_port/specmatic.yaml")
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_spec_stub_on_same_port/specmatic.yaml")
             val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
             val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
             val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
@@ -3687,7 +3737,7 @@ Then status 200
                 specToStubBaseUrlMap = contractPathData.specToBaseUrlMap()
             ).use {
                 val postProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("127.0.0.1", dynamicConfiguredPort(9000), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3703,7 +3753,7 @@ Then status 200
 
 
                 val postOrderResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9000, null)
+                    endPointFromHostAndPort("127.0.0.1", dynamicConfiguredPort(9000), null)
                 ).execute(
                     HttpRequest(
                         method = "POST",
@@ -3727,16 +3777,16 @@ Then status 200
 
         @Test
         fun `should serve requests from multiple ports as configured in specmatic config where stubs are loaded from explicit examples directory`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub_with_explicit_examples_dir/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_with_explicit_examples_dir/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, dataDirPaths = listOf("src/test/resources/multi_port_stub_with_explicit_examples_dir/examples/stub")).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, dataDirPaths = listOf("src/test/resources/multi_port_stub_with_explicit_examples_dir/examples/stub"), port = testPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
                     body = parsedJSONObject("""{"name": "Xiaomi", "category": "Mobile"}""")
                 )
                 val importedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9001, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)
                 ).execute(request)
                 assertThat(
                     (importedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3744,7 +3794,7 @@ Then status 200
 
 
                 val exportedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9002, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9002), null)
                 ).execute(request)
                 assertThat(
                     (exportedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")?.toStringLiteral()
@@ -3752,7 +3802,7 @@ Then status 200
 
 
                 val anotherExportedProductResponse = LegacyHttpClient(
-                    endPointFromHostAndPort("localhost", 9003, null)
+                    endPointFromHostAndPort("localhost", dynamicConfiguredPort(9003), null)
                 ).execute(request)
                 assertThat(
                     (anotherExportedProductResponse.body as JSONObjectValue).findFirstChildByPath("id")
@@ -3763,22 +3813,22 @@ Then status 200
 
         @Test
         fun `should be able to serve requests matching partial examples`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub_with_partials/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_with_partials/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
                     body = parsedJSONObject("""{"name": "Xiaomi", "category": "Mobile"}""")
                 )
 
-                val exportedProductResponse = LegacyHttpClient(endPointFromHostAndPort("localhost", 9002, null)).execute(request)
+                val exportedProductResponse = LegacyHttpClient(endPointFromHostAndPort("localhost", dynamicConfiguredPort(9002), null)).execute(request)
                 assertThat(exportedProductResponse.body).isEqualTo(
                     parsedJSONObject("""{"id": "999", "name": "Nokia", "category": "Mobile"}""")
                 )
 
 
-                val importedProductResponse = LegacyHttpClient(endPointFromHostAndPort("localhost", 9001, null)).execute(request)
+                val importedProductResponse = LegacyHttpClient(endPointFromHostAndPort("localhost", dynamicConfiguredPort(9001), null)).execute(request)
                 assertThat(importedProductResponse.body).isEqualTo(
                     parsedJSONObject("""{"id": "999", "name": "Nokia", "category": "Mobile", "senderName": "Payne"}""")
                 )
@@ -3787,15 +3837,15 @@ Then status 200
 
         @Test
         fun `stub bound to loop-back or wildcard interface should be able to serve requests sent to any loop-back address`() {
-            val specmaticConfigFile = "src/test/resources/multi_port_stub/specmatic.yaml"
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub/specmatic.yaml").canonicalPath
 
             val loopBackAndWildcardHostnames = setOf("127.0.0.1","localhost", "0.0.0.0")
-            val portToExpectedId = mapOf(9001 to "100", 9002 to "200", 9003 to "300")
+            val portToExpectedId = mapOf(dynamicConfiguredPort(9001) to "100", dynamicConfiguredPort(9002) to "200", dynamicConfiguredPort(9003) to "300")
             val hostPortIdCombos = portToExpectedId.flatMap { (port, expectedId) ->
                 loopBackAndWildcardHostnames.map { host -> Triple(host, port, expectedId) }
             }
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
                 assertThat(hostPortIdCombos).allSatisfy { (host, port, expectedId) ->
                     val request = HttpRequest(
                         method = "POST", path = "/products",
@@ -3812,7 +3862,7 @@ Then status 200
 
         @Test
         fun `stub should warn when a single spec is mounted on multiple baseUrls`() {
-            val specmaticConfigFile = File("src/test/resources/multi_port_stub_with_duplicated_spec/specmatic.yaml")
+            val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_with_duplicated_spec/specmatic.yaml")
             val specmaticConfig = loadSpecmaticConfig(specmaticConfigFile.absolutePath)
             val contractPathData = contractStubPaths(specmaticConfigFile.absolutePath)
             val scenarioStubs = scenarioStubsFrom(specmaticConfigFile, contractPathData, specmaticConfig)
@@ -3829,9 +3879,9 @@ Then status 200
             assertThat(consoleOutput.first).containsIgnoringWhitespaces("""
             WARNING: The following specification are associated with multiple base URLs:
             - product_with_category.yaml
-              - http://localhost:9001
-              - http://0.0.0.0:9002
-              - http://127.0.0.1:9000
+              - http://localhost:${dynamicConfiguredPort(9001)}
+              - http://0.0.0.0:${dynamicConfiguredPort(9002)}
+              - http://127.0.0.1:${dynamicConfiguredPort(9000)}
             Note: The logs below indicate the selected base URL for each specification
             """.trimIndent())
         }
@@ -3892,7 +3942,7 @@ Then status 200
                         every { protocol } returns SpecmaticProtocol.HTTP
                     }
                 )
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -3926,7 +3976,7 @@ Then status 200
                         every { protocol } returns SpecmaticProtocol.HTTP
                     }
                 )
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${9090}",
                         features,
@@ -3960,7 +4010,7 @@ Then status 200
                         every { protocol } returns SpecmaticProtocol.HTTP
                     }
                 )
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${7070}",
                         features,
@@ -3992,7 +4042,7 @@ Then status 200
                     }
                 )
 
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4009,7 +4059,7 @@ Then status 200
                 val specToStubBaseUrlMap = mapOf("spec1.yaml" to 8080).toBaseUrlMap()
                 val features = emptyList<Feature>()
 
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4043,7 +4093,7 @@ Then status 200
                 }
                 val features = listOf(feature1,feature2)
 
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4077,7 +4127,7 @@ Then status 200
                 }
                 val features = listOf(feature1,feature2)
 
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4150,7 +4200,7 @@ Then status 200
                 }
                 val features = listOf(feature1, duplicatePathFeature)
 
-                HttpStub(features = features).use { stub ->
+                HttpStub(features = features, port = testPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4344,7 +4394,7 @@ Then status 200
 
                 createStub(
                     host = "localhost",
-                    port = 9000,
+                    port = testPort(),
                     timeoutMillis = 1000,
                     strict = false,
                     givenConfigFileName = "src/test/resources/overriding_external_example_specmatic.yaml",
@@ -4382,7 +4432,7 @@ Then status 200
 
                 createStub(
                     host = "localhost",
-                    port = 9000,
+                    port = testPort(),
                     timeoutMillis = 1000,
                     strict = false,
                     givenConfigFileName = "src/test/resources/overriding_external_example_specmatic.yaml"
@@ -4473,7 +4523,7 @@ Then status 200
 
         try {
             val feature = parseContractFileToFeature(openApiSpec)
-            HttpStub(feature).use { stub ->
+            HttpStub(feature, port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         method = "POST",

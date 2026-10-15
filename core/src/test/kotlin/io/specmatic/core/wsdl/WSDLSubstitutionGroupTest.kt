@@ -1,5 +1,6 @@
 package io.specmatic.core.wsdl
 
+import io.specmatic.testPort
 import io.ktor.http.ContentType
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
@@ -12,6 +13,7 @@ import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.value.StringValue
 import io.specmatic.stub.FeatureStubsResult
 import io.specmatic.stub.HttpStub
+import io.specmatic.test.LegacyHttpClient
 import io.specmatic.stub.loadContractStubsFromFilesAsResults
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -25,7 +27,7 @@ class WSDLSubstitutionGroupTest {
         val wsdlFile = writePetService(tempDir, abstractHead = true)
         val feature = parseContractFileToFeature(wsdlFile)
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val dogResponse = stub.client.execute(registerPetRequest("Dog", "Barkley", "Collie"))
             val catResponse = stub.client.execute(registerPetRequest("Cat", "Misty", "Tabby"))
             val petResponse = stub.client.execute(registerPetRequest("Pet", "Base", "Ignored"))
@@ -41,7 +43,7 @@ class WSDLSubstitutionGroupTest {
         val wsdlFile = writeInlinePetService(tempDir, abstractHead = true)
         val feature = parseContractFileToFeature(wsdlFile)
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val dogResponse = stub.client.execute(registerPetRequest("Dog", "Barkley", "Collie", "tns", """/pets/registerPet"""))
             val catResponse = stub.client.execute(registerPetRequest("Cat", "Misty", "Tabby", "tns", """/pets/registerPet"""))
             val petResponse = stub.client.execute(registerPetRequest("Pet", "Base", "Ignored", "tns", """/pets/registerPet"""))
@@ -57,7 +59,7 @@ class WSDLSubstitutionGroupTest {
         val wsdlFile = writeInlinePetService(tempDir, abstractHead = true, elementAndTypeShareNames = true)
         val feature = parseContractFileToFeature(wsdlFile)
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val dogResponse = stub.client.execute(registerPetRequest("Dog", "Barkley", "Collie", "tns", """/pets/registerPet"""))
             val catResponse = stub.client.execute(registerPetRequest("Cat", "Misty", "Tabby", "tns", """/pets/registerPet"""))
             val petResponse = stub.client.execute(registerPetRequest("Pet", "Base", "Ignored", "tns", """/pets/registerPet"""))
@@ -73,8 +75,10 @@ class WSDLSubstitutionGroupTest {
         val wsdlFile = writeDemoStylePetService(tempDir)
         val feature = parseContractFileToFeature(wsdlFile)
 
-        val response = HttpStub(feature).use { stub ->
-            stub.client.execute(registerPetRequest("Pet", "Base", "Ignored", "tns", """/pets/registerPet""", lowerCaseChildElementNames = true))
+        val response = HttpStub(feature, port = testPort()).use { stub ->
+            LegacyHttpClient(stub.endPoint, timeoutInMilliseconds = 30_000).execute(
+                registerPetRequest("Pet", "Base", "Ignored", "tns", """/pets/registerPet""", lowerCaseChildElementNames = true)
+            )
         }
 
         assertThat(response.status).isEqualTo(400)
@@ -97,7 +101,7 @@ class WSDLSubstitutionGroupTest {
             withImplicitStubs = false,
         ).filterIsInstance<FeatureStubsResult.Success>().single()
 
-        HttpStub(loadedStubs.feature, loadedStubs.scenarioStubs).use { stub ->
+        HttpStub(loadedStubs.feature, loadedStubs.scenarioStubs, port = testPort()).use { stub ->
             val dogResponse = stub.client.execute(dogRequest)
             val catResponse = stub.client.execute(catRequest)
             val petResponse = stub.client.execute(petRequest)
@@ -114,7 +118,7 @@ class WSDLSubstitutionGroupTest {
         val wsdlFile = writePetService(tempDir, abstractHead = false)
         val feature = parseContractFileToFeature(wsdlFile)
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(registerPetRequest("Pet", "Base", "Ignored"))
         }
 
@@ -326,7 +330,7 @@ class WSDLSubstitutionGroupTest {
             </wsdl:binding>
             <wsdl:service name="petService">
                 <wsdl:port name="petPort" binding="tns:petBinding">
-                    <soap:address location="http://localhost:9000/pets"/>
+                    <soap:address location="http://localhost:${testPort(0)}/pets"/>
                 </wsdl:port>
             </wsdl:service>
         </wsdl:definitions>
@@ -427,7 +431,7 @@ class WSDLSubstitutionGroupTest {
             </wsdl:binding>
             <wsdl:service name="petService">
                 <wsdl:port name="petPort" binding="tns:petBinding">
-                    <soap:address location="http://localhost:9000/pets"/>
+                    <soap:address location="http://localhost:${testPort(0)}/pets"/>
                 </wsdl:port>
             </wsdl:service>
         </wsdl:definitions>
@@ -509,7 +513,7 @@ class WSDLSubstitutionGroupTest {
                     </binding>
                     <service name="PetService">
                         <port name="PetPort" binding="tns:PetBinding">
-                            <soap:address location="http://localhost:9000/pets"/>
+                            <soap:address location="http://localhost:${testPort(0)}/pets"/>
                         </port>
                     </service>
                 </definitions>

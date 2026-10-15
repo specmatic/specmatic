@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.testPort
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
@@ -115,7 +116,7 @@ paths:
 
         assertThat(stub.requestType.matches(request, Resolver())).isInstanceOf(Success::class.java)
 
-        HttpStub(listOf(contract), listOf(stub)).use {
+        HttpStub(listOf(contract), listOf(stub), port = testPort()).use {
             assertDoesNotThrow {
                 it.setExpectation(ScenarioStub(request, HttpResponse.OK))
             }

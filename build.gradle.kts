@@ -211,8 +211,8 @@ subprojects {
 
         // Regex-based generators can be memory-intensive in tests.
         maxHeapSize = "1g"
-        jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/heap-dump-${project.name}.hprof")
         forkEvery = 100
+        maxParallelForks = if (System.getenv("GITHUB_WORKFLOW") != null) 2 else 4
 
         environment = System.getenv().filterKeys { it != "CI" && !it.startsWith("GITHUB_") }
     }

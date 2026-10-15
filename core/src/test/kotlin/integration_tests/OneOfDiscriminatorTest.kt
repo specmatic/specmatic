@@ -1,5 +1,6 @@
 package integration_tests
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.pattern.parsedJSONObject
@@ -170,7 +171,7 @@ components:
 
         @Nested
         inner class Stub {
-            var stub = HttpStub(getAPI)
+            var stub = HttpStub(getAPI, port = testPort())
 
             @AfterEach
             fun teardown() {

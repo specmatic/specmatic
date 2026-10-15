@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.specmatic.testPort
 import io.ktor.server.application.*
 import io.mockk.clearMocks
 import io.mockk.every
@@ -193,7 +194,7 @@ class HttpStubDelayTest {
             val executor = Executors.newFixedThreadPool(4)
 
             try {
-                HttpStub(features = listOf(feature), timeoutMillis = 100).use { stub ->
+                HttpStub(features = listOf(feature), timeoutMillis = 100, port = testPort()).use { stub ->
                     repeat(4) {
                         executor.submit {
                             try {

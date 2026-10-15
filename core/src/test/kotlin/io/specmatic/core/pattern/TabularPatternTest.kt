@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.testPort
 import io.specmatic.core.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -375,7 +376,7 @@ Feature: Recursive test
 
         val feature = parseGherkinStringToFeature(gherkin)
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             val restTemplate = RestTemplate()
             restTemplate.getForObject(
                 URI.create("http://localhost:9000/"),

@@ -1,5 +1,6 @@
 package integration_tests
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
@@ -23,7 +24,7 @@ import org.junit.jupiter.api.Test
 class PartialExampleTest {
     @Test
     fun `stub should load and match a partial example with concrete values in request and response bodies`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_in_response_body.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_in_response_body.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Stan", "department": "engineering"}"""))
             val response = stub.client.execute(request)
 
@@ -35,7 +36,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub should use a partial example with template params in request and response`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_substitution_in_response_body.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_substitution_in_response_body.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Stan", "department": "engineering"}"""))
             val response = stub.client.execute(request)
 
@@ -52,7 +53,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub should honor schema key optionality in response returned using a partial example`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_optional_key_in_response_body.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_optional_key_in_response_body.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Stan", "department": "engineering"}"""))
             val response = stub.client.execute(request)
 
@@ -67,7 +68,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub should match partial query params`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_key_in_query.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_key_in_query.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/person", queryParametersMap = mapOf("category" to "technology"))
             val response = stub.client.execute(request)
 
@@ -82,7 +83,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub generate optional templated response header`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_of_optional_response_header.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_of_optional_response_header.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/person", queryParametersMap = mapOf("category" to "technology"))
             val response = stub.client.execute(request)
 
@@ -96,7 +97,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub should fail to match request missing mandatory query params`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_mandatory_key_in_query.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_mandatory_key_in_query.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/person", queryParametersMap = mapOf("category" to "technology"))
             val response = stub.client.execute(request)
 
@@ -107,7 +108,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub should match partial request headers`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_key_in_header.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_key_in_header.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/person", headers = mapOf("category" to "technology"))
             val response = stub.client.execute(request)
 
@@ -122,7 +123,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub should fail to match request missing mandatory request header`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_mandatory_key_in_header.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_template_and_mandatory_key_in_header.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/person", headers = mapOf("category" to "technology"))
             val response = stub.client.execute(request)
 
@@ -133,7 +134,7 @@ class PartialExampleTest {
 
     @Test
     fun `stub should match with request bodies with header in request and response templated`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_multiple_pieces_and_one_templated_item.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_multiple_pieces_and_one_templated_item.yaml")), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", path = "/person", headers = mapOf("X-Trace-ID" to "abc123"), body = parsedJSONObject("""{"department": "marketing"}"""))
             val response = stub.client.execute(request)
 
@@ -152,7 +153,7 @@ class PartialExampleTest {
     fun `partial with invalid json value should get rejected` () {
         val (output, _) = captureStandardOutput {
             withLogger(DebugLogger) {
-                val stub = createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_invalid_partial_json_value.yaml")), timeoutMillis = 0)
+                val stub = createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/spec_with_invalid_partial_json_value.yaml")), timeoutMillis = 0, port = testPort())
                 stub.close()
             }
         }
@@ -206,7 +207,7 @@ class PartialExampleTest {
                                 type: string
         """.trimIndent(), "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val partialExample = """
                 {
                     "partial": {
@@ -287,7 +288,7 @@ class PartialExampleTest {
                                 type: string
         """.trimIndent(), "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val partialExample1 = """
                 {
                     "partial": {
@@ -378,7 +379,7 @@ class PartialExampleTest {
 
     @Test
     fun `partial match of AnyPattern in response`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/substitutions/spec_with_oneOf_in_response.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf("src/test/resources/openapi/substitutions/spec_with_oneOf_in_response.yaml"), timeoutMillis = 0, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Jane"}"""))).also { response ->
                 assertThat(response.status).isEqualTo(200)
 
@@ -402,8 +403,8 @@ class PartialExampleTest {
 
             createStubFromContracts(
                 listOf("src/test/resources/openapi/substitutions/partial_using_dictionary.yaml"),
-                timeoutMillis = 0
-            ).use { stub ->
+                timeoutMillis = 0,
+            port = testPort()).use { stub ->
                 stub.client.execute(HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Jane"}""")))
                     .also { response ->
                         assertThat(response.status).isEqualTo(200)
@@ -428,8 +429,8 @@ class PartialExampleTest {
 
             createStubFromContracts(
                 listOf("src/test/resources/openapi/substitutions/partial_using_dictionary_testing_mandarory_key_generation.yaml"),
-                timeoutMillis = 0
-            ).use { stub ->
+                timeoutMillis = 0,
+            port = testPort()).use { stub ->
                 stub.client.execute(HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Jane"}""")))
                     .also { response ->
                         assertThat(response.status).isEqualTo(200)
@@ -456,8 +457,8 @@ class PartialExampleTest {
 
             createStubFromContracts(
                 listOf("src/test/resources/openapi/substitutions/partial_with_invalid_dictionary_value.yaml"),
-                timeoutMillis = 0
-            ).use { stub ->
+                timeoutMillis = 0,
+            port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         "POST",
@@ -477,7 +478,7 @@ class PartialExampleTest {
 
     @Test
     fun `partial example should favour concrete value over dictionary value`() {
-        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/partial_with_dictionary_conflict.yaml")), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(("src/test/resources/openapi/substitutions/partial_with_dictionary_conflict.yaml")), port = testPort(), timeoutMillis = 0).use { stub ->
             val request = HttpRequest(
                 "POST",
                 "/person",
@@ -499,7 +500,7 @@ class PartialExampleTest {
         try {
             System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
-            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Janet"}"""))
                 val response = stub.client.execute(request)
 
@@ -521,7 +522,7 @@ class PartialExampleTest {
         try {
             System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/dictionary.json")
 
-            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
                 val request = HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Janet"}"""))
                 val response = stub.client.execute(request)
 
@@ -543,7 +544,7 @@ class PartialExampleTest {
         try {
             System.setProperty(SPECMATIC_STUB_DICTIONARY, "src/test/resources/openapi/substitutions/complicated_dictionary.json")
 
-            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0).use { stub ->
+            createStubFromContracts(listOf(specWithSubstitution), timeoutMillis = 0, port = testPort()).use { stub ->
                 stub.client.execute(
                     HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))).let { response ->
 
@@ -567,7 +568,7 @@ class PartialExampleTest {
     fun `object to object recursions should be detected and should not overflow the stack`() {
         val specWithPartial = osAgnosticPath("src/test/resources/openapi/substitutions/recursion_object_to_object.yaml")
 
-        createStubFromContracts(listOf(specWithPartial), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(specWithPartial), timeoutMillis = 0, port = testPort()).use { stub ->
             stub.client.execute(
                 HttpRequest("POST", "/person", body = parsedJSONObject("""{"name": "Charles"}"""))).let { response ->
 
@@ -582,7 +583,7 @@ class PartialExampleTest {
         val examplesDir = "src/test/resources/openapi/partial_example_tests/bad_request_valid_example"
         val apiSpecification = "src/test/resources/openapi/partial_example_tests/simple.yaml"
 
-        createStubFromContracts(listOf(apiSpecification), listOf(examplesDir), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf(apiSpecification), listOf(examplesDir), timeoutMillis = 0, port = testPort()).use { stub ->
             val httpRequest = HttpRequest(
                 path = "/creators/abc/pets/def", method = "PATCH",
                 body = parsedJSONObject("""{"creatorId": "JohnDoe", "petId": 123}""")
@@ -602,7 +603,7 @@ class PartialExampleTest {
         val examplesDir = "src/test/resources/openapi/partial_example_tests/bad_request_invalid_example"
         val apiSpecification ="src/test/resources/openapi/partial_example_tests/simple.yaml"
 
-        val (output, _) = captureStandardOutput { createStubFromContracts(listOf(apiSpecification), listOf(examplesDir)).also { it.close() } }
+        val (output, _) = captureStandardOutput { createStubFromContracts(listOf(apiSpecification), listOf(examplesDir), port = testPort()).also { it.close() } }
         val exampleFile = osAgnosticPath("src/test/resources/openapi/partial_example_tests/bad_request_invalid_example/pets_post.json")
         val apiSpecFile = osAgnosticPath(apiSpecification)
 

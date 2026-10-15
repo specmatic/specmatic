@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.license.core.SpecmaticProtocol
@@ -81,7 +82,7 @@ paths:
         val stubContract1 = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
         val stubContract2 = OpenApiSpecification.fromYAML(hello2AndData2Spec, "").toFeature()
 
-        HttpStub(listOf(stubContract1, stubContract2)).use { stub ->
+        HttpStub(listOf(stubContract1, stubContract2), port = testPort()).use { stub ->
             assertThat(stub.allEndpoints).isEqualTo(listOf(
                 StubEndpoint(
                     path = "/data",
@@ -130,8 +131,8 @@ paths:
         val contract = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
         HttpStub(
             features = listOf(contract),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("./specmatic.json")
-        ).use { stub ->
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigFile("./specmatic.json"),
+        port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/data"))
         }
 
@@ -142,7 +143,7 @@ paths:
     fun `should log all successful requests when response is faked`() {
         val contract = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
 
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/data"))
             stub.client.execute(HttpRequest("GET", "/hello"))
 
@@ -173,7 +174,7 @@ paths:
     fun `should log all successful requests when response is stubbed`() {
         val contract = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
 
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.setExpectation("""{
                 "http-request": {
                     "method": "GET",
@@ -217,7 +218,7 @@ paths:
     @Test
     fun `should not log unsuccessful requests`() {
         val contract = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("GET", "/data"))
             stub.client.execute(HttpRequest("GET", "/unknown"))
 
@@ -238,7 +239,7 @@ paths:
     @Test
     fun `should not log unsuccessful requests in strict mode`() {
         val contract = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
-        HttpStub(features = listOf(contract), strictMode = true).use { stub ->
+        HttpStub(features = listOf(contract), strictMode = true, port = testPort()).use { stub ->
             stub.setExpectation("""{
                 "http-request": {
                     "method": "GET",
@@ -269,10 +270,11 @@ paths:
     @Test
     fun `should log all requests successfully when multiple threads make requests concurrently`() {
         val contract = OpenApiSpecification.fromYAML(helloAndDataSpec, "").toFeature()
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
+            val endpoint = stub.endPoint
             val threads = List(10) {
                 thread {
-                    RestTemplate().getForEntity("http://localhost:9000/hello", String::class.java)
+                    RestTemplate().getForEntity("$endpoint/hello", String::class.java)
                 }
             }
 

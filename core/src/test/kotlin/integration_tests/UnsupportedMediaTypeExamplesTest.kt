@@ -1,5 +1,6 @@
 package integration_tests
 
+import io.specmatic.testPort
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.OpenApiSpecification
@@ -214,7 +215,7 @@ class UnsupportedMediaTypeExamplesTest {
             request = generatedRequest
         )
 
-        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile)), port = testPort()).use { stub ->
             val response = stub.client.execute(generatedRequest)
 
             assertThat(response.status).isEqualTo(415)
@@ -241,7 +242,7 @@ class UnsupportedMediaTypeExamplesTest {
         assertThat(unsupportedMediaTypeScenario.unsupportedContentTypeFor415Example())
             .isEqualTo("application/x-specmatic-unsupported")
 
-        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile)), port = testPort()).use { stub ->
             val results = feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse =
                     stub.client.execute(request)
@@ -266,7 +267,7 @@ class UnsupportedMediaTypeExamplesTest {
         )
         val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
-        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile)), port = testPort()).use { stub ->
             val response = stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -307,7 +308,7 @@ class UnsupportedMediaTypeExamplesTest {
         assertThat(generatedRequest.headers).doesNotContainKey("Content-Type")
         assertThat(unsupportedMediaTypeScenario.requestContentType).isEqualTo("application/json")
 
-        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile)), port = testPort()).use { stub ->
             val response = stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -558,7 +559,7 @@ class UnsupportedMediaTypeExamplesTest {
     fun `415 without examples is not used by mock even with a response code hint`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(only415Spec()).canonicalPath).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val responseWithoutHint = stub.client.execute(
                 HttpRequest(
                     method = "POST",

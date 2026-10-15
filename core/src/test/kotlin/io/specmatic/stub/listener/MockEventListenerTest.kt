@@ -1,5 +1,6 @@
 package io.specmatic.stub.listener
 
+import io.specmatic.testPort
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
@@ -43,7 +44,7 @@ class MockEventListenerTest {
     @Test
     fun `should callback with appropriate data when request matches the contract`() {
         val captureMockEvents = captureMockEvents { listener ->
-            HttpStub(feature, listeners = listOf(listener)).use { stub ->
+            HttpStub(feature, listeners = listOf(listener), port = testPort()).use { stub ->
                 val validRequest = feature.scenarios.first().generateHttpRequest()
                 stub.client.execute(validRequest)
             }
@@ -69,7 +70,7 @@ class MockEventListenerTest {
         val exampleName = "my-custom-example"
         val exampleStub = ScenarioStub(request = request, response = response, filePath = "examples/example.json").withName(exampleName)
         val captureMockEvents = captureMockEvents { listener ->
-            HttpStub(feature, scenarioStubs = listOf(exampleStub), listeners = listOf(listener)).use { stub ->
+            HttpStub(feature, scenarioStubs = listOf(exampleStub), listeners = listOf(listener), port = testPort()).use { stub ->
                 stub.client.execute(request)
             }
         }
@@ -87,7 +88,7 @@ class MockEventListenerTest {
     @Test
     fun `should include inline example name in mock event when request matches inline example`() {
         val events = captureMockEvents { listener ->
-            HttpStub(featureWithInlineExamples, listeners = listOf(listener)).use { stub ->
+            HttpStub(featureWithInlineExamples, listeners = listOf(listener), port = testPort()).use { stub ->
                 stub.client.execute(
                     HttpRequest(
                         method = "GET",
@@ -111,7 +112,7 @@ class MockEventListenerTest {
     @Test
     fun `should choose the correct inline example name when multiple inline examples exist`() {
         val events = captureMockEvents { listener ->
-            HttpStub(featureWithInlineExamples, listeners = listOf(listener)).use { stub ->
+            HttpStub(featureWithInlineExamples, listeners = listOf(listener), port = testPort()).use { stub ->
                 stub.client.execute(
                     HttpRequest(
                         method = "GET",
@@ -134,7 +135,7 @@ class MockEventListenerTest {
     @Test
     fun `should provide nearest matching scenario details for bad request with no examples`() {
         val events = captureMockEvents { listener ->
-            HttpStub(feature, listeners = listOf(listener)).use { stub ->
+            HttpStub(feature, listeners = listOf(listener), port = testPort()).use { stub ->
                 val request = feature.scenarios.first().generateHttpRequest()
                 stub.client.execute(request.updateBody(NullValue))
             }
@@ -153,7 +154,7 @@ class MockEventListenerTest {
         val feature = featureWithGenerative4xxResponse
         val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
         val events = captureMockEvents { listener ->
-            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config)).use { stub ->
+            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config), port = testPort()).use { stub ->
                 stub.client.execute(HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}""")))
             }
         }
@@ -171,7 +172,7 @@ class MockEventListenerTest {
         val feature = featureWithGenerative4xxResponse
         val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
         val events = captureMockEvents { listener ->
-            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config)).use { stub ->
+            HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config), port = testPort()).use { stub ->
                 stub.client.execute(HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}""")))
             }
         }
@@ -206,7 +207,7 @@ class MockEventListenerTest {
     @Test
     fun `should return missing-in-spec when request doesn't match any scenario identifiers`() {
         val events = captureMockEvents { listener ->
-            HttpStub(feature, listeners = listOf(listener)).use { stub ->
+            HttpStub(feature, listeners = listOf(listener), port = testPort()).use { stub ->
                 val request = feature.scenarios.first().generateHttpRequest()
                 stub.client.execute(request.updatePath("/test"))
             }
@@ -223,7 +224,7 @@ class MockEventListenerTest {
     @Test
     fun `should not emit mock events for internal control endpoints`() {
         val events = captureMockEvents { listener ->
-            HttpStub(feature, listeners = listOf(listener)).use { stub ->
+            HttpStub(feature, listeners = listOf(listener), port = testPort()).use { stub ->
                 stub.client.execute(HttpRequest("GET", "/_specmatic/log"))
                 stub.client.execute(HttpRequest("POST", "/_specmatic/expectations"))
                 stub.client.execute(HttpRequest("DELETE", "/_specmatic/http-stub/123"))
@@ -239,7 +240,7 @@ class MockEventListenerTest {
     @Test
     fun `should continue emitting mock events for non-internal endpoints`() {
         val events = captureMockEvents { listener ->
-            HttpStub(feature, listeners = listOf(listener)).use { stub ->
+            HttpStub(feature, listeners = listOf(listener), port = testPort()).use { stub ->
                 val validRequest = feature.scenarios.first().generateHttpRequest()
                 stub.client.execute(validRequest)
             }

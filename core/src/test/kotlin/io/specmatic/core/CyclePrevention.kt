@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.parsedJSON
@@ -182,7 +183,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(stubContract).use { stub ->
+        HttpStub(stubContract, port = testPort()).use { stub ->
             val randomResponse = stub.client.execute(HttpRequest("GET", "/data"))
             assertThat(
                 stubContract.scenarios.first().let { scenario ->
@@ -260,7 +261,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val response = stub.client.execute(HttpRequest("GET", "/data"))
 
             assertThat(
@@ -328,7 +329,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val response = stub.client.execute(HttpRequest("GET", "/data"))
 
             assertThat(
@@ -422,7 +423,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val response = it.client.execute(HttpRequest("GET", "/data"))
             assertThat(response.status).isEqualTo(400)
 
@@ -487,7 +488,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             it.client.execute(HttpRequest("GET", "/data"))
         }
 
@@ -539,7 +540,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             it.client.execute(HttpRequest("GET", "/data"))
         }
 
@@ -589,7 +590,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             it.client.execute(HttpRequest("GET", "/data"))
         }
 
@@ -639,7 +640,7 @@ class CyclePrevention {
         """.trimIndent(), ""
         ).toFeature()
 
-        val response = HttpStub(feature).use {
+        val response = HttpStub(feature, port = testPort()).use {
             it.client.execute(HttpRequest("GET", "/data"))
         }
 

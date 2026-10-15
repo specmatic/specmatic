@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.testPort
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
@@ -371,12 +372,12 @@ class PostmanKtTests {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:9000/stuff",
+					"raw": "${stub!!.endPoint}/stuff",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "9000",
+					"port": "${stub!!.endPoint.substringAfterLast(":")}",
 					"path": [
 						"stuff"
 					]
@@ -399,12 +400,12 @@ class PostmanKtTests {
 					}
 				},
 				"url": {
-					"raw": "http://localhost:9000/stuff",
+					"raw": "${stub!!.endPoint}/stuff",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "9000",
+					"port": "${stub!!.endPoint.substringAfterLast(":")}",
 					"path": [
 						"stuff"
 					]
@@ -418,12 +419,12 @@ class PostmanKtTests {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:9000/stuff?one=1",
+					"raw": "${stub!!.endPoint}/stuff?one=1",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "9000",
+					"port": "${stub!!.endPoint.substringAfterLast(":")}",
 					"path": [
 						"stuff"
 					],
@@ -451,12 +452,12 @@ class PostmanKtTests {
 							}
 						},
 						"url": {
-							"raw": "http://localhost:9000/square",
+							"raw": "${stub!!.endPoint}/square",
 							"protocol": "http",
 							"host": [
 								"localhost"
 							],
-							"port": "9000",
+							"port": "${stub!!.endPoint.substringAfterLast(":")}",
 							"path": [
 								"square"
 							]
@@ -508,12 +509,12 @@ class PostmanKtTests {
 					]
 				},
 				"url": {
-					"raw": "http://localhost:9000/stuff",
+					"raw": "${stub!!.endPoint}/stuff",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "9000",
+					"port": "${stub!!.endPoint.substringAfterLast(":")}",
 					"path": [
 						"stuff"
 					]
@@ -537,12 +538,12 @@ class PostmanKtTests {
 					]
 				},
 				"url": {
-					"raw": "http://localhost:9000/stuff",
+					"raw": "${stub!!.endPoint}/stuff",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "9000",
+					"port": "${stub!!.endPoint.substringAfterLast(":")}",
 					"path": [
 						"stuff"
 					]
@@ -557,7 +558,7 @@ class PostmanKtTests {
         val contract = postmanCollectionToContracts(postmanContent).single()
 
         assertThat(contract.feature.name).isEqualTo("Test API")
-        assertThat(contract.baseURLInfo.originalBaseURL).isEqualTo("http://localhost:9000")
+        assertThat(contract.baseURLInfo.originalBaseURL).isEqualTo("${stub!!.endPoint}")
         assertThat(contract.stubs.map { it.name }).containsExactly(
             "With no body or params",
             "With JSON body",
@@ -849,12 +850,12 @@ class PostmanKtTests {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:9000/stuff?one=1",
+					"raw": "${stub!!.endPoint}/stuff?one=1",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "9000",
+					"port": "${stub!!.endPoint.substringAfterLast(":")}",
 					"path": [
 						"stuff"
 					],
@@ -873,12 +874,12 @@ class PostmanKtTests {
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:9000/square",
+							"raw": "${stub!!.endPoint}/square",
 							"protocol": "http",
 							"host": [
 								"localhost"
 							],
-							"port": "9000",
+							"port": "${stub!!.endPoint.substringAfterLast(":")}",
 							"path": [
 								"square"
 							]
@@ -973,7 +974,7 @@ Scenario: With form data
 """
 
             val contractBehaviour = parseGherkinStringToFeature(gherkin)
-            stub = HttpStub(contractBehaviour)
+            stub = HttpStub(contractBehaviour, port = testPort())
         }
 
         @AfterAll

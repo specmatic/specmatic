@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.apiKeyParamName
 import io.specmatic.core.pattern.ContractException
@@ -145,7 +146,7 @@ Scenario: JSON API to get account details
     @Test
     @Throws(Throwable::class)
     fun `contract mock should fail to match invalid body`() {
-        HttpStub(queryParamJsonContract).use { stub ->
+        HttpStub(queryParamJsonContract, port = testPort()).use { stub ->
             val expectedRequest =
                 HttpRequest().updateMethod("GET").updatePath("/balance_json").updateQueryParam("userid", "10")
             val expectedResponse = HttpResponse.jsonResponse("{call-mins-left: 100, smses-left: 200}")
@@ -236,7 +237,7 @@ Scenario: JSON API to get account details
     @Test
     @Throws(Throwable::class)
     fun `contract should mock multi valued arrays in request body`() {
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/locations")
             val responseBody =
                 "{\"locations\": [{\"id\": 123, \"name\": \"Mumbai\"}, {\"id\": 123, \"name\": \"Mumbai\"}]}"
@@ -248,7 +249,7 @@ Scenario: JSON API to get account details
     @Test
     @Throws(Throwable::class)
     fun `contract should mock multi valued arrays using pattern in request body`() {
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/special_locations")
             val responseBody =
                 "{\"locations\": [{\"id\": 123, \"name\": \"Mumbai\"}, {\"id\": 123, \"name\": \"Mumbai\"}]}"
@@ -260,7 +261,7 @@ Scenario: JSON API to get account details
     @Test
     @Throws(Throwable::class)
     fun `contract should mock multi valued arrays using pattern in response body`() {
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val requestBody =
                 "{\"locations\": [{\"id\": 123, \"name\": \"Mumbai\"}, {\"id\": 123, \"name\": \"Mumbai\"}]}"
             val expectedRequest = HttpRequest().updateMethod("POST").updatePath("/locations").updateBody(requestBody)
@@ -276,11 +277,11 @@ Scenario: JSON API to get account details
         httpRequest: HttpRequest,
         httpResponse: HttpResponse
     ): ResponseEntity<String> {
-        HttpStub(contractGherkinString).use { mock ->
+        HttpStub(contractGherkinString, port = testPort()).use { mock ->
             mock.setExpectation(ScenarioStub(httpRequest, httpResponse))
             val restTemplate = RestTemplate()
             return restTemplate.exchange(
-                URI.create(httpRequest.getURL("http://localhost:9000")),
+                URI.create(httpRequest.getURL("http://localhost:${testPort()}")),
                 HttpMethod.GET,
                 null,
                 String::class.java
@@ -298,7 +299,7 @@ Scenario: JSON API to get account details
     And response-body (number)
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("POST").updatePath("/number").updateBody("10")
             val expectedResponse = HttpResponse(200, "10")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -323,7 +324,7 @@ Scenario: JSON API to get account details
               And response-body (Employee*)
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/tech/employees?empType=contract")
             val expectedResponse = HttpResponse(200, """[{name: "emp1", id: 1, type: "contract", rating: null}]""")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -345,7 +346,7 @@ Scenario: JSON API to get account details
               And response-body (Employee*)
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/employees")
             val expectedResponse = HttpResponse(200, """[{name: "123123123", id: 123123123}]""")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -365,7 +366,7 @@ Scenario: JSON API to get account details
 """.trimIndent()
 
         val exception = assertThrows<ContractException>({ "Should throw Contract Exception" }) {
-            HttpStub(contractGherkin)
+            HttpStub(contractGherkin, port = testPort())
         }
         assertThat(exception.message).isEqualTo("Enums NumberType type (string?) cannot be nullable. To mark the enum nullable please use it with nullable syntax. Suggested Usage: (NumberType?)")
     }
@@ -388,7 +389,7 @@ Scenario: JSON API to get account details
               And response-body (Employee*)
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/tech/employees?empType=contract")
             val expectedResponse = HttpResponse(200, """[{name: "emp1", id: 1, type: "contract", rating: 4}]""")
             try {
@@ -419,7 +420,7 @@ Scenario: JSON API to get account details
     Then status 200
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("POST").updatePath("/number").updateBody(NumberValue(10))
             val expectedResponse = HttpResponse.OK
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -435,7 +436,7 @@ Scenario: JSON API to get account details
     Then status 200
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("POST").updatePath("/number").updateBody(NullValue)
             val expectedResponse = HttpResponse.OK
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -451,7 +452,7 @@ Scenario: JSON API to get account details
     And response-body (number)
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/number")
             val expectedResponse = HttpResponse(200, "10")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -467,7 +468,7 @@ Scenario: JSON API to get account details
     And response-body (number?)
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/number")
             val expectedResponse = HttpResponse(200, "")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -483,7 +484,7 @@ Scenario: JSON API to get account details
     Then status 200
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("POST").updatePath("/variables")
                 .updateBody(JSONObjectValue(mapOf("one" to NumberValue(1), "two" to NumberValue(2))))
             val expectedResponse = HttpResponse.OK
@@ -516,7 +517,7 @@ Scenario: JSON API to get account details
     And response-body (dictionary string number)
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/variables")
             val expectedResponse = HttpResponse(200, """{"one": 1, "two": 2}""")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
@@ -548,7 +549,7 @@ Scenario: JSON API to get account details
       | number | (number in string) |
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest =
                 HttpRequest().updateMethod("POST").updatePath("/variables").updateBody("""{"number": "10"}""")
             val expectedResponse = HttpResponse(200, """{"number": "20"}""")
@@ -586,7 +587,7 @@ Scenario: JSON API to get account details
     Then status 200
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest =
                 HttpRequest().updateMethod("POST").updatePath("/variables").copy(formFields = mapOf("Data" to "10"))
 
@@ -621,7 +622,7 @@ Scenario: JSON API to get account details
     Then status 200
 """.trimIndent()
 
-        HttpStub(contractGherkin).use { mock ->
+        HttpStub(contractGherkin, port = testPort()).use { mock ->
             val expectedRequest = HttpRequest(
                 method = "POST",
                 path = "/variables",
@@ -652,7 +653,7 @@ Scenario: JSON API to get account details
         val examplesDir = apiFile.resolveSibling("api_examples")
         val examples = examplesDir.listFiles()?.map(ScenarioStub::readFromFile).orEmpty()
 
-        HttpStub(feature, examples).use {
+        HttpStub(feature, examples, port = testPort()).use {
             val request = HttpRequest(
                 "POST", "/example",
                 body = JSONObjectValue(mapOf(
@@ -675,7 +676,7 @@ Scenario: JSON API to get account details
         val validRequestBody = JSONObjectValue(mapOf("message" to StringValue("Hello")))
         val headersWithAuth = mapOf(AUTHORIZATION to "Bearer API-TOKEN")
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val secureInvalidRequest = HttpRequest("POST", "/secure", body = validRequestBody, headers = headersWithAuth)
             val secureResponse = it.client.execute(secureInvalidRequest)
 
@@ -763,7 +764,7 @@ Scenario: JSON API to get account details
         val headersWithAuth = mapOf(AUTHORIZATION to "Bearer API-TOKEN")
         val queryWithAuth = QueryParameters(mapOf("apiKey" to "1234"))
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val secureInvalidRequest = HttpRequest("POST", "/secure", body = validRequestBody, headers = headersWithAuth, queryParams = queryWithAuth)
             val secureResponse = it.client.execute(secureInvalidRequest)
             assertThat(secureResponse.status).isEqualTo(200)
@@ -793,7 +794,7 @@ Scenario: JSON API to get account details
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
         val stubs = examplesDir.listFiles().orEmpty().map(ScenarioStub::readFromFile)
         
-        HttpStub(feature, stubs).use { stub ->
+        HttpStub(feature, stubs, port = testPort()).use { stub ->
             val request = feature.scenarios.first().generateHttpRequest()
             val requestBody = request.body as JSONObjectValue
 
@@ -817,7 +818,7 @@ Scenario: JSON API to get account details
             )
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val expectationResponse = stub.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = partialExample.toJSON()))
             assertThat(expectationResponse.status).isEqualTo(200)
 
@@ -844,7 +845,7 @@ Scenario: JSON API to get account details
             )
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val expectationResponse = stub.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = partialExample.toJSON()))
             assertThat(expectationResponse.status).isEqualTo(400)
             assertThat(expectationResponse.body.toStringLiteral()).containsIgnoringWhitespaces("""

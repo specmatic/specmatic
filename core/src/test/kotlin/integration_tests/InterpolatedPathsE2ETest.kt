@@ -12,6 +12,7 @@ import io.specmatic.core.testBackwardCompatibility
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.testPort
 import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.HttpStub
@@ -22,7 +23,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
-import java.net.ServerSocket
 
 class InterpolatedPathsE2ETest {
     private val specFile = File("src/test/resources/openapi/interpolated_paths_e2e.yaml")
@@ -41,8 +41,6 @@ class InterpolatedPathsE2ETest {
     private fun Feature.onlyPath(internalPath: String): Feature {
         return copy(scenarios = scenarios.filter { it.path == internalPath })
     }
-
-    private fun freePort(): Int = ServerSocket(0).use { it.localPort }
 
     private fun captureMockEvents(testBlock: (MockEventListener) -> Unit): List<MockEvent> {
         val events = mutableListOf<MockEvent>()
@@ -150,7 +148,7 @@ class InterpolatedPathsE2ETest {
             HttpStub(
                 feature,
                 scenarioStubs = externalScenarioStubs(),
-                port = freePort(),
+                port = testPort(),
                 listeners = listOf(listener)
             ).use { stub ->
                 val inlineResponse = stub.client.execute(HttpRequest("GET", "/example/inline-A,inline-B/status"))
@@ -202,7 +200,7 @@ class InterpolatedPathsE2ETest {
     @ValueSource(strings = ["3.0.3", "3.1.0"])
     fun `loop test should pass when contract tests run against stub for interpolated paths`(openApiVersion: String) {
         val feature = loadFeature(openApiVersion, loadExternalExamples = true)
-        val results = HttpStub(feature, scenarioStubs = externalScenarioStubs(), port = freePort()).use { stub ->
+        val results = HttpStub(feature, scenarioStubs = externalScenarioStubs(), port = testPort()).use { stub ->
             feature.executeTests(stub.client)
         }
 

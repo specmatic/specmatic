@@ -1,5 +1,6 @@
 package io.specmatic.core.wsdl
 
+import io.specmatic.testPort
 import io.ktor.http.ContentType
 import io.specmatic.conversions.wsdlContentToFeature
 import io.specmatic.core.CONTENT_TYPE
@@ -101,7 +102,7 @@ class WSDLParserMockBlackBoxTest {
     fun `mock for scalar choice wsdl without examples returns generated response values`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -124,7 +125,7 @@ class WSDLParserMockBlackBoxTest {
     fun `mock for scalar choice wsdl accepts each valid request branch`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val customerNumberResponse = stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -152,7 +153,7 @@ class WSDLParserMockBlackBoxTest {
     fun `mock for scalar choice wsdl rejects payload containing both branches in one choice occurrence`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -170,7 +171,7 @@ class WSDLParserMockBlackBoxTest {
     fun `mock for complex choice wsdl without examples returns generated response values`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -193,7 +194,7 @@ class WSDLParserMockBlackBoxTest {
     fun `mock for complex choice wsdl accepts each valid request branch`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val customerByPermIdResponse = stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -221,7 +222,7 @@ class WSDLParserMockBlackBoxTest {
     fun `mock for complex choice wsdl rejects payload containing both branches in one choice occurrence`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(
                 HttpRequest(
                     method = "POST",
@@ -244,7 +245,7 @@ class WSDLParserMockBlackBoxTest {
 
         assertThat(fixture.feature.scenarios).hasSize(1)
 
-        HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             fixture.scenarioStubs.forEach { scenarioStub ->
                 val response = stub.client.execute(scenarioStub.request)
 
@@ -265,7 +266,7 @@ class WSDLParserMockBlackBoxTest {
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Opt=\"http://choice-optional\"><soapenv:Body><Opt:OptionalChoiceRequest><Opt:SPName>PrimaryName</Opt:SPName></Opt:OptionalChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(request)
         }
 
@@ -285,7 +286,7 @@ class WSDLParserMockBlackBoxTest {
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Repeatingscalar:RepeatingScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(request)
         }
 
@@ -303,7 +304,7 @@ class WSDLParserMockBlackBoxTest {
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingcomplex=\"http://choice-complex-repeating\"><soapenv:Body><Repeatingcomplex:RepeatingComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Repeatingcomplex:CustomerByPermId><PermId>CP-123</PermId></Repeatingcomplex:CustomerByPermId><Repeatingcomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Repeatingcomplex:CustomerByLogin></Repeatingcomplex:RepeatingComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(request)
         }
 
@@ -321,7 +322,7 @@ class WSDLParserMockBlackBoxTest {
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating-unbounded\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceUnboundedRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId><CustomerNumber>C-456</CustomerNumber></Repeatingscalar:RepeatingScalarChoiceUnboundedRequest></soapenv:Body></soapenv:Envelope>")
         )
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(request)
         }
 
@@ -349,7 +350,7 @@ class WSDLParserMockBlackBoxTest {
             operation = operation,
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val validResponse = stub.client.execute(
                 choiceSoapRequest(
                     requestName = "SequentialChoiceRequest",
@@ -401,7 +402,7 @@ class WSDLParserMockBlackBoxTest {
             operation = operation,
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val validResponse = stub.client.execute(
                 choiceSoapRequest(
                     requestName = "SharedPrefixChoiceRequest",
@@ -449,7 +450,7 @@ class WSDLParserMockBlackBoxTest {
             operation = operation,
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val omittedResponse = stub.client.execute(
                 choiceSoapRequest(
                     requestName = "OptionalMiddleChoiceRequest",
@@ -495,7 +496,7 @@ class WSDLParserMockBlackBoxTest {
             operation = operation,
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val validResponse = stub.client.execute(
                 choiceSoapRequest(
                     requestName = "BoundedChoiceRequest",
@@ -553,7 +554,7 @@ class WSDLParserMockBlackBoxTest {
             operation = operation,
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val validResponse = stub.client.execute(
                 choiceSoapRequest(
                     requestName = "NestedChoiceRequest",
@@ -586,7 +587,7 @@ class WSDLParserMockBlackBoxTest {
             "src/test/resources/wsdl/state_machine/element_ref_examples",
         )
 
-        val response = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        val response = HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             stub.client.execute(fixture.scenarioStub.request)
         }
 
@@ -602,7 +603,7 @@ class WSDLParserMockBlackBoxTest {
             "src/test/resources/wsdl/state_machine/type_ref_examples",
         )
 
-        val response = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        val response = HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             stub.client.execute(fixture.scenarioStub.request)
         }
 
@@ -629,7 +630,7 @@ class WSDLParserMockBlackBoxTest {
                 ),
             )
 
-            val response = HttpStub(feature, listOf(scenarioStub)).use { stub ->
+            val response = HttpStub(feature, listOf(scenarioStub), port = testPort()).use { stub ->
                 stub.client.execute(scenarioStub.request)
             }
 
@@ -645,7 +646,7 @@ class WSDLParserMockBlackBoxTest {
         val feature = parseContractFileToFeature(wsdlFile)
         val request = orderDetailsRequest("xsi:type=\"ord:MissingOrderDetails\"")
 
-        val response = HttpStub(feature, strictMode = true).use { stub ->
+        val response = HttpStub(feature, strictMode = true, port = testPort()).use { stub ->
             stub.client.execute(request)
         }
 
@@ -668,7 +669,7 @@ class WSDLParserMockBlackBoxTest {
         )
 
         val exception = assertThrows<Exception> {
-            HttpStub(feature, listOf(scenarioStub)).close()
+            HttpStub(feature, listOf(scenarioStub), port = testPort()).close()
         }
 
         assertThat(exception.message).contains("Unknown type")
@@ -680,7 +681,7 @@ class WSDLParserMockBlackBoxTest {
         val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
         val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
         val fixture = loadWsdlExampleFixture(wsdlSpecPath, wsdlExamplesPath)
-        val response = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        val response = HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             stub.client.execute(fixture.scenarioStub.request)
         }
 
@@ -695,7 +696,7 @@ class WSDLParserMockBlackBoxTest {
         val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
         val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
         val fixture = loadWsdlExampleFixture(wsdlSpecPath, wsdlExamplesPath)
-        val response = HttpStub(fixture.feature, emptyList()).use { stub ->
+        val response = HttpStub(fixture.feature, emptyList(), port = testPort()).use { stub ->
             stub.client.execute(fixture.scenarioStub.request)
         }
 
@@ -709,7 +710,7 @@ class WSDLParserMockBlackBoxTest {
         val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
         val fixture = loadWsdlExampleFixture(wsdlSpecPath, wsdlExamplesPath)
         val invalidRequest = fixture.scenarioStub.request.copy(headers = fixture.scenarioStub.request.headers + (CONTENT_TYPE to ContentType.Text.Xml.toString()))
-        val response = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+        val response = HttpStub(fixture.feature, fixture.scenarioStubs, port = testPort()).use { stub ->
             stub.client.execute(invalidRequest)
         }
 
@@ -721,7 +722,7 @@ class WSDLParserMockBlackBoxTest {
         val wsdlSpecPath = "src/test/resources/wsdl/state_machine/no_input.wsdl"
         val feature = parseContractFileToFeature(File(wsdlSpecPath))
         val request = feature.scenarios.single().generateHttpRequest()
-        val response = HttpStub(feature).use { stub -> stub.client.execute(request) }
+        val response = HttpStub(feature, port = testPort()).use { stub -> stub.client.execute(request) }
         assertThat(response.status).isEqualTo(200)
     }
 
@@ -735,7 +736,7 @@ class WSDLParserMockBlackBoxTest {
             body = emptySoapMessage(),
         )
 
-        val response = HttpStub(feature).use { stub ->
+        val response = HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(request)
         }
 

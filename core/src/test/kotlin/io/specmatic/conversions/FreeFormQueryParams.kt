@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.testPort
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.QueryParameters
@@ -115,7 +116,7 @@ paths:
         val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
 
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val expectation = ScenarioStub(
                 HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("key1" to "10", "key2" to "20"))),
                 HttpResponse.ok("success1")
@@ -173,7 +174,7 @@ paths:
             )
         )
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             expectations.forEach { expectation ->
                 stub.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = expectation.toJSON())).let { response ->
                     assertThat(response.status).isEqualTo(200)
@@ -217,7 +218,7 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val expectation = ScenarioStub(
                 HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("key1" to "test"))),
                 HttpResponse.ok("success1")
@@ -258,7 +259,7 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val request = HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("key1" to "abc", "key2" to "def")))
 
             val expectation = ScenarioStub(request, HttpResponse.OK)

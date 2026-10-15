@@ -1,5 +1,6 @@
 package integration_tests
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.ResiliencyTestsConfig
@@ -206,8 +207,8 @@ class OpenApi31Test {
 
         val results = HttpStub(
             features = listOf(feature),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
-        ).use { stub ->
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig),
+        port = testPort()).use { stub ->
             feature.executeTests(stub.client)
         }.results
 
@@ -224,8 +225,8 @@ class OpenApi31Test {
 
         val results = HttpStub(
             features = listOf(openApi31Specification.toFeature()),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
-        ).use { stub ->
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig),
+        port = testPort()).use { stub ->
             openApi30Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 
@@ -242,8 +243,8 @@ class OpenApi31Test {
 
         val results = HttpStub(
             features = listOf(openApi30Specification.toFeature()),
-            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
-        ).use { stub ->
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig),
+        port = testPort()).use { stub ->
             openApi31Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 

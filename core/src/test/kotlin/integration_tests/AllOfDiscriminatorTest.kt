@@ -1,5 +1,6 @@
 package integration_tests
 
+import io.specmatic.testPort
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -545,7 +546,7 @@ class AllOfDiscriminatorTest {
                           type: boolean
         """.trimIndent(), "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("POST", "/vehicle", body = parsedJSONObject("""{"type": "car", "seatingCapacity": 4, "gearType": "MT"}"""))).let {
                 assertThat(it.status).isEqualTo(201)
             }
@@ -640,7 +641,7 @@ class AllOfDiscriminatorTest {
                       "bike": "#/components/schemas/SideCar"
         """.trimIndent(), "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("POST", "/vehicle", body = parsedJSONObject("""{"type": "car", "seatingCapacity": 4, "gearType": "MT"}"""))).let {
                 assertThat(it.status).isEqualTo(201)
             }
@@ -753,7 +754,7 @@ class AllOfDiscriminatorTest {
                           type: boolean
         """.trimIndent(), "").toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             stub.client.execute(HttpRequest("POST", "/vehicle", body = parsedJSONObject("""{"type": "car", "seatingCapacity": 4, "gearType": "MT", "gearCount": 4}"""))).let {
                 assertThat(it.status).withFailMessage(it.toLogString()).isEqualTo(201)
             }

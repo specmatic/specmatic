@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.specmatic.testPort
 import integration_tests.testCount
 import io.mockk.InternalPlatformDsl.toStr
 import io.specmatic.conversions.OpenApiSpecification
@@ -84,7 +85,7 @@ paths:
                 type: number
         """.trimIndent(), "").toFeature()
 
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.setExpectation("""
                 {
                     "http-request": {
@@ -127,7 +128,7 @@ paths:
                 type: number
         """.trimIndent(), "").toFeature()
 
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.setExpectation("""
                 {
                     "http-request": {
@@ -181,7 +182,7 @@ paths:
                 type: string
         """.trimIndent(), "").toFeature()
 
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.setExpectation("""
                 {
                     "http-request": {
@@ -256,7 +257,7 @@ paths:
                 type: string
         """.trimIndent(), "").toFeature()
 
-        HttpStub(contract).use { stub ->
+        HttpStub(contract, port = testPort()).use { stub ->
             stub.setExpectation("""
                 {
                     "http-request": {
@@ -314,7 +315,7 @@ Feature: Test
 
         val feature = parseGherkinStringToFeature(gherkin)
 
-        HttpStub(feature).use {
+        HttpStub(feature, port = testPort()).use {
             val body = """{
 "event": "features",
 "id": "332f8278",
@@ -472,7 +473,7 @@ Feature: Test
             """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             val partialExpectation = ScenarioStub(
                 partial = ScenarioStub(
                     request = HttpRequest(method = "GET", path = "/pets/abc"),
@@ -1724,7 +1725,7 @@ Feature: POST API
 
         val errors: Vector<String> = Vector()
 
-        HttpStub(feature).use { stub ->
+        HttpStub(feature, port = testPort()).use { stub ->
             usingMultipleThreads { stubNumber ->
                 `set an expectation and exercise it`(stubNumber, stub)?.let {
                     errors.add(it)
@@ -2020,7 +2021,7 @@ paths:
                 type: number
         """.trimIndent(), "").toFeature()
 
-        HttpStub(contract, emptyList()).use {
+        HttpStub(contract, emptyList(), port = testPort()).use {
             val response = it.client.execute(HttpRequest("POST", "/_specmatic/expectations", body = StringValue("""
                 {
                     "http-request": {
@@ -2073,7 +2074,7 @@ paths:
                 type: number
         """.trimIndent(), "").toFeature()
 
-        HttpStub(contract, emptyList()).use {
+        HttpStub(contract, emptyList(), port = testPort()).use {
             val response = it.client.execute(HttpRequest("POST", "/data", body = StringValue("""hello world""".trimIndent())) )
 
             val responseString = response.toLogString()
@@ -2120,7 +2121,7 @@ paths:
         try {
             val contract = parseContractFileToFeature(openApiSpec)
 
-            HttpStub(contract, emptyList()).use {
+            HttpStub(contract, emptyList(), port = testPort()).use {
                 val response = it.client.execute(HttpRequest("POST", "/data", body = StringValue("""hello world""".trimIndent())))
 
                 val responseString = response.toLogString()
@@ -2162,7 +2163,7 @@ paths:
         try {
             val contract = parseContractFileToFeature(openApiSpec)
 
-            HttpStub(contract, emptyList()).use { stub ->
+            HttpStub(contract, emptyList(), port = testPort()).use { stub ->
                 val response = stub.client.execute(
                     HttpRequest(
                         method = "GET",
@@ -2182,7 +2183,7 @@ paths:
 
     @Test
     fun `transient stubs can be loaded from the file system`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/contractWithTransientMock.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf("src/test/resources/openapi/contractWithTransientMock.yaml"), port = testPort(), timeoutMillis = 0).use { stub ->
             with(stub.client.execute(HttpRequest("POST", "/test", body = parsedJSONObject("""{"item": "data"}""")))) {
                 assertThat(this.body.toStringLiteral()).isEqualTo("success")
             }
@@ -2195,7 +2196,7 @@ paths:
 
     @Test
     fun `multiple stubs for a non 200 with a value specified for a header will load and match incoming requests correctly`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/multiple400StubsWithHeader.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf("src/test/resources/openapi/multiple400StubsWithHeader.yaml"), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/test", body = parsedJSONObject("""{"item": "data"}"""))
 
             with(stub.client.execute(request.copy(headers = mapOf("Authorization" to "valid")))) {
@@ -2210,7 +2211,7 @@ paths:
 
     @Test
     fun `stubs are loaded in order sorted by filename`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/contractWithOrderedStubs.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf("src/test/resources/openapi/contractWithOrderedStubs.yaml"), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/test", body = parsedJSONObject("""{"item": "data"}"""))
 
             with(stub.client.execute(request)) {
@@ -2226,7 +2227,7 @@ paths:
     @Test
     @Disabled("Sorting should happen on the files within the examples directory")
     fun `transient stubs are loaded in order sorted by filename across nested dirs where the first item in sorted order is the first item in the queue`() {
-        createStubFromContracts(listOf("src/test/resources/openapi/contractWithOrderedStubsInNestedDirs.yaml"), timeoutMillis = 0).use { stub ->
+        createStubFromContracts(listOf("src/test/resources/openapi/contractWithOrderedStubsInNestedDirs.yaml"), timeoutMillis = 0, port = testPort()).use { stub ->
             val request = HttpRequest("POST", "/test", body = parsedJSONObject("""{"item": "data"}"""))
 
             (0..4).map { ctr ->
@@ -2244,7 +2245,7 @@ paths:
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
         val genericRequest = feature.scenarios.first().generateHttpRequest()
 
-        HttpStub(feature, examples).use { stub ->
+        HttpStub(feature, examples, port = testPort()).use { stub ->
             val patternTokenRequest = genericRequest.copy(path = "/creators/123/pets/123")
             val response = stub.client.execute(patternTokenRequest)
 
@@ -2288,7 +2289,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        HttpStub(contract, emptyList()).use { stub ->
+        HttpStub(contract, emptyList(), port = testPort()).use { stub ->
             val queryParameters = QueryParameters(paramPairs = listOf("brand_id" to "1"))
             val response = stub.client.execute(HttpRequest("GET", "/products", queryParams = queryParameters) )
 
@@ -2332,7 +2333,7 @@ paths:
     @Test
     fun `should not complain when a valid baseUrls are provided`() {
         val specToBaseUrls = mapOf(
-            "spec1.yaml" to "http://localhost:9000/api",
+            "spec1.yaml" to "http://localhost:${testPort(0)}/api",
             "spec2.yaml" to "https://localhost:9000/api",
             "spec3.yaml" to "http://localhost/api",
             "spec4.yaml" to "https://localhost/api",
@@ -2373,7 +2374,7 @@ paths:
         val feature = parseContractFileToFeature(openApiFile).loadExternalisedExamples()
         assertDoesNotThrow { feature.validateExamplesOrException() }
 
-        val results = HttpStub(feature, examples).use { stub ->
+        val results = HttpStub(feature, examples, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val response = stub.client.execute(request)
