@@ -1060,31 +1060,91 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(mapOf("name" to "Alice")))
                     }
                 },
-                ) + listOf(false, true).flatMap { memberRequired ->
-                    listOf(false, true).map { mainRequired ->
-                        multiVersionCase(
-                            "allOf main schema ${if (mainRequired) "required" else "optional"} property overrides ${if (memberRequired) "required" else "optional"} member property",
-                            OpenApiVersion.OAS30,
-                            OpenApiVersion.OAS31,
-                        ) {
-                            schema {
-                                put("type", "object")
-                                put("allOf", listOf(buildMap {
-                                    put("type", "object")
-                                    put("properties", mapOf("common" to mapOf("type" to "string")))
-                                    if (memberRequired) put("required", listOf("common"))
-                                }))
-                                put("properties", mapOf("common" to mapOf("type" to "string")))
-                                if (mainRequired) put("required", listOf("common"))
+                ) + listOf(
+                    Triple(
+                        "allOf required member then optional redeclaration keeps the property required",
+                        true,
+                        false,
+                    ),
+                    Triple(
+                        "allOf optional member then required member keeps the property required",
+                        false,
+                        true,
+                    ),
+                    Triple(
+                        "allOf both members optional keeps the property optional",
+                        false,
+                        false,
+                    ),
+                ).map { (name, firstRequired, secondRequired) ->
+                    multiVersionCase(name, OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                        schema {
+                            put(
+                                "allOf",
+                                listOf(
+                                    buildMap {
+                                        put("type", "object")
+                                        put("properties", mapOf("common" to mapOf("type" to "string")))
+                                        if (firstRequired) put("required", listOf("common"))
+                                    },
+                                    buildMap {
+                                        put("type", "object")
+                                        put(
+                                            "properties",
+                                            mapOf(
+                                                "common" to mapOf(
+                                                    "type" to "string",
+                                                    "enum" to listOf("Dog"),
+                                                ),
+                                            ),
+                                        )
+                                        if (secondRequired) put("required", listOf("common"))
+                                    },
+                                ),
+                            )
+                        }
+                        validate { pattern ->
+                            val objectPattern = pattern as JSONObjectPattern
+                            val expectedKey = if (firstRequired || secondRequired) "common" else "common?"
+                            assertThat(objectPattern.pattern).containsOnlyKeys(expectedKey)
+                            assertThat(objectPattern.pattern.getValue(expectedKey)).isInstanceOf(EnumPattern::class.java)
+                            if (firstRequired || secondRequired) {
+                                assertFailure(pattern.match(emptyMap<String, Any>()))
+                            } else {
+                                assertSuccess(pattern.match(emptyMap<String, Any>()))
                             }
-                            validate { pattern ->
-                                val objectPattern = pattern as JSONObjectPattern
-                                val key = if (mainRequired) "common" else "common?"
-                                assertThat(objectPattern.pattern).containsOnlyKeys(key)
-                            }
+                            assertSuccess(pattern.match(mapOf("common" to "Dog")))
+                            assertFailure(pattern.match(mapOf("common" to "Cat")))
                         }
                     }
-                }
+                } + listOf(
+                    multiVersionCase(
+                        "allOf wrapper optional property does not drop a required member property",
+                        OpenApiVersion.OAS30,
+                        OpenApiVersion.OAS31,
+                    ) {
+                        schema {
+                            put("type", "object")
+                            put(
+                                "allOf",
+                                listOf(
+                                    mapOf(
+                                        "type" to "object",
+                                        "properties" to mapOf("common" to mapOf("type" to "string")),
+                                        "required" to listOf("common"),
+                                    ),
+                                ),
+                            )
+                            put("properties", mapOf("common" to mapOf("type" to "string")))
+                        }
+                        validate { pattern ->
+                            val objectPattern = pattern as JSONObjectPattern
+                            assertThat(objectPattern.pattern).containsOnlyKeys("common")
+                            assertFailure(pattern.match(emptyMap<String, Any>()))
+                            assertSuccess(pattern.match(mapOf("common" to "x")))
+                        }
+                    },
+                )
             ).flatten().stream()
         }
 

@@ -3287,16 +3287,20 @@ class OpenApiSpecification(
         propertiesAcc: Map<String, Pattern>
     ): Map<String, Pattern> {
         return propertiesEntry.entries.fold(propertiesAcc) { acc, propertyEntry ->
-            val existingPropertyValue = acc[propertyEntry.key.withOptionalSuffix()]
-                ?: acc[propertyEntry.key.withoutOptionalSuffix()]
+            val keyWithoutOptionality = withoutOptionality(propertyEntry.key)
+            val existingPropertyValue = acc[keyWithoutOptionality] ?: acc["$keyWithoutOptionality?"]
             val newPropertyValue = existingPropertyValue?.let {
                 restrictivePatternBetween(it, propertyEntry.value)
             } ?: propertyEntry.value
-            val keyWithoutOptionality = withoutOptionality(propertyEntry.key)
+            val resultKey = if (acc.containsKey(keyWithoutOptionality) || !isOptional(propertyEntry.key)) {
+                keyWithoutOptionality
+            } else {
+                "$keyWithoutOptionality?"
+            }
 
             acc.minus(keyWithoutOptionality)
                 .minus("$keyWithoutOptionality?")
-                .plus(propertyEntry.key to newPropertyValue)
+                .plus(resultKey to newPropertyValue)
         }
     }
 
@@ -3305,16 +3309,6 @@ class OpenApiSpecification(
             pattern1
         else
             pattern2
-    }
-
-    private fun String.withOptionalSuffix(): String {
-        if(this.endsWith("?")) return this
-        return "$this?"
-    }
-
-    private fun String.withoutOptionalSuffix(): String {
-        if(this.endsWith("?")) return this.removeSuffix("?")
-        return this
     }
 
     private fun <T : Pattern> cacheComponentPattern(componentName: String, pattern: T): T {
