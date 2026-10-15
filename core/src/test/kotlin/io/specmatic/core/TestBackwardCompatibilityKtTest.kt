@@ -2092,6 +2092,61 @@ paths:
         assertThat(result.success()).isTrue
     }
 
+    @Test
+    fun `identical contracts remain compatible when allOf child redeclares inherited required discriminator`() {
+        val spec = """
+            openapi: 3.0.2
+            info:
+              title: Pet Shelter API
+              version: '1.0'
+            paths:
+              /pets:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${'$'}ref: '#/components/schemas/Pet'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                Pet:
+                  oneOf:
+                    - ${'$'}ref: '#/components/schemas/Dog'
+                  discriminator:
+                    propertyName: type
+                    mapping:
+                      Dog: '#/components/schemas/Dog'
+                PetDetails:
+                  type: object
+                  properties:
+                    weightKg:
+                      type: number
+                      minimum: 0
+                    type:
+                      type: string
+                  required:
+                    - weightKg
+                    - type
+                Dog:
+                  allOf:
+                    - ${'$'}ref: '#/components/schemas/PetDetails'
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: ['Dog']
+        """.trimIndent()
+        val contract = OpenApiSpecification.fromYAML(spec, "contract.yaml").toFeature()
+
+        val result = testBackwardCompatibility(contract, contract, InsightsReportOptions())
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue
+    }
+
     @Nested
     inner class FluffyBackwardCompatibilityErrors {
         private val oldContract = OpenApiSpecification.fromYAML(
