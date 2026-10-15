@@ -110,6 +110,20 @@ class HttpStubHandlerTest {
                 assertThat(stub.transientStubCount).isZero()
             }
         }
+
+        @Test
+        fun `should force stateful mode when config leaves contract stateless`() {
+            val feature = handlerFeature()
+            HttpStub(
+                port = availablePort(),
+                features = listOf(feature),
+                mockModeOverride = MockMode.STATEFUL_MOCK,
+            ).use { stub ->
+                val response = stub.client.execute(HttpRequest(method = "GET", path = "/spi"))
+                assertThat(response.body).isEqualTo(StringValue("served by SPI"))
+                assertThat(response.getHeader("X-Test-SPI")).isEqualTo("true")
+            }
+        }
     }
 
     @Nested
@@ -131,6 +145,29 @@ class HttpStubHandlerTest {
                 assertThat(response.body).isEqualTo(expectedResponse.body)
                 assertThat(stub.stubCount).isEqualTo(2)
                 assertThat(stub.transientStubCount).isZero()
+            }
+        }
+
+        @Test
+        fun `should force stateless mode despite stateful config`() {
+            val feature = handlerFeature()
+            val scenarioStub = ScenarioStub(
+                request = HttpRequest(method = "GET", path = "/hello"),
+                response = HttpResponse(status = 200, body = StringValue("hello")),
+            )
+
+            withoutHttpStubHandlerServices {
+                HttpStub(
+                    port = availablePort(),
+                    features = listOf(feature),
+                    rawHttpStubs = contractInfoToHttpExpectations(listOf(feature to listOf(scenarioStub))),
+                    specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(configWithMode { MockMode.STATEFUL_MOCK }),
+                    mockModeOverride = MockMode.MOCK,
+                ).use { stub ->
+                    val response = stub.client.execute(scenarioStub.request)
+                    assertThat(response.body).isEqualTo(StringValue("hello"))
+                    assertThat(stub.stubCount).isEqualTo(2)
+                }
             }
         }
 

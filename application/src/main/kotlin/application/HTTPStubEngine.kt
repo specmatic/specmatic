@@ -4,6 +4,7 @@ import io.specmatic.core.Feature
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.config.MockMode
 import io.specmatic.core.log.httpDumpLog
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
@@ -32,6 +33,7 @@ class HTTPStubEngine {
         requestHandlers: List<RequestHandler> = emptyList(),
         insightsReportOptions: InsightsReportOptions,
         @Suppress("UNUSED_PARAMETER") agentMode: Boolean = false,
+        mockModeOverride: MockMode? = null,
     ): HttpStub {
         return HttpStub(
             features = stubs.map { it.first },
@@ -51,6 +53,7 @@ class HTTPStubEngine {
             listeners = listeners,
             requestHandlers = requestHandlers.toMutableList(),
             insightsReportOptions = insightsReportOptions,
+            mockModeOverride = mockModeOverride,
         ).also {
             it.printStartupMessage()
         }

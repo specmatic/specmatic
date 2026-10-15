@@ -8,6 +8,7 @@ import io.specmatic.core.*
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.MockMode
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
 import io.specmatic.core.lifecycle.SpecmaticLifecycle
@@ -79,6 +80,9 @@ class StubCommand(
 
     @Option(names = ["--strict"], description = ["Start HTTP mock server in strict mode"], required = false)
     var strictMode: Boolean? = null
+
+    @Option(names = ["--mode"], description = ["Force mock mode: mock or stateful-mock"], required = false)
+    var mockMode: String? = null
 
     @Option(names = ["--passThroughTargetBase"], description = ["All requests that did not match a url in any contract will be forwarded to this service"])
     var passThroughTargetBase: String = ""
@@ -213,6 +217,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         specmaticConfiguration.getStubHttpsConfiguration().toIncomingMtlsRegistryForStub()
     }
 
+    private val mockModeOverride: MockMode?
+        get() = mockMode?.let(::parseMockMode)
+
     override fun call(): Int {
         insightsReportOptions.validate()
         configureLogging(
@@ -247,6 +254,10 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
         try {
+            if(mockModeOverride != null && contractPaths.isEmpty()) {
+                throw IllegalArgumentException("--mode requires contract paths as direct CLI arguments")
+            }
+
             val matchBranchEnabled = specmaticConfiguration.getMatchBranchEnabled()
             contractSources = when (contractPaths.isEmpty()) {
                 true -> {
@@ -264,7 +275,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             contractPaths = contractSources.map { it.path }
             exitIfAnyDoNotExist("The following specifications do not exist", contractPaths)
             validateContractFileExtensions(contractPaths)
-            startServer()
+            startServer(mockModeOverride)
 
             if (httpStub != null) {
                 shutdownRegistration = shutdownHookRegistrar.register(
@@ -305,7 +316,12 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     private fun configuredGracefulTimeout(): Long = gracefulRestartTimeoutInMs ?: specmaticConfiguration.getStubGracefulRestartTimeoutInMilliseconds() ?: 1000
 
-    private fun startServer() {
+    private fun parseMockMode(value: String): MockMode = MockMode.fromCliValue(value)
+        ?: throw IllegalArgumentException(
+            "Invalid mock mode '$value'. Expected ${MockMode.entries.joinToString(" or ") { "'${it.cliValue}'" }}."
+        )
+
+    private fun startServer(mockModeOverride: MockMode?) {
         val workingDirectory = WorkingDirectory()
         val resolvedStrictMode = configuredStrictMode()
         if (resolvedStrictMode) throwExceptionIfDirectoriesAreInvalid(exampleDirs, "example directories")
@@ -356,6 +372,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             requestHandlers = requestHandlers,
             insightsReportOptions = insightsReportOptions,
             agentMode = agentMode,
+            mockModeOverride = mockModeOverride,
         )
 
         LogTail.storeSnapshot()
@@ -387,7 +404,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
                 postStartupConsoleLog(e, "Error stopping server")
             }
 
-            try { startServer() } catch (e: Throwable) {
+            try { startServer(mockModeOverride) } catch (e: Throwable) {
                 postStartupConsoleLog(e, "Error starting server")
             }
         }

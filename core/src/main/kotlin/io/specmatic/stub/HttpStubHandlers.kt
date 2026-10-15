@@ -18,10 +18,11 @@ class HttpStubHandlers(
     private val specmaticConfig: SpecmaticConfig,
     private val httpClientFactory: HttpClientFactory,
     private val specToBaseUrlMap: Map<String, String>,
+    private val mockModeOverride: MockMode? = null,
 ) {
     private val specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig, specmaticConfigPath)
     private val mockModeByFeature = features.associate { feature ->
-        feature.path to specmaticConfig.getMockMode(File(feature.path))
+        feature.path to (mockModeOverride ?: specmaticConfig.getMockMode(File(feature.path)))
     }
 
     private val statefulMockHandler: HttpStubHandler.Stateful? = createStatefulMockHandler()

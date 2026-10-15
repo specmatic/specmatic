@@ -38,6 +38,7 @@ import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.config.MockMode
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.listOfExcludedHeaders
@@ -153,6 +154,7 @@ class HttpStub(
     private val startTime: Instant = Instant.now(),
     var requestHandlers: MutableList<RequestHandler> = mutableListOf(),
     private val insightsReportOptions: InsightsReportOptions = InsightsReportOptions.sniff().also { it.validate() },
+    private val mockModeOverride: MockMode? = null,
 ) : ContractStub {
     private val incomingMtlsSslContextsByPort: MutableMap<Int, SslContext> = mutableMapOf()
     private val mtlsEnabledByPort: MutableMap<Int, Boolean> = mutableMapOf()
@@ -243,6 +245,7 @@ class HttpStub(
         httpClientFactory = httpClientFactory,
         specmaticConfig = specmaticConfigInstance,
         passThroughTargetBase = passThroughTargetBase,
+        mockModeOverride = mockModeOverride,
         specmaticConfigPath = loadedSpecmaticConfig.path,
     )
 

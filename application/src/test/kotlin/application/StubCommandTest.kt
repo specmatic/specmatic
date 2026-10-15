@@ -9,6 +9,7 @@ import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.config.Switch
+import io.specmatic.core.config.MockMode
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.Flags
@@ -308,6 +309,7 @@ internal class StubCommandTest {
                     specToBaseUrlMap = any(),
                     specmaticConfigSource = any(),
                     insightsReportOptions = any(),
+                    mockModeOverride = MockMode.STATEFUL_MOCK,
                 )
             }.returns(
                 mockk {
@@ -317,7 +319,7 @@ internal class StubCommandTest {
 
             every { specmaticConfig.contractStubPaths() }.returns(arrayListOf(contractPath))
 
-            val exitStatus = CommandLine(stubCommand).execute(contractPath)
+            val exitStatus = CommandLine(stubCommand).execute(contractPath, "--mode=stateful-mock")
             assertThat(exitStatus).isZero()
 
             verify(exactly = 1) {
@@ -335,6 +337,7 @@ internal class StubCommandTest {
                     specToBaseUrlMap = any(),
                     specmaticConfigSource = any(),
                     insightsReportOptions = any(),
+                    mockModeOverride = MockMode.STATEFUL_MOCK,
                 )
             }
         } finally {
