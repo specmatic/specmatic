@@ -647,7 +647,8 @@ class OpenApiSpecification(
             protocol = protocol,
             exampleDirPaths = exampleDirPaths,
             changeTrackingSource = changeTrackingSource,
-        )
+            lenientMode = lenientMode,
+        ).copy(externalReferenceFiles = externalReferenceFiles)
 
         return Pair(feature, rootContext.toCollector().toResult())
     }
@@ -2354,6 +2355,12 @@ class OpenApiSpecification(
         }
         uses
     }
+
+    val externalReferenceFiles: Set<String>
+        get() = externalRefUses.asSequence()
+            .map { it.targetFile }
+            .filter { it != entryFileKey }
+            .toSet()
 
     private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String =
         jsonPointerSourceMap[useSitePointer]?.refTarget
