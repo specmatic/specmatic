@@ -97,6 +97,14 @@ data class XMLPattern(
                 context = context,
                 children = pattern.nodes.mapIndexed { index, childPattern -> Item(index, childPattern) },
                 attributes = pattern.attributes.map { (name, attributePattern) -> XmlAttribute(name, attributePattern) },
+                rebuildPattern = { attributes, children ->
+                    copy(
+                        pattern = pattern.copy(
+                            nodes = children.map { it.value },
+                            attributes = attributes.associate { it.name to it.value },
+                        ),
+                    )
+                },
             ),
         )
     }

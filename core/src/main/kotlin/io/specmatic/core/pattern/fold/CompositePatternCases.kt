@@ -5,11 +5,20 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.fold.Item
 import io.specmatic.core.value.fold.XmlAttribute
 
-data class DelegatedPatternCase<P : Pattern, C>(
+data class DelegatedPatternCase<P : Pattern, D : Pattern, C>(
     override val pattern: P,
     override val context: C,
-    val delegate: Pattern,
+    val delegate: D,
+    private val delegateClass: Class<D>,
+    private val rewrapPattern: (D) -> P,
 ) : PatternCase<P, C> {
+    fun rewrap(delegate: D): P = rewrapPattern(delegate)
+
+    fun rewrapProjected(delegate: Pattern): P? {
+        if (!delegateClass.isInstance(delegate)) return null
+        return rewrap(delegateClass.cast(delegate))
+    }
+
     fun <R> projectDelegate(visitor: PatternVisitor<C, R>): R = delegate.accept(visitor, context)
 }
 
@@ -30,7 +39,12 @@ data class XmlElementPatternCase<P : Pattern, C>(
     override val context: C,
     val attributes: List<XmlAttribute<Pattern>>,
     val children: List<Item<Pattern>>,
+    private val rebuildPattern: (List<XmlAttribute<Pattern>>, List<Item<Pattern>>) -> P,
 ) : PatternCase<P, C> {
+    fun rebuild(attributes: List<XmlAttribute<Pattern>>, children: List<Item<Pattern>>): P {
+        return rebuildPattern(attributes, children)
+    }
+
     fun <R> projectAttributes(visitor: PatternVisitor<C, R>): List<XmlAttribute<R>> = attributes.map { attribute ->
         XmlAttribute(
             name = attribute.name,

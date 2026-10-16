@@ -109,6 +109,7 @@ data class JSONObjectPattern(
                 pattern = this,
                 context = context,
                 additionalProperties = additionalProperties,
+                rebuildPattern = { properties -> copy(pattern = properties) },
                 properties = pattern.map { (name, propertyPattern) ->
                     ObjectPropertyPattern(
                         pattern = propertyPattern,

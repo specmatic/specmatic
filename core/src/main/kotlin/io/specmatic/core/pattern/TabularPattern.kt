@@ -43,6 +43,7 @@ data class TabularPattern(
             case = ObjectPatternCase(
                 pattern = this,
                 context = context,
+                rebuildPattern = { properties -> copy(pattern = properties) },
                 properties = pattern.map { (name, propertyPattern) ->
                     ObjectPropertyPattern(
                         pattern = propertyPattern,

@@ -21,6 +21,7 @@ data class ListPattern(
                 pattern = this,
                 context = context,
                 itemPattern = pattern,
+                rebuildPattern = { itemPattern -> copy(pattern = itemPattern) },
             ),
         )
     }

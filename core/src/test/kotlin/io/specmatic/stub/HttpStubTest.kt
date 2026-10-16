@@ -1637,7 +1637,7 @@ components:
                 override val name: String
                     get() = "POST request handler"
 
-                override fun handleRequest(httpRequest: HttpRequest): HttpStubResponse? {
+                override fun handleRequest(httpRequest: HttpRequest, baseUrl: String): HttpStubResponse? {
                     if(httpRequest.method != "POST") return null
                     return HttpStubResponse(
                         response = HttpResponse(body = "POST response", status = 200)
@@ -1648,7 +1648,7 @@ components:
                 override val name: String
                     get() = "GET request handler"
 
-                override fun handleRequest(httpRequest: HttpRequest): HttpStubResponse? {
+                override fun handleRequest(httpRequest: HttpRequest, baseUrl: String): HttpStubResponse? {
                     if(httpRequest.method != "GET") return null
                     return HttpStubResponse(
                         response = HttpResponse(body = "GET response", status = 200)
@@ -4141,10 +4141,11 @@ Then status 200
 
             @Test
             fun `should return features from the most specific matching baseUrl`() {
+                val port = ServerSocket(0).use { it.localPort }
                 val specToStubBaseUrlMap = linkedMapOf(
-                    "root.yaml" to "http://localhost:8080",
-                    "nested-first.yaml" to "http://localhost:8080/api",
-                    "nested-second.yaml" to "http://stub-host:8080/api"
+                    "root.yaml" to "http://localhost:$port",
+                    "nested-first.yaml" to "http://localhost:$port/api",
+                    "nested-second.yaml" to "http://localhost:$port/api"
                 )
                 val rootFeature = mockk<Feature> {
                     every { path } returns "root.yaml"
@@ -4169,12 +4170,14 @@ Then status 200
                 }
                 val features = listOf(rootFeature, nestedFirstFeature, nestedSecondFeature)
 
-                HttpStub(features = features, port = ServerSocket(0).use { it.localPort }).use { stub ->
-                    val result = stub.featuresAssociatedTo(
-                        "http://localhost:8080",
-                        features,
-                        specToStubBaseUrlMap,
-                        urlPath = "/api/widgets"
+                HttpStub(
+                    features = features,
+                    port = port,
+                    specToStubBaseUrlMap = specToStubBaseUrlMap,
+                ).use { stub ->
+                    val result = stub.featuresForRequest(
+                        baseUrl = "http://localhost:$port",
+                        urlPath = "/api/widgets",
                     )
 
                     assertThat(result).isEqualTo(listOf(nestedFirstFeature, nestedSecondFeature))

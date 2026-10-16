@@ -6,12 +6,17 @@ import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
+import java.util.stream.Stream
 
 class InterpolatedSubstitutionTest {
     @Test
@@ -32,6 +37,12 @@ class InterpolatedSubstitutionTest {
         )
 
         assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123), "ITEM_ID" to NumberValue(456)))
+    }
+
+    @Test
+    fun `extracts interpolated placeholder adjacent to literal text`() {
+        val result = InterpolatedSubstitution.extractVariables(original = "prefix(ID:string)", running = "prefix-value")
+        assertThat(result).isEqualTo(mapOf("ID" to StringValue("-value")))
     }
 
     @Test
@@ -78,6 +89,12 @@ class InterpolatedSubstitutionTest {
     @Test
     fun `does not extract placeholders from dollar function calls`() {
         val result = InterpolatedSubstitution.extractVariables(original = $$"$match(exact: 123)", running = "123")
+        assertThat(result).isEmpty()
+    }
+
+    @Test
+    fun `does not extract placeholders from dollar function calls with numeric names`() {
+        val result = InterpolatedSubstitution.extractVariables(original = $$"$123(exact: 123)", running = "123")
         assertThat(result).isEmpty()
     }
 
@@ -200,6 +217,44 @@ class InterpolatedSubstitutionTest {
 
         assertThat(result).isEqualTo(StringValue("\$match(contains: resolved "))
         assertThat(resolvedTokens).containsExactly("$(data.person)")
+    }
+
+    @Nested
+    @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+    inner class FalsePositiveExtraction {
+        @ParameterizedTest
+        @MethodSource("nonPlaceholderExpressions")
+        fun `does not extract non-placeholder parenthesized expressions`(case: String, expression: String) {
+            val result = InterpolatedSubstitution.extractVariables(original = expression, running = expression)
+            assertThat(result).describedAs(case).isEqualTo(emptyMap<String, Value>())
+        }
+
+        @Test
+        fun `extracts a placeholder nested inside a function argument`() {
+            val result = InterpolatedSubstitution.extractVariables(
+                original = "invoke(id: (ID:number))",
+                running = "invoke(id: 42)",
+            )
+
+            assertThat(result).isEqualTo(mapOf("ID" to NumberValue(42)))
+        }
+
+        fun nonPlaceholderExpressions(): Stream<Arguments> = Stream.of(
+            Arguments.of("scalar argument", """query { user(id: "42") { id } }"""),
+            Arguments.of("enum argument", """query { order(status: PENDING) { id } }"""),
+            Arguments.of("named argument with list value", """invoke(tags: ["a", "b"])"""),
+            Arguments.of("named argument with object value", """invoke(input: { id: 1 })"""),
+            Arguments.of("variable declaration and use", $$"""query ($id: ID!) { user(id: $id) { id } }"""),
+            Arguments.of(
+                "multiline nested argument",
+                """mutation {
+                    update(input: {
+                      tags: ["a"],
+                      meta: { priority: 1 }
+                    }) { id }
+                  }""".trimIndent(),
+            ),
+        )
     }
 
     @Nested

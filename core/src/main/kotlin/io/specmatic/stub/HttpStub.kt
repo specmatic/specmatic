@@ -382,7 +382,7 @@ class HttpStub(
                     }
 
                     val responseFromRequestHandler =
-                        requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest) }
+                        requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest, requestBaseUrl) }
                     val httpStubResponse: HttpStubResponse = when {
                         isFetchLogRequest(httpRequest) -> handleFetchLogRequest().copy(isInternalStubPath = true)
                         isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest().copy(isInternalStubPath = true)
@@ -856,6 +856,10 @@ class HttpStub(
         ).also {
             it.log(_logs, httpRequest)
         }
+    }
+
+    fun featuresForRequest(baseUrl: String, urlPath: String): List<Feature> {
+        return featuresAssociatedTo(baseUrl, features, specToBaseUrlMap, urlPath)
     }
 
     internal fun featuresAssociatedTo(

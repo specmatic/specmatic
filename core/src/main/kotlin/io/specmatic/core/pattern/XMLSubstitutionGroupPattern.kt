@@ -27,6 +27,7 @@ data class XMLSubstitutionGroupPattern(
                 pattern = this,
                 context = context,
                 alternatives = candidates,
+                rebuildPattern = { alternatives -> copy(candidates = alternatives) },
                 selector = { value, resolver ->
                     candidates.firstOrNull { it.matches(value, resolver).isSuccess() }
                         ?.let { candidate -> PatternAndResolver(candidate, resolver) }

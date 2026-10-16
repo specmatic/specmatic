@@ -13,7 +13,15 @@ import io.specmatic.core.value.Value
 
 data class PatternInStringPattern(override val pattern: Pattern = StringPattern(), override val typeAlias: String? = null): Pattern {
     override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
-        return visitor.delegated(DelegatedPatternCase(pattern = this, context = context, delegate = pattern))
+        return visitor.delegated(
+            DelegatedPatternCase(
+                pattern = this,
+                context = context,
+                delegate = pattern,
+                delegateClass = Pattern::class.java,
+                rewrapPattern = { delegate -> copy(pattern = delegate) },
+            ),
+        )
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
