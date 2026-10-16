@@ -1146,25 +1146,38 @@ data class Feature(
     }
 
     fun negativeTestScenariosWithDecision(scenarios: Sequence<Decision<Scenario, Scenario>>, originalScenarios: List<Scenario>): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
-        return scenarios.mapNotNull { scenarioDecision ->
-            val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
-            val badRequestOrDefault = getBadRequestsOrDefault(scenario)
-            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
+        val negativeScenarioDecisions = scenarios.mapNotNull { decision ->
+            val sourceScenario = if (decision is Decision.Execute) decision.value else decision.context
+            val badRequestOrDefault = getBadRequestsOrDefault(sourceScenario)
+
+            val excludedByFilter = decision is Decision.Skip && decision.reasoning.mainReason == TestSkipReason.EXCLUDED
+            val supportsBadRequest = badRequestOrDefault?.supportsStatus(HttpStatusCode.BadRequest.value.toString()) == true
+            if (excludedByFilter && !supportsBadRequest) return@mapNotNull null
+
+            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, sourceScenario, originalScenarios)) {
                 return@mapNotNull null
             }
 
-            scenario.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
-        }.flatMapSequence { scenario, _, reasoning ->
-            scenario.generateTestScenarios(flagsBased).filterNot { negativeTestScenarioR ->
-                negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
-                    val sampleRequest = negativeTestScenario.generateHttpRequest()
-                    scenario.httpRequestPattern.matches(sampleRequest, scenario.resolver).isSuccess()
+            sourceScenario.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
+        }
+
+        return negativeScenarioDecisions.flatMapSequence { negativeScenario, _, reasoning ->
+            val requestMutations = negativeScenario.generateTestScenarios(flagsBased).filterNot { generated ->
+                generated.withDefault(false) { candidate ->
+                    val request = candidate.generateHttpRequest()
+                    negativeScenario.httpRequestPattern.matches(
+                        incomingHttpRequest = request,
+                        resolver = negativeScenario.resolver
+                    ).isSuccess()
                 }
-            }.mapIndexed { index, negativeTestScenarioR ->
-                val returnValueWithDescription = getScenarioWithDescription(negativeTestScenarioR)
-                Decision.Execute(returnValueWithDescription.ifValue { negativeTestScenario ->
-                    negativeTestScenario.copy(generativePrefix = flagsBased.negativePrefix, disambiguate = { "[${(index + 1)}] " })
-                }, scenario, reasoning)
+            }
+
+            requestMutations.mapIndexed { index, generated ->
+                val describedScenario = getScenarioWithDescription(generated)
+                val numberedScenario = describedScenario.ifValue { candidate ->
+                    candidate.copy(generativePrefix = flagsBased.negativePrefix, disambiguate = { "[${(index + 1)}] " })
+                }
+                Decision.Execute(numberedScenario, negativeScenario, reasoning)
             }
         }
     }
