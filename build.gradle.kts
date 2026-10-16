@@ -208,6 +208,7 @@ subprojects {
                 .asFile
                 .toString(),
         )
+        systemProperty("java.awt.headless", "true")
 
         // Regex-based generators can be memory-intensive in tests.
         maxHeapSize = "1g"

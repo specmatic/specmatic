@@ -30,6 +30,8 @@ val conformanceTestResultsJsonlFile = layout.buildDirectory.file("conformance-te
 tasks.test {
     useJUnitPlatform()
 
+    maxParallelForks = 1
+
     if (enableConformanceTests?.toBoolean() == true) {
         dependsOn(":specmatic-executable:dockerBuild")
         if(specmaticVersionForConformanceTests != null) {
