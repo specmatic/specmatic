@@ -9,6 +9,7 @@ import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.core.filters.ExpressionContextPopulator
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
+import io.specmatic.core.log.logger
 import io.specmatic.core.matchers.MatcherResolutionMode
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pipeline.Pipeline
@@ -535,7 +536,10 @@ data class Scenario(
         }
     }
 
-    fun validateAndFilterExamples(flagsBased: FlagsBased): Pair<Scenario, Result> {
+    fun validateAndFilterExamples(
+        flagsBased: FlagsBased,
+        skipInvalidInlineExamples: Boolean = false
+    ): Pair<Scenario, Result> {
         val apiDesc = defaultAPIDescription.trim()
 
         val examplesAndMatchFailures = examples.map { example ->
@@ -545,7 +549,16 @@ data class Scenario(
                 val responseResult = validateResponseExample(row, resolverForExample)
                 val exampleResult = Result.fromResults(listOf(requestResult, responseResult))
 
-                if (exampleResult !is Result.Failure || exampleResult.isPartial) {
+                val shouldSkipInlineExample = skipInvalidInlineExamples &&
+                    row.exampleType == ExampleType.INLINE &&
+                    exampleResult is Result.Failure
+
+                if (shouldSkipInlineExample) {
+                    logger.log(
+                        "WARNING: Ignoring invalid inline example '${row.name}' for $apiDesc:\n${exampleResult.reportString()}"
+                    )
+                    null to null
+                } else if (exampleResult !is Result.Failure || exampleResult.isPartial) {
                     row to null
                 } else {
                     null to exampleResult.breadCrumb(

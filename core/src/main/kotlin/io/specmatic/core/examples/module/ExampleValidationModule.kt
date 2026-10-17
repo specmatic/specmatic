@@ -19,6 +19,19 @@ import io.specmatic.mock.ScenarioStub
 import java.io.File
 
 class ExampleValidationModule(private val lenientMode: Boolean = false, private val specmaticConfig: SpecmaticConfig) {
+    fun filterInvalidInlineExamples(feature: Feature, examples: List<NamedStub>): List<NamedStub> {
+        return examples.filter { example ->
+            val results = validateExampleReturningResults(feature, example.stub)
+            if (!results.hasResults()) return@filter true
+
+            val result = results.toResultIfAny()
+            if (result.isSuccess()) return@filter true
+
+            logger.log("WARNING: Ignoring invalid inline example '${example.name}':\n${result.reportString()}")
+            false
+        }
+    }
+
     fun validateProjectedInlineExampleStructure(example: JSONObjectValue): Result {
         return FuzzyExampleJsonValidator.matchesInlineExample(example)
     }
@@ -74,18 +87,23 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     ): Map<String, Result> {
         val updatedFeature = scenarioFilter.filter(feature)
 
-        val results = examples.mapValues { (name, exampleList) ->
+        return examples.mapValues { (name, exampleList) ->
             logger.debug("Validating $name")
-
-            exampleList.mapNotNull { example ->
-                val results = validateExampleReturningResults(updatedFeature, example)
-                if (!results.hasResults()) return@mapNotNull null else results.toResultIfAny()
-            }.let {
-                Result.fromResults(it)
-            }
+            Result.fromResults(exampleList.mapNotNull { inlineExampleValidationFailure(updatedFeature, it) })
         }
+    }
 
-        return results
+    private fun inlineExampleValidationFailure(feature: Feature, example: ScenarioStub): Result? {
+        val results = validateExampleReturningResults(feature, example)
+        if (!results.hasResults()) return null
+
+        val validationResult = results.toResultIfAny()
+        if (validationResult.isSuccess()) return null
+        return if (feature.lenientMode && validationResult is Result.Failure) {
+            validationResult.copy(isPartial = true)
+        } else {
+            validationResult
+        }
     }
 
     fun validateExamples(

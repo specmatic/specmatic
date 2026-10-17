@@ -1904,6 +1904,41 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `feature exposes transitive external reference files`(@TempDir tempDir: File) {
+        val api = tempDir.resolve("api.yaml")
+        val common = tempDir.resolve("common.yaml")
+        val details = tempDir.resolve("details.yaml")
+        api.writeText($$"""
+            openapi: 3.0.0
+            info:
+              title: Pets
+              version: "1"
+            paths:
+              /pets:
+                get:
+                  responses:
+                    "200":
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            $ref: './common.yaml#/Pet'
+        """.trimIndent())
+        common.writeText($$"""
+            Pet:
+              type: object
+              properties:
+                details:
+                  $ref: './details.yaml#/Details'
+        """.trimIndent())
+        details.writeText("Details:\n  type: string\n")
+
+        val feature = OpenApiSpecification.fromFile(api.canonicalPath).toFeature()
+
+        assertThat(feature.externalReferenceFiles).containsExactlyInAnyOrder(common.canonicalPath, details.canonicalPath)
+    }
+
+    @Test
     fun `pure single schema allOf preserves wrapper component pointer and inner schema annotations`() {
         val spec = $$"""
         openapi: 3.0.1
