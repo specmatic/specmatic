@@ -11,7 +11,7 @@ dependencies {
     implementation("info.picocli:picocli:4.7.7")
     implementation("com.networknt:json-schema-validator:2.0.1")
 
-    runtimeOnly("ch.qos.logback:logback-classic:1.5.37")
+    runtimeOnly("ch.qos.logback:logback-classic:1.6.5")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
 
