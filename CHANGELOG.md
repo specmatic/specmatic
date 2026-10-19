@@ -32,6 +32,14 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Changed
+
+- Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Configure this repository in your build:
+
+  ```
+  https://repo.specmatic.io/releases/
+  ```
+
 ### Fixed
 
 - `STATUS` filter equality no longer treats generated negative tests as matching every declared 4xx code on the operation. Exact codes such as `STATUS='429'` select only tests with that expected status, so rate-limit example tests can run without schema-resiliency negatives. Use `STATUS='4xx'` (and other `Nxx` class tokens) to select by status class: `4xx` matches generated negatives and declared 4xx tests when those responses remain in scope after the first filter pass.
