@@ -23,7 +23,7 @@ dependencies {
     implementation("info.picocli:picocli:4.7.7")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-network-tls-jvm:2.3.13")
-    implementation("io.ktor:ktor-network-tls-certificates-jvm:2.3.13")
+    implementation("io.ktor:ktor-network-tls-certificates-jvm:3.6.0")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.4")
 
