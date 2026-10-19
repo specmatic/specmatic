@@ -34,10 +34,23 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Changed
 
-- Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Configure this repository in your build:
+- Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Sonatype announced that, from October 1, 2026, publishing artifacts with a commercial nature requires Maven Central Publisher Pro regardless of publishing volume ([policy details](https://central.sonatype.org/news/20260908_publisher_tiers_commercial_use/)). Add the Specmatic releases repository to your build:
 
+  Gradle:
+  ```groovy
+  repositories {
+      maven { url = uri("https://repo.specmatic.io/releases/") }
+  }
   ```
-  https://repo.specmatic.io/releases/
+
+  Maven:
+  ```xml
+  <repositories>
+    <repository>
+      <id>specmatic-releases</id>
+      <url>https://repo.specmatic.io/releases/</url>
+    </repository>
+  </repositories>
   ```
 
 ### Fixed
