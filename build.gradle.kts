@@ -30,7 +30,6 @@ allprojects {
 specmatic {
     promotion {
         sourceMavenRepository("specmaticSnapshots", "https://repo.specmatic.io/snapshots")
-        targetMavenCentral()
         targetMavenRepository(
             "specmaticReleases",
             "https://repo.specmatic.io/releases",

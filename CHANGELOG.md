@@ -32,6 +32,27 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Changed
+
+- Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Sonatype announced that, from October 1, 2026, publishing artifacts with a commercial nature requires Maven Central Publisher Pro regardless of publishing volume ([policy details](https://central.sonatype.org/news/20260908_publisher_tiers_commercial_use/)). Add the Specmatic releases repository to your build:
+
+  Gradle:
+  ```groovy
+  repositories {
+      maven { url = uri("https://repo.specmatic.io/releases/") }
+  }
+  ```
+
+  Maven:
+  ```xml
+  <repositories>
+    <repository>
+      <id>specmatic-releases</id>
+      <url>https://repo.specmatic.io/releases/</url>
+    </repository>
+  </repositories>
+  ```
+
 ### Fixed
 
 - `STATUS` filter equality no longer treats generated negative tests as matching every declared 4xx code on the operation. Exact codes such as `STATUS='429'` select only tests with that expected status, so rate-limit example tests can run without schema-resiliency negatives. Use `STATUS='4xx'` (and other `Nxx` class tokens) to select by status class: `4xx` matches generated negatives and declared 4xx tests when those responses remain in scope after the first filter pass.
