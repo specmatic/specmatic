@@ -2606,6 +2606,7 @@ data class Feature(
             protocol: SpecmaticProtocol,
             exampleDirPaths: List<String> = emptyList(),
             changeTrackingSource: OpenApiChangeTrackingSource? = null,
+            externalReferenceFiles: Set<String> = emptySet(),
         ): Feature {
             val inlineExamples = stubsFromExamples.flatMap { (exampleName, stubs) ->
                 stubs.map { (request, response) ->
@@ -2627,6 +2628,7 @@ data class Feature(
                 protocol = protocol,
                 exampleDirPaths = exampleDirPaths,
                 changeTrackingSource = changeTrackingSource,
+                externalReferenceFiles = externalReferenceFiles,
             )
         }
 
@@ -2645,6 +2647,7 @@ data class Feature(
             protocol: SpecmaticProtocol,
             exampleDirPaths: List<String> = emptyList(),
             changeTrackingSource: OpenApiChangeTrackingSource? = null,
+            externalReferenceFiles: Set<String> = emptySet(),
         ): Feature {
             return Feature(
                 scenarios = scenarios,
@@ -2661,6 +2664,7 @@ data class Feature(
                 protocol = protocol,
                 exampleDirPaths = exampleDirPaths,
                 changeTrackingSource = changeTrackingSource,
+                externalReferenceFiles = externalReferenceFiles,
             )
         }
     }
