@@ -647,7 +647,6 @@ class OpenApiSpecification(
             protocol = protocol,
             exampleDirPaths = exampleDirPaths,
             changeTrackingSource = changeTrackingSource,
-            lenientMode = lenientMode,
         ).copy(externalReferenceFiles = externalReferenceFiles)
 
         return Pair(feature, rootContext.toCollector().toResult())
