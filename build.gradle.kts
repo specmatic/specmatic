@@ -33,7 +33,7 @@ specmatic {
         targetMavenRepository(
             "specmaticReleases",
             "https://repo.specmatic.io/releases",
-            RepoType.PUBLISH_OBFUSCATED_ONLY
+            RepoType.PUBLISH_ALL
         )
         dockerImage("specmatic/specmatic-snapshots", "specmatic/specmatic")
     }
