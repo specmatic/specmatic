@@ -938,43 +938,6 @@ paths:
     }
 
     @Test
-    fun `loadTestScenarios should skip invalid inline examples in lenient mode`(@TempDir tempDir: File) {
-        val specFile = writeInvalidInlineExampleSpec(tempDir)
-        val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = true)
-
-        val loaded = SpecmaticJUnitSupport().loadTestScenarios(
-            path = specFile.canonicalPath,
-            filterName = null,
-            filterNotName = null,
-            specmaticConfig = specmaticConfig,
-            filter = ScenarioMetadataFilter.from("")
-        )
-
-        val testDescriptions = loaded.scenarios.executedTestDescriptions()
-        assertThat(loaded.exampleValidationResult).isInstanceOf(Result.Success::class.java)
-        assertThat(testDescriptions).anyMatch { it.contains("valid-inline") }
-        assertThat(testDescriptions).noneMatch { it.contains("invalid-inline") }
-    }
-
-    @Test
-    fun `loadTestScenarios should preserve invalid inline example behavior in non lenient mode`(@TempDir tempDir: File) {
-        val specFile = writeInvalidInlineExampleSpec(tempDir)
-        val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = false)
-
-        val exception = assertThrows<ContractException> {
-            SpecmaticJUnitSupport().loadTestScenarios(
-                path = specFile.canonicalPath,
-                filterName = null,
-                filterNotName = null,
-                specmaticConfig = specmaticConfig,
-                filter = ScenarioMetadataFilter.from("")
-            )
-        }
-
-        assertThat(exception.report()).contains("invalid-inline")
-    }
-
-    @Test
     fun `loadTestScenarios should throw when invalid examples exist in non lenient mode`() {
         val specFile = File("src/test/resources/invalid_example/openapi.yaml")
         val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = false)
@@ -1460,51 +1423,6 @@ paths:
         return tempDir.resolve(name).apply {
             writeText(openApiSpec("orders", "/orders"))
         }
-    }
-
-    private fun writeInvalidInlineExampleSpec(tempDir: File): File = File(tempDir, "inline-examples.yaml").apply {
-        writeText(
-            """
-            openapi: 3.0.0
-            info:
-              title: Inline examples
-              version: 1.0.0
-            paths:
-              /test:
-                post:
-                  requestBody:
-                    required: true
-                    content:
-                      application/json:
-                        schema:
-                          ${'$'}ref: '#/components/schemas/Body'
-                        examples:
-                          valid-inline:
-                            value: { id: 1 }
-                          invalid-inline:
-                            value: { id: 2 }
-                  responses:
-                    '201':
-                      description: Created
-                      content:
-                        application/json:
-                          schema:
-                            ${'$'}ref: '#/components/schemas/Body'
-                          examples:
-                            valid-inline:
-                              value: { id: 10 }
-                            invalid-inline:
-                              value: { id: not-a-number }
-            components:
-              schemas:
-                Body:
-                  type: object
-                  required: [id]
-                  properties:
-                    id:
-                      type: number
-            """.trimIndent()
-        )
     }
 
     private fun writeSpecmaticConfig(

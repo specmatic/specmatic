@@ -14,7 +14,6 @@ import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.examples.source.ExampleSource
 import io.specmatic.core.examples.source.FeatureAndExamples
 import io.specmatic.core.examples.source.PreLoadedExampleObjects
-import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
@@ -186,7 +185,6 @@ data class Feature(
     val exampleDirPaths: List<String> = emptyList(),
     val changeTrackingSource: OpenApiChangeTrackingSource? = null,
     val externalReferenceFiles: Set<String> = emptySet(),
-    val lenientMode: Boolean = false,
 ): IFeature {
     private val cachedScenariosForChangeTracking: List<Scenario> by lazy {
         changeTrackingSource?.scenarios(
@@ -254,15 +252,8 @@ data class Feature(
 
     fun lookupResponse(scenario: Scenario): HttpResponse = scenario.generateHttpResponse()
 
-    fun inlineExamplesForStub(): List<NamedStub> = if (lenientMode) {
-        ExampleValidationModule(specmaticConfig = specmaticConfig)
-            .filterInvalidInlineExamples(this, inlineNamedStubs)
-    } else {
-        inlineNamedStubs
-    }
-
     fun loadInlineExamplesAsStub(): List<ReturnValue<HttpStubData>> {
-        return inlineExamplesForStub().mapNotNull { namedStub ->
+        return this.inlineNamedStubs.mapNotNull { namedStub ->
             val exampleName = namedStub.name
             val stub = namedStub.stub
             try {
@@ -2520,17 +2511,14 @@ data class Feature(
     }
 
     fun validateAndFilterExamples(): Pair<Feature, Result> {
-        val result = scenarios.map { it.validateAndFilterExamples(flagsBased, skipInvalidInlineExamples = lenientMode) }
+        val result = scenarios.map { scenario -> scenario.validateAndFilterExamples(flagsBased) }
         return Pair(this.copy(scenarios = result.map { it.first }), Result.fromResults(result.map { it.second }))
     }
 
     fun validateAndFilterExamples(scenarioDecisions: Sequence<Decision<Scenario, Scenario>>): Pair<Sequence<Decision<Scenario, Scenario>>, Result> {
         val validatedScenariosWithResult = scenarioDecisions.map { scenarioDecision ->
             if (scenarioDecision !is Decision.Execute) return@map Pair(scenarioDecision, Success())
-            val (validatedScenario, result) = scenarioDecision.value.validateAndFilterExamples(
-                flagsBased,
-                skipInvalidInlineExamples = lenientMode
-            )
+            val (validatedScenario, result) = scenarioDecision.value.validateAndFilterExamples(flagsBased)
             Decision.Execute(validatedScenario, scenarioDecision.context, scenarioDecision.reasoning) to result
         }.toList()
 
@@ -2618,7 +2606,6 @@ data class Feature(
             protocol: SpecmaticProtocol,
             exampleDirPaths: List<String> = emptyList(),
             changeTrackingSource: OpenApiChangeTrackingSource? = null,
-            lenientMode: Boolean = false,
         ): Feature {
             val inlineExamples = stubsFromExamples.flatMap { (exampleName, stubs) ->
                 stubs.map { (request, response) ->
@@ -2640,7 +2627,6 @@ data class Feature(
                 protocol = protocol,
                 exampleDirPaths = exampleDirPaths,
                 changeTrackingSource = changeTrackingSource,
-                lenientMode = lenientMode,
             )
         }
 
@@ -2659,7 +2645,6 @@ data class Feature(
             protocol: SpecmaticProtocol,
             exampleDirPaths: List<String> = emptyList(),
             changeTrackingSource: OpenApiChangeTrackingSource? = null,
-            lenientMode: Boolean = false,
         ): Feature {
             return Feature(
                 scenarios = scenarios,
@@ -2676,7 +2661,6 @@ data class Feature(
                 protocol = protocol,
                 exampleDirPaths = exampleDirPaths,
                 changeTrackingSource = changeTrackingSource,
-                lenientMode = lenientMode,
             )
         }
     }
