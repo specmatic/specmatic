@@ -21,6 +21,7 @@ internal sealed interface RegexToken {
 
     sealed interface GroupStart : RegexToken {
         data class Regular(override val span: RegexSpan) : GroupStart
+        data class Named(override val span: RegexSpan, val name: String) : GroupStart
         data class Special(override val span: RegexSpan) : GroupStart
 
         sealed interface Lookaround : GroupStart {

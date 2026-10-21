@@ -116,7 +116,7 @@ internal class RegexScannerTest {
                 RegexGroup.Regular(RegexToken.GroupStart.Special(RegexSpan(0, 2)), RegexToken.GroupEnd(RegexSpan(3, 4))),
             )
             assertThat(scanned("(?<name>a)").groups).containsExactly(
-                RegexGroup.Regular(RegexToken.GroupStart.Special(RegexSpan(0, 2)), RegexToken.GroupEnd(RegexSpan(9, 10))),
+                RegexGroup.Regular(RegexToken.GroupStart.Named(RegexSpan(0, 8), "name"), RegexToken.GroupEnd(RegexSpan(9, 10))),
             )
         }
     }

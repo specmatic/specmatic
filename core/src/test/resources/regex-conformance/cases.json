@@ -436,7 +436,7 @@
       "dialect": "ECMAScript",
       "pattern": "^(?=(a))\\1$",
       "syntaxValid": true,
-      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "generation": "UNSUPPORTED",
       "source": "custom",
       "candidates": [
         {
@@ -444,7 +444,7 @@
           "matches": true
         }
       ],
-      "deferredReason": "Existing cleanup/dk.brics does not resolve backreference or octal escapes. Capture and numeric-escape semantics are deferred to a follow-up PR."
+      "reason": "Backreferences are outside scope; capture-insensitive generation requires them to be absent."
     },
     {
       "id": "inline-flags",
@@ -952,15 +952,14 @@
       "dialect": "ECMAScript",
       "pattern": "^(?=a)(?<name>a)$",
       "syntaxValid": true,
-      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "generation": "SUPPORTED",
       "source": "custom",
       "candidates": [
         {
           "value": "a",
           "matches": true
         }
-      ],
-      "deferredReason": "Existing cleanup/dk.brics does not preserve named-group syntax. Shared named-group handling is deferred to a follow-up PR."
+      ]
     },
     {
       "id": "legacy-octal",
@@ -1337,7 +1336,7 @@
       "dialect": "ECMAScript",
       "pattern": "^(?=a)(a)()()()()()()()\\8$",
       "syntaxValid": true,
-      "generation": "SUPPORTED",
+      "generation": "UNSUPPORTED",
       "source": "custom",
       "candidates": [
         {
@@ -1349,7 +1348,7 @@
           "matches": false
         }
       ],
-      "deferredReason": "Existing cleanup/dk.brics does not resolve backreference or octal escapes. Capture and numeric-escape semantics are deferred to a follow-up PR."
+      "reason": "Backreferences are outside scope; capture-insensitive generation requires them to be absent."
     },
     {
       "id": "negative-mixed-complement-underscore",
@@ -1405,6 +1404,79 @@
           "matches": false
         }
       ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "named-assertion-body",
+      "pattern": "^(?=(?<body>ab))(?<value>ab)$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "aa",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "named-assertion-container",
+      "pattern": "^(?<outer>a(?=b)b)$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "negative-named-assertion-body",
+      "pattern": "^(?!(?<bad>a))[ab]$",
+      "candidates": [
+        {
+          "value": "b",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "id": "named-backreference-deferred",
+      "pattern": "^(?=(?<name>a))\\k<name>$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ],
+      "reason": "Named backreference semantics are outside scope; erasing capture names requires references absent."
     }
   ]
 }

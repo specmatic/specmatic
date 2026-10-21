@@ -136,17 +136,8 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
             .replaceRegexLowerBounds()
             .replaceShorthandCharacterClasses()
             .requote()
-            .replaceNonCapturingGroups()
+            .normalizeRegularTokens()
             .replaceUnescapedDot()
-            .removeLazyQuantifiers()
-    }
-
-    private fun String.removeLazyQuantifiers(): String {
-        return RegexScanner().scan(this).tokens.joinToString("") { token ->
-            val text = token.text(this)
-            // Remove preference modifiers, not optional atoms or literal question marks: a+? -> a+.
-            if (token is RegexToken.Quantifier && text.length > 1 && text.endsWith('?')) text.dropLast(1) else text
-        }
     }
 
     private fun String.removeOuterAnchors(): String {
@@ -261,47 +252,17 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
         }
     }
 
-    private fun String.replaceNonCapturingGroups(): String {
-        val result = StringBuilder(length)
-        var insideCharClass = false
-        var pendingEscape = false
-        var index = 0
-
-        while (index < length) {
-            val ch = this[index]
-            when {
-                pendingEscape -> {
-                    result.append(ch)
-                    pendingEscape = false
-                    index++
-                }
-                ch == '\\' -> {
-                    pendingEscape = true
-                    result.append(ch)
-                    index++
-                }
-                ch == '[' -> {
-                    insideCharClass = true
-                    result.append(ch)
-                    index++
-                }
-                ch == ']' -> {
-                    insideCharClass = false
-                    result.append(ch)
-                    index++
-                }
-                !insideCharClass && ch == '(' && index + 2 < length && this[index + 1] == '?' && this[index + 2] == ':' -> {
-                    result.append('(')
-                    index += 3
-                }
-                else -> {
-                    result.append(ch)
-                    index++
-                }
+    private fun String.normalizeRegularTokens(): String {
+        return RegexScanner().scan(this).tokens.joinToString("") { token ->
+            val text = token.text(this)
+            when (token) {
+                is RegexToken.GroupStart.Named -> "("
+                is RegexToken.GroupStart.Regular -> if (text == "(?:") "(" else text
+                // Preference modifiers do not change repetition counts: a+? -> a+; literal question marks stay intact.
+                is RegexToken.Quantifier -> if (text.length > 1 && text.endsWith('?')) text.dropLast(1) else text
+                else -> text
             }
         }
-
-        return result.toString()
     }
 
     private fun String.replaceEcmaEndAssertions(): String {

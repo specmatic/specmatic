@@ -16,6 +16,25 @@ import org.junit.jupiter.params.provider.ValueSource
 
 class RegExSpecTest {
     @Nested
+    inner class NamedCaptures {
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = [
+            "(?<name>ab)→(ab)", "(?<outer>a(?<inner>b))→(a(b))", "[()]\\(→[()]\\(",
+        ])
+        fun `normalizes capture prefixes without changing literal parentheses`(source: String, expected: String) {
+            assertThat(RegExSpec(null).cleanRegularRegexContent(source)).isEqualTo(expected)
+        }
+
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = ["^(?<value>ab)$→ab", "^(?<outer>a(?<inner>b))$→ab"])
+        fun `generates ordinary named captures without backreferences`(source: String, expected: String) {
+            val spec = RegExSpec(source)
+            assertThat(spec.generateShortestStringOrRandom(0)).isEqualTo(expected)
+            assertThat(spec.match(StringValue(expected))).isTrue()
+        }
+    }
+
+    @Nested
     inner class LazyQuantifiers {
         @ParameterizedTest
         @CsvSource(delimiter = '→', value = [

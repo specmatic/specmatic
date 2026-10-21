@@ -86,18 +86,24 @@ internal class RegexScanner {
             ':' -> RegexToken.GroupStart.Regular(span)
             '=' -> RegexToken.GroupStart.Lookaround.Ahead(span, LookaroundPolarity.POSITIVE)
             '!' -> RegexToken.GroupStart.Lookaround.Ahead(span, LookaroundPolarity.NEGATIVE)
-            '<' -> lookbehindOpening(source, start)
+            '<' -> lookbehindOrNamedOpening(source, start)
             else -> RegexToken.GroupStart.Special(RegexSpan(start, start + 2))
         }
     }
 
-    private fun lookbehindOpening(source: String, start: Int): RegexToken.GroupStart {
+    private fun lookbehindOrNamedOpening(source: String, start: Int): RegexToken.GroupStart {
         val span = RegexSpan(start, (start + 4).coerceAtMost(source.length))
         return when (source.getOrNull(start + 3)) {
             '=' -> RegexToken.GroupStart.Lookaround.Behind(span, LookaroundPolarity.POSITIVE)
             '!' -> RegexToken.GroupStart.Lookaround.Behind(span, LookaroundPolarity.NEGATIVE)
-            else -> RegexToken.GroupStart.Special(RegexSpan(start, start + 2))
+            else -> namedOpening(source, start)
         }
+    }
+
+    private fun namedOpening(source: String, start: Int): RegexToken.GroupStart {
+        val closing = source.indexOf('>', start + 3)
+        if (closing < 0) return RegexToken.GroupStart.Special(RegexSpan(start, start + 2))
+        return RegexToken.GroupStart.Named(RegexSpan(start, closing + 1), source.substring(start + 3, closing))
     }
 
     private companion object {
