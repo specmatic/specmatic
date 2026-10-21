@@ -66,6 +66,45 @@ internal class RegexLookaroundCompilerTest {
     }
 
     @Nested
+    inner class NamedCaptures {
+        @ParameterizedTest
+        @ValueSource(strings = ["user_id", "_id", "\$id", "é"])
+        fun `compiles ECMAScript capture names that the JVM runtime dialect rejects`(name: String) {
+            assertThat(compile("^(?=a)(?<$name>a)$")).isEqualTo(Automaton.makeString("a"))
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["user_id", "_id", "\$id", "é"])
+        fun `still declines named backreferences for every recognized capture name`(name: String) {
+            assertThat(compiler().compile("^(?=(?<$name>a))\\k<$name>$")).isEqualTo(
+                RegexLookaroundCompilation.Unsupported("Backreferences are outside lookaround generation support"),
+            )
+        }
+    }
+
+    @Nested
+    inner class CleanupOrdering {
+        @Test
+        fun `cleans main and assertion content once without interpreting capture names as anchors`() {
+            val inputs = mutableListOf<String>()
+            val compiler = RegexLookaroundCompiler(RegexMatchMode.SEARCH) { expression ->
+                inputs += expression
+                RegExSpec(null).cleanRegularRegexContent(expression)
+            }
+            val result = compiler.compile("^(?=a)(?<\$id>a)$")
+            assertThat(result).isInstanceOf(RegexLookaroundCompilation.Compiled::class.java)
+            assertThat((result as RegexLookaroundCompilation.Compiled).automaton).isEqualTo(Automaton.makeString("a"))
+            assertThat(inputs).containsExactly("^\uE000(?<\$id>a)$", "a")
+        }
+
+        @Test
+        fun `preserves explicit unsupported results when regular content cleanup fails`() {
+            val compiler = RegexLookaroundCompiler(RegexMatchMode.SEARCH) { throw IllegalArgumentException("Unsupported regular content") }
+            assertThat(compiler.compile("(?=a)a")).isEqualTo(RegexLookaroundCompilation.Unsupported("Unsupported regular content"))
+        }
+    }
+
+    @Nested
     inner class IndependentAssertionComposition {
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = '→', value = [
@@ -100,6 +139,7 @@ internal class RegexLookaroundCompilerTest {
             "^(a(?=b)b|c)$→ab|c",
             "^x(a(?=b)b|c)y$→xaby|xcy",
             "^(?<value>a(?=b)b|c)$→ab|c",
+            "^(?<\$id>a(?=b)b|c)$→ab|c",
             "^((?=a)a|b)((?=c)c|d)$→ac|ad|bc|bd",
             "^a((?=b)b|c)(?<=ab)d$→abd",
             "^((?=a)a|((?=b)b|c))$→a|b|c",

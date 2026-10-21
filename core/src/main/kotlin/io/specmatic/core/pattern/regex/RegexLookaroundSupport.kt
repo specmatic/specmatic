@@ -3,15 +3,16 @@ package io.specmatic.core.pattern.regex
 internal class RegexLookaroundSupport(private val source: String, private val scanned: RegexScanner.Result.Scanned) {
     private val tokens = scanned.tokens
     private val assertions = scanned.groups.filterIsInstance<RegexGroup.Lookaround>()
-    private val captureCount = scanned.groups.count { it.opening is RegexToken.GroupStart.Named || it.opening.text(source) == "(" }
-    private val hasNamedCaptures = scanned.groups.any { it.opening is RegexToken.GroupStart.Named }
     private val enclosingGroups = assertions.flatMap { scanned.enclosingGroups(it.span) }.toSet()
+    private val hasNamedCaptures = scanned.groups.any { it.opening is RegexToken.GroupStart.Named }
+    private val captureCount = scanned.groups.count { it.opening is RegexToken.GroupStart.Named || it.opening.text(source) == "(" }
 
     fun unsupportedReason(): String? {
         // Capture-insensitive compilation requires references absent: (?<value>a)\k<value> or (a)\1.
         if (tokens.filterIsInstance<RegexToken.Escape>().any(::isBackreference)) {
             return "Backreferences are outside lookaround generation support"
         }
+
         // Flag handling is outside scope: (?i)(?=a)a would need case-insensitive assertion evaluation.
         val specialGroups = tokens.filterIsInstance<RegexToken.GroupStart.Special>()
         if (specialGroups.any { source.getOrNull(it.span.end)?.isLetter() == true }) {
@@ -23,9 +24,11 @@ internal class RegexLookaroundSupport(private val source: String, private val sc
 
     private fun isBackreference(escape: RegexToken.Escape): Boolean {
         val escaped = source.getOrNull(escape.span.start + 1) ?: return false
-        if (escaped == 'k') return hasNamedCaptures && source.getOrNull(escape.span.end) == '<'
+        if (escaped == 'k') {
+            return hasNamedCaptures && source.getOrNull(escape.span.end) == '<'
+        }
+
         val firstDigit = escaped.digitToIntOrNull() ?: return false
-        // Conservatively defer ambiguous multi-digit references; class escapes never reach this check.
         return firstDigit in 1..captureCount
     }
 
@@ -35,8 +38,8 @@ internal class RegexLookaroundSupport(private val source: String, private val sc
             return "ECMAScript lookbehind cannot be quantified"
         }
 
-        val anchors = tokens.filterIsInstance<RegexToken.Anchor>()
         // Body compilation has no input-boundary context: (?=a$).
+        val anchors = tokens.filterIsInstance<RegexToken.Anchor>()
         if (anchors.any { anchor -> assertions.any { it.body.contains(anchor.span) } }) {
             return "Anchors inside assertion bodies are unsupported"
         }

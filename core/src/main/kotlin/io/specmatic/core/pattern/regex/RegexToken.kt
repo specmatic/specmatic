@@ -14,6 +14,10 @@ internal sealed interface RegexToken {
     data class Anchor(override val span: RegexSpan) : RegexToken
     data class GroupEnd(override val span: RegexSpan) : RegexToken
     data class Character(override val span: RegexSpan) : RegexToken
+    data class Alternation(override val span: RegexSpan) : RegexToken
+    data class QuotedLiteral(override val span: RegexSpan) : RegexToken
+    data class CharacterClass(override val span: RegexSpan) : RegexToken
+
     data class Quantifier(override val span: RegexSpan) : RegexToken {
         fun permitsZero(source: String): Boolean {
             val text = text(source)
@@ -24,14 +28,11 @@ internal sealed interface RegexToken {
             val ZERO_MINIMUM = Regex("""\{0+(?:,\d*)?}\??""")
         }
     }
-    data class Alternation(override val span: RegexSpan) : RegexToken
-    data class QuotedLiteral(override val span: RegexSpan) : RegexToken
-    data class CharacterClass(override val span: RegexSpan, val escapes: List<Escape>) : RegexToken
 
     sealed interface GroupStart : RegexToken {
         data class Regular(override val span: RegexSpan) : GroupStart
-        data class Named(override val span: RegexSpan, val name: String) : GroupStart
         data class Special(override val span: RegexSpan) : GroupStart
+        data class Named(override val span: RegexSpan, val name: String) : GroupStart
 
         sealed interface Lookaround : GroupStart {
             val polarity: LookaroundPolarity

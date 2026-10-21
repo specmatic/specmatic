@@ -7,6 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class RegexScannerTest {
     @Nested
@@ -31,7 +32,7 @@ internal class RegexScannerTest {
                 RegexToken.Anchor(RegexSpan(0, 1)),
                 RegexToken.Character(RegexSpan(1, 2)),
                 RegexToken.Escape(RegexSpan(2, 4)),
-                RegexToken.CharacterClass(RegexSpan(4, 8), listOf(RegexToken.Escape(RegexSpan(5, 7)))),
+                RegexToken.CharacterClass(RegexSpan(4, 8)),
                 RegexToken.Quantifier(RegexSpan(8, 10)),
                 RegexToken.Alternation(RegexSpan(10, 11)),
                 RegexToken.Character(RegexSpan(11, 12)),
@@ -44,7 +45,7 @@ internal class RegexScannerTest {
         fun `keeps assertion text inside an escaped character class literal`() {
             val source = """[\](?=)](?=a)a"""
             assertThat(scanned(source).tokens).containsExactly(
-                RegexToken.CharacterClass(RegexSpan(0, 8), listOf(RegexToken.Escape(RegexSpan(1, 3)))),
+                RegexToken.CharacterClass(RegexSpan(0, 8)),
                 RegexToken.GroupStart.Lookaround.Ahead(RegexSpan(8, 11), LookaroundPolarity.POSITIVE),
                 RegexToken.Character(RegexSpan(11, 12)),
                 RegexToken.GroupEnd(RegexSpan(12, 13)),
@@ -63,7 +64,7 @@ internal class RegexScannerTest {
                         RegexToken.Escape(RegexSpan(0, 2)),
                         opening,
                         RegexToken.Character(RegexSpan(5, 6)),
-                        RegexToken.CharacterClass(RegexSpan(6, 10), emptyList()),
+                        RegexToken.CharacterClass(RegexSpan(6, 10)),
                         closing,
                         RegexToken.Character(RegexSpan(11, 12)),
                         RegexToken.Escape(RegexSpan(12, 14)),
@@ -122,6 +123,31 @@ internal class RegexScannerTest {
     }
 
     @Nested
+    inner class NamedCaptures {
+        @ParameterizedTest
+        @ValueSource(strings = ["name", "user_id", "_id", "\$id", "é"])
+        fun `recognizes capture names structurally without imposing JVM identifier rules`(name: String) {
+            val source = "(?<$name>a)"
+            val bodyStart = name.length + 4
+            val opening = RegexToken.GroupStart.Named(RegexSpan(0, bodyStart), name)
+            val closing = RegexToken.GroupEnd(RegexSpan(bodyStart + 1, bodyStart + 2))
+            assertThat(RegexScanner().scan(source)).isEqualTo(
+                RegexScanner.Result.Scanned(
+                    tokens = listOf(opening, RegexToken.Character(RegexSpan(bodyStart, bodyStart + 1)), closing),
+                    groups = listOf(RegexGroup.Regular(opening, closing)),
+                ),
+            )
+        }
+
+        @Test
+        fun `leaves an unterminated capture name as special syntax`() {
+            assertThat(scanned("(?<name)a").groups).containsExactly(
+                RegexGroup.Regular(RegexToken.GroupStart.Special(RegexSpan(0, 2)), RegexToken.GroupEnd(RegexSpan(7, 8))),
+            )
+        }
+    }
+
+    @Nested
     inner class QuantifierBounds {
         @ParameterizedTest
         @CsvSource(delimiter = '→', value = [
@@ -160,7 +186,7 @@ internal class RegexScannerTest {
             )
             assertThat(RegexScanner().scan("[\\")).isEqualTo(
                 RegexScanner.Result.Scanned(
-                    listOf(RegexToken.CharacterClass(RegexSpan(0, 2), listOf(RegexToken.Escape(RegexSpan(1, 2))))),
+                    listOf(RegexToken.CharacterClass(RegexSpan(0, 2))),
                     emptyList(),
                 ),
             )

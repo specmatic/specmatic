@@ -20,6 +20,7 @@ class RegExSpecTest {
         @ParameterizedTest
         @CsvSource(delimiter = '→', value = [
             "(?<name>ab)→(ab)", "(?<outer>a(?<inner>b))→(a(b))", "[()]\\(→[()]\\(",
+            "(?<user_id>ab)→(ab)", "(?<_id>ab)→(ab)", "(?<\$id>ab)→(ab)", "(?<é>ab)→(ab)",
         ])
         fun `normalizes capture prefixes without changing literal parentheses`(source: String, expected: String) {
             assertThat(RegExSpec(null).cleanRegularRegexContent(source)).isEqualTo(expected)
@@ -31,6 +32,17 @@ class RegExSpecTest {
             val spec = RegExSpec(source)
             assertThat(spec.generateShortestStringOrRandom(0)).isEqualTo(expected)
             assertThat(spec.match(StringValue(expected))).isTrue()
+        }
+    }
+
+    @Nested
+    inner class InheritedEscapeGeneration {
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = ["^\\t$→t", "^\\x61$→x61", "^\\u0061$→u0061"])
+        fun `retains existing escape decoding inaccuracies in ordinary generation`(source: String, expected: String) {
+            val spec = RegExSpec(source)
+            assertThat(spec.generateShortestStringOrRandom(0)).isEqualTo(expected)
+            assertThat(spec.match(StringValue(expected))).isFalse()
         }
     }
 

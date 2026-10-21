@@ -16,6 +16,7 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         if (scan.tokens.none { it is RegexToken.GroupStart.Lookaround }) {
             return RegexLookaroundCompilation.NotApplicable
         }
+
         return compileScanned(regex, scan, BRANCH_BUDGET)
     }
 
@@ -30,7 +31,9 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         }
 
         val branches = RegexLookaroundBranches().split(regex, scanned)
-        if (branches.size > 1) return compileBranches(branches, branchBudget)
+        if (branches.size > 1) {
+            return compileBranches(branches, branchBudget)
+        }
 
         return when (val extracted = RegexLookaroundExtractor().extract(regex, scanned)) {
             is RegexLookaroundExtraction.Extracted -> compileExtracted(extracted)
@@ -42,6 +45,7 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         if (branches.size > branchBudget) {
             return RegexLookaroundCompilation.Unsupported("Lookaround alternative expansion exceeds the branch budget of $BRANCH_BUDGET")
         }
+
         val automata = mutableListOf<Automaton>()
         for (branch in branches) {
             // Divide the budget between siblings to bound products of independent assertion branches.
@@ -49,20 +53,23 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
             if (result !is RegexLookaroundCompilation.Compiled) return result
             automata += result.automaton
         }
+
         return RegexLookaroundCompilation.Compiled(Automaton.union(automata))
     }
 
     private fun compileExtracted(pattern: RegexLookaroundExtraction.Extracted): RegexLookaroundCompilation {
-        val anchors = OpenApiRegexAnchorNormalizer(
-            anyCharacterSequence = "[\u0000-\u007F]*",
-            allowUnanchoredSides = matchMode == RegexMatchMode.SEARCH,
-        ).normalize(pattern.expression)
-
-        if (anchors is OpenApiRegexAnchorNormalizer.Result.Unsupported) {
-            return RegexLookaroundCompilation.Unsupported(anchors.reason)
-        }
-
         return try {
+            // Strip capture prefixes before examining anchors: $ in (?<$id>a) belongs to the name.
+            val cleanedExpression = cleanRegularContent(pattern.expression)
+            val anchors = OpenApiRegexAnchorNormalizer(
+                anyCharacterSequence = "[\u0000-\u007F]*",
+                allowUnanchoredSides = matchMode == RegexMatchMode.SEARCH,
+            ).normalize(cleanedExpression)
+
+            if (anchors is OpenApiRegexAnchorNormalizer.Result.Unsupported) {
+                return RegexLookaroundCompilation.Unsupported(anchors.reason)
+            }
+
             val asciiStrings = Automaton.makeCharRange('\u0000', '\u007F').repeat()
             val main = compileMain(anchors, asciiStrings)
             val constrained = constrainAssertions(main, pattern.assertions, asciiStrings)
@@ -109,7 +116,7 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
     private fun assertionCondition(assertion: MarkedAssertion, asciiStrings: Automaton, markerStrings: Automaton): Automaton {
         // No search normalisation here: a body must match immediately next to its marker.
         // It consumes only input characters, skipping other zero-width assertion markers.
-        val body = compileRegular(assertion.body).intersection(asciiStrings).shuffle(markerStrings)
+        val body = compileRegular(cleanRegularContent(assertion.body)).intersection(asciiStrings).shuffle(markerStrings)
         val marker = Automaton.makeChar(assertion.marker)
         val local = when (assertion.lookaround) {
             is RegexToken.GroupStart.Lookaround.Ahead -> marker.concatenate(body)
@@ -120,7 +127,7 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
     }
 
     private fun compileRegular(regex: String): Automaton {
-        return RegExp(cleanRegularContent(regex), 0).toAutomaton()
+        return RegExp(regex, 0).toAutomaton()
     }
 
     private companion object {

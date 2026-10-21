@@ -8,8 +8,9 @@ internal class RegexScanner {
         data class Scanned(override val tokens: List<RegexToken>, val groups: List<RegexGroup>) : Result {
             fun innermostGroup(span: RegexSpan): RegexGroup? = enclosingGroups(span).maxByOrNull { it.span.start }
             fun enclosingGroups(span: RegexSpan): List<RegexGroup> = groups.filter { it.body.contains(span) }
-            fun quantifierAfter(group: RegexGroup): RegexToken.Quantifier? =
-                tokens.firstOrNull { it.span.start == group.span.end } as? RegexToken.Quantifier
+            fun quantifierAfter(group: RegexGroup): RegexToken.Quantifier? {
+                return tokens.firstOrNull { it.span.start == group.span.end } as? RegexToken.Quantifier
+            }
         }
     }
 
@@ -64,31 +65,33 @@ internal class RegexScanner {
     }
 
     private fun escapedToken(source: String, start: Int): RegexToken {
+        // Preserve existing JVM-style \Q...\E quoting for compatibility; this is not ECMAScript syntax.
         if (source.startsWith("\\Q", start)) {
             val closing = source.indexOf("\\E", start + 2)
-            return RegexToken.QuotedLiteral(RegexSpan(start, if (closing < 0) source.length else closing + 2))
+            val end = if (closing < 0) source.length else closing + 2
+            return RegexToken.QuotedLiteral(RegexSpan(start, end))
         }
 
-        return RegexToken.Escape(RegexSpan(start, (start + 2).coerceAtMost(source.length)))
+        val escapeEnd = (start + 2).coerceAtMost(source.length)
+        return RegexToken.Escape(RegexSpan(start, escapeEnd))
     }
 
     private fun characterClass(source: String, start: Int): RegexToken.CharacterClass {
         val match = requireNotNull(CHARACTER_CLASS.matchAt(source, start))
-        val escapes = CLASS_ESCAPE.findAll(match.value).map { escape ->
-            RegexToken.Escape(RegexSpan(start + escape.range.first, start + escape.range.last + 1))
-        }.toList()
-
-        return RegexToken.CharacterClass(RegexSpan(start, match.range.last + 1), escapes)
+        return RegexToken.CharacterClass(RegexSpan(start, match.range.last + 1))
     }
 
     private fun groupOpening(source: String, start: Int): RegexToken.GroupStart {
-        if (!source.startsWith("(?", start)) return RegexToken.GroupStart.Regular(RegexSpan(start, start + 1))
+        if (!source.startsWith("(?", start)) {
+            return RegexToken.GroupStart.Regular(RegexSpan(start, start + 1))
+        }
+
         val span = RegexSpan(start, (start + 3).coerceAtMost(source.length))
         return when (source.getOrNull(start + 2)) {
             ':' -> RegexToken.GroupStart.Regular(span)
+            '<' -> lookbehindOrNamedOpening(source, start)
             '=' -> RegexToken.GroupStart.Lookaround.Ahead(span, LookaroundPolarity.POSITIVE)
             '!' -> RegexToken.GroupStart.Lookaround.Ahead(span, LookaroundPolarity.NEGATIVE)
-            '<' -> lookbehindOrNamedOpening(source, start)
             else -> RegexToken.GroupStart.Special(RegexSpan(start, start + 2))
         }
     }
@@ -104,14 +107,20 @@ internal class RegexScanner {
 
     private fun namedOpening(source: String, start: Int): RegexToken.GroupStart {
         val closing = source.indexOf('>', start + 3)
-        if (closing < 0) return RegexToken.GroupStart.Special(RegexSpan(start, start + 2))
-        return RegexToken.GroupStart.Named(RegexSpan(start, closing + 1), source.substring(start + 3, closing))
+        if (closing < 0) {
+            return RegexToken.GroupStart.Special(RegexSpan(start, start + 2))
+        }
+
+        val name = source.substring(start + 3, closing)
+        return RegexToken.GroupStart.Named(
+            name = name,
+            span = RegexSpan(start, closing + 1),
+        )
     }
 
     private companion object {
         // Consume escaped pairs or non-delimiters. An absent closing ] is left for dk.brics to reject.
         val CHARACTER_CLASS = Regex("""\[(?:\\[\s\S]?|[^\\\]])*]?""")
         val QUANTIFIER = Regex("""(?:[?*+]|\{\d+(?:,\d*)?})\??""")
-        val CLASS_ESCAPE = Regex("""\\[\s\S]?""")
     }
 }

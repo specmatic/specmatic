@@ -38,6 +38,13 @@ internal class RegexLookaroundBranchesTest {
         }
 
         @Test
+        fun `separates all branches of one group without splitting assertion body alternatives`() {
+            assertThat(split("^x(a(?=b|c)[bc]|d|e)y$")).containsExactly(
+                "^x(a(?=b|c)[bc])y$", "^x(d)y$", "^x(e)y$",
+            )
+        }
+
+        @Test
         fun `expands one assertion dependent group at a time`() {
             assertThat(split("^((?=a)a|b)((?=c)c|d)$")).containsExactly(
                 "^((?=a)a)((?=c)c|d)$", "^(b)((?=c)c|d)$",

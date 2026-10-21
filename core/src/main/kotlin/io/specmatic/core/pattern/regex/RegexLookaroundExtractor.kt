@@ -31,6 +31,7 @@ internal class RegexLookaroundExtractor {
         val replacements = lookarounds.zip(markers) { group, marker ->
             replacement(source, group, scanned.quantifierAfter(group), marker)
         }
+
         val assertions = replacements.filterIsInstance<Replacement.Required>().map { it.assertion }
         return RegexLookaroundExtraction.Extracted(markedExpression(source, replacements), assertions)
     }
@@ -38,8 +39,18 @@ internal class RegexLookaroundExtractor {
     private fun replacement(source: String, group: RegexGroup.Lookaround, quantifier: RegexToken.Quantifier?, marker: Char): Replacement {
         val span = RegexSpan(group.span.start, quantifier?.span?.end ?: group.span.end)
         // A zero minimum may skip the whole check; positive repetitions check the same position once.
-        if (quantifier?.permitsZero(source) == true) return Replacement.Omitted(span)
-        return Replacement.Required(MarkedAssertion(marker, group.body.text(source), span, group.opening))
+        if (quantifier?.permitsZero(source) == true) {
+            return Replacement.Omitted(span)
+        }
+
+        return Replacement.Required(
+            assertion = MarkedAssertion(
+                span = span,
+                marker = marker,
+                lookaround = group.opening,
+                body = group.body.text(source),
+            )
+        )
     }
 
     private fun markedExpression(source: String, replacements: List<Replacement>): String = buildString {

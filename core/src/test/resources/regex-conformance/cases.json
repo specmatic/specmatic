@@ -1721,6 +1721,102 @@
           "matches": false
         }
       ]
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "underscore-in-name",
+      "pattern": "^(?=a)(?<user_id>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "underscore-prefix-name",
+      "pattern": "^(?=a)(?<_id>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "dollar-prefix-name",
+      "pattern": "^(?=a)(?<$id>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "unicode-capture-name",
+      "pattern": "^(?=a)(?<\u00e9>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "id": "underscore-name-backreference-deferred",
+      "pattern": "^(?=(?<_id>a))\\k<_id>$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ],
+      "reason": "Backreferences remain outside scope, including references to names outside the JVM identifier subset."
     }
   ]
 }

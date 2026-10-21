@@ -1,29 +1,44 @@
 package io.specmatic.core.pattern.regex
 
-/** Splits assertion-dependent alternatives while preserving the complete consuming context. */
 internal class RegexLookaroundBranches {
-    fun split(source: String, scanned: RegexScanner.Result.Scanned): List<String> {
-        val alternatives = scanned.tokens.filterIsInstance<RegexToken.Alternation>()
-        val topLevel = alternatives.filter { scanned.innermostGroup(it.span) == null }
-        if (topLevel.isNotEmpty()) return replaceBody(source, RegexSpan(0, source.length), topLevel)
+    private data class SplitPoint(val body: RegexSpan, val separators: List<RegexToken.Alternation>)
 
-        val assertions = scanned.groups.filterIsInstance<RegexGroup.Lookaround>()
-        val owners = alternatives.mapNotNull { scanned.innermostGroup(it.span) }.filterIsInstance<RegexGroup.Regular>().distinct()
-        val owner = owners.firstOrNull { group -> assertions.any { group.body.contains(it.span) } } ?: return listOf(source)
-        val separators = alternatives.filter { scanned.innermostGroup(it.span) == owner }
-        return replaceBody(source, owner.body, separators)
+    fun split(source: String, scanned: RegexScanner.Result.Scanned): List<String> {
+        val point = splitPoint(source, scanned) ?: return listOf(source)
+        return alternativeSpans(point).map { alternative ->
+            source.replaceRange(
+                endIndex = point.body.end,
+                startIndex = point.body.start,
+                replacement = alternative.text(source)
+            )
+        }
     }
 
-    private fun replaceBody(source: String, body: RegexSpan, separators: List<RegexToken.Alternation>): List<String> {
-        val prefix = source.substring(0, body.start)
-        val suffix = source.substring(body.end)
+    private fun splitPoint(source: String, scanned: RegexScanner.Result.Scanned): SplitPoint? {
+        val alternativesByGroup = scanned.tokens.filterIsInstance<RegexToken.Alternation>().groupBy {
+            scanned.innermostGroup(it.span)
+        }
+
+        val topLevel = alternativesByGroup[null]
+        if (topLevel != null) {
+            return SplitPoint(RegexSpan(0, source.length), topLevel)
+        }
+
+        val assertions = scanned.groups.filterIsInstance<RegexGroup.Lookaround>()
+        val owners = alternativesByGroup.keys.filterIsInstance<RegexGroup.Regular>()
+        val owner = owners.firstOrNull { group -> assertions.any { group.body.contains(it.span) } } ?: return null
+        return SplitPoint(owner.body, alternativesByGroup.getValue(owner))
+    }
+
+    private fun alternativeSpans(point: SplitPoint): List<RegexSpan> {
         return buildList {
-            var start = body.start
-            for (separator in separators) {
-                add(prefix + source.substring(start, separator.span.start) + suffix)
+            var start = point.body.start
+            point.separators.forEach { separator ->
+                add(RegexSpan(start, separator.span.start))
                 start = separator.span.end
             }
-            add(prefix + source.substring(start, body.end) + suffix)
+
+            add(RegexSpan(start, point.body.end))
         }
     }
 }
