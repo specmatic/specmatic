@@ -3,6 +3,8 @@ package io.specmatic.core.pattern
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.regex.OpenApiRegexAnchorNormalizer
 import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
+import io.specmatic.core.pattern.regex.RegexLookaroundCompilation
+import io.specmatic.core.pattern.regex.RegexLookaroundCompiler
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -18,11 +20,23 @@ enum class RegexMatchMode {
 
 class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH) {
     private val originalRegex = regex
-    private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
+    private val regexGenerator = regex?.let(::createRegexGenerator)
     private val regexForRuntimeMatch = originalRegex?.let { Regex(it.toRuntimeRegex(matchMode)) }
 
     init {
         validateRegex()
+    }
+
+    private fun createRegexGenerator(expression: String): RegexBasedStringGenerator {
+        when (val result = RegexLookaroundCompiler(matchMode, ::cleanRegularRegexContent).compile(expression)) {
+            RegexLookaroundCompilation.NotApplicable -> Unit
+            is RegexLookaroundCompilation.Compiled -> return RegexBasedStringGenerator(expression, result.automaton)
+            is RegexLookaroundCompilation.Unsupported -> {
+                logger.log("WARNING: Cannot compile lookarounds in regex $expression: ${result.reason}. Using existing regex generation.")
+            }
+        }
+
+        return RegexBasedStringGenerator(cleanRegex(expression))
     }
 
     private fun validateRegex() {
@@ -107,10 +121,16 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     private fun cleanRegex(regex: String): String {
-        return regex
+        val preProcessedRegex = regex
             .removeOuterAnchors()
             .removePrefix(WORD_BOUNDARY)
             .removeSuffix(WORD_BOUNDARY)
+
+        return cleanRegularRegexContent(preProcessedRegex)
+    }
+
+    internal fun cleanRegularRegexContent(regex: String): String {
+        return regex
             .replaceRegexLowerBounds()
             .replaceShorthandCharacterClasses()
             .requote()
