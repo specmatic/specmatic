@@ -76,7 +76,6 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
 
         val results = examples.mapValues { (name, exampleList) ->
             logger.debug("Validating $name")
-
             exampleList.mapNotNull { example ->
                 val results = validateExampleReturningResults(updatedFeature, example)
                 if (!results.hasResults()) return@mapNotNull null else results.toResultIfAny()
