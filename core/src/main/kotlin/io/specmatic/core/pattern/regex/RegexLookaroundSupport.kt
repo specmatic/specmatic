@@ -6,7 +6,6 @@ internal class RegexLookaroundSupport(private val source: String, private val sc
     private val captureCount = scanned.groups.count { it.opening is RegexToken.GroupStart.Named || it.opening.text(source) == "(" }
     private val hasNamedCaptures = scanned.groups.any { it.opening is RegexToken.GroupStart.Named }
     private val enclosingGroups = assertions.flatMap { scanned.enclosingGroups(it.span) }.toSet()
-    private val alternativeOwners = tokens.filterIsInstance<RegexToken.Alternation>().map { scanned.innermostGroup(it.span) }.toSet()
 
     fun unsupportedReason(): String? {
         // Capture-insensitive compilation requires references absent: (?<value>a)\k<value> or (a)\1.
@@ -19,7 +18,7 @@ internal class RegexLookaroundSupport(private val source: String, private val sc
             return "Flag groups are outside flagless lookaround support"
         }
 
-        return placementProblem()
+        return assertionPlacementProblem() ?: enclosingGroupProblem()
     }
 
     private fun isBackreference(escape: RegexToken.Escape): Boolean {
@@ -28,12 +27,6 @@ internal class RegexLookaroundSupport(private val source: String, private val sc
         val firstDigit = escaped.digitToIntOrNull() ?: return false
         // Conservatively defer ambiguous multi-digit references; class escapes never reach this check.
         return firstDigit in 1..captureCount
-    }
-
-    private fun placementProblem(): String? {
-        // A branch can omit a marker: (?=a)a|b.
-        if (null in alternativeOwners) return "Top-level alternatives containing assertions are unsupported"
-        return assertionPlacementProblem() ?: enclosingGroupProblem()
     }
 
     private fun assertionPlacementProblem(): String? {
@@ -56,8 +49,6 @@ internal class RegexLookaroundSupport(private val source: String, private val sc
         if (enclosingGroups.any { it is RegexGroup.Lookaround }) return "Nested lookarounds are unsupported"
         // Containers can omit or repeat a marker: ((?=a)a)? or ((?=a)a)+.
         if (enclosingGroups.any(::isOptionalOrRepeated)) return "Assertions inside optional or repeated groups are unsupported"
-        // An enclosing alternative can bypass the assertion: ((?=a)a|b).
-        if (enclosingGroups.any { it in alternativeOwners }) return "Assertions inside alternative branches are unsupported"
         return null
     }
 

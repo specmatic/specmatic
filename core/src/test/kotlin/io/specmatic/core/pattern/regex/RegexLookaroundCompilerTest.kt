@@ -92,6 +92,54 @@ internal class RegexLookaroundCompilerTest {
     }
 
     @Nested
+    inner class AlternativeBranches {
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '→', value = [
+            "^a(?!b)b$|^ab$→ab",
+            "^(?=a)a$|^(?=b)b$→a|b",
+            "^(a(?=b)b|c)$→ab|c",
+            "^x(a(?=b)b|c)y$→xaby|xcy",
+            "^(?<value>a(?=b)b|c)$→ab|c",
+            "^((?=a)a|b)((?=c)c|d)$→ac|ad|bc|bd",
+            "^a((?=b)b|c)(?<=ab)d$→abd",
+            "^((?=a)a|((?=b)b|c))$→a|b|c",
+            "^(?=a)a$|^$→a|()",
+        ])
+        fun `unions complete branch languages without leaking assertion constraints`(pattern: String, expected: String) {
+            assertThat(compile(pattern)).isEqualTo(RegExp(expected, 0).toAutomaton())
+        }
+
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = [
+            "SEARCH→(?=a)a|b→xbx→true",
+            "WHOLE_VALUE→(?=a)a|b→xbx→false",
+            "SEARCH→^a(?!b)b$|ab→xabx→true",
+            "SEARCH→^a(?!b)b$|^ab$→xabx→false",
+        ])
+        fun `preserves each branch search and anchor semantics`(mode: RegexMatchMode, pattern: String, candidate: String, expected: Boolean) {
+            assertThat(compile(pattern, mode).run(candidate)).isEqualTo(expected)
+        }
+
+        @Test
+        fun `declines the complete expression when any branch needs unsupported assertion semantics`() {
+            assertThat(compiler().compile("^(?=a)a$|^((?=b)b)+$")).isEqualTo(
+                RegexLookaroundCompilation.Unsupported("Assertions inside optional or repeated groups are unsupported"),
+            )
+        }
+
+        @Test
+        fun `bounds products of independent assertion alternatives`() {
+            val group = "((?=a)a|b)"
+            val supported = "^" + group.repeat(6) + "$"
+            val excessive = "^" + group.repeat(7) + "$"
+            assertThat(compile(supported)).isEqualTo(RegExp("[ab]{6}", 0).toAutomaton())
+            assertThat(compiler().compile(excessive)).isEqualTo(
+                RegexLookaroundCompilation.Unsupported("Lookaround alternative expansion exceeds the branch budget of 64"),
+            )
+        }
+    }
+
+    @Nested
     inner class MatchingModes {
         @ParameterizedTest(name = "{0}: {1} against {2}")
         @CsvSource(delimiter = '→', value = [

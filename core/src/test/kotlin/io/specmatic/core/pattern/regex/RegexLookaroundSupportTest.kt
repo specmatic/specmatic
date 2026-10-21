@@ -18,7 +18,6 @@ internal class RegexLookaroundSupportTest {
                 "^(?=(a))\\1$→Backreferences are outside lookaround generation support",
                 "^(?=(?<name>a))\\k<name>$→Backreferences are outside lookaround generation support",
                 "^(?=a)(a)()()()()()()()\\8$→Backreferences are outside lookaround generation support",
-                "(?=a)a|b→Top-level alternatives containing assertions are unsupported",
                 "a(?<=a){1}→ECMAScript lookbehind cannot be quantified",
                 "a(?<!b){1,1}→ECMAScript lookbehind cannot be quantified",
                 "(?=a$)a→Anchors inside assertion bodies are unsupported",
@@ -28,8 +27,7 @@ internal class RegexLookaroundSupportTest {
                 "((?=a)a)?→Assertions inside optional or repeated groups are unsupported",
                 "((?=a)a)+→Assertions inside optional or repeated groups are unsupported",
                 "((?=a)a){0}→Assertions inside optional or repeated groups are unsupported",
-                "((?=a)a|b)→Assertions inside alternative branches are unsupported",
-                "(?:a|(?=b)b)→Assertions inside alternative branches are unsupported",
+                "((?=a)a|b)+→Assertions inside optional or repeated groups are unsupported",
             ],
         )
         fun `returns the complete reason for each unsupported construct`(source: String, expectedReason: String) {
@@ -45,6 +43,9 @@ internal class RegexLookaroundSupportTest {
                 "^(?=(?:ab|ac)+)(ab|ac){1,2}$",
                 "^((a|b)(?=c)c)$",
                 "^((?=a)a)((?=b)b)$",
+                "(?=a)a|b",
+                "((?=a)a|b)",
+                "(?:a|(?=b)b)",
                 "^a(?=b)b(?<=ab)(?!d)c$",
                 "(?=a)?a",
                 "(?=a)+a",

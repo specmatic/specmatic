@@ -89,10 +89,18 @@
       "dialect": "ECMAScript",
       "pattern": "^a(?!b)b$|^ab$",
       "syntaxValid": true,
-      "generation": "UNSUPPORTED",
+      "generation": "SUPPORTED",
       "source": "custom",
-      "candidates": [{"value": "ab", "matches": true}, {"value": "ac", "matches": false}],
-      "reason": "Branch-dependent assertions need branch-local marker languages instead of requiring every marker once."
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
     },
     {
       "id": "long-selective-lookahead",
@@ -755,10 +763,9 @@
       "dialect": "ECMAScript",
       "pattern": "^(?:(?=a)a|b)$",
       "syntaxValid": true,
-      "generation": "UNSUPPORTED",
+      "generation": "SUPPORTED",
       "source": "custom",
-      "candidates": [],
-      "reason": "Alternative-dependent assertions need branch-local marker languages."
+      "candidates": []
     },
     {
       "id": "unicode-source-ascii-witness",
@@ -1573,6 +1580,144 @@
         },
         {
           "value": "abb",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "group-alternative-context",
+      "pattern": "^x(a(?=b)b|c)y$",
+      "candidates": [
+        {
+          "value": "xaby",
+          "matches": true
+        },
+        {
+          "value": "xcy",
+          "matches": true
+        },
+        {
+          "value": "xy",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "named-group-alternatives",
+      "pattern": "^(?<value>a(?=b)b|c)$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "c",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "independent-group-alternatives",
+      "pattern": "^((?=a)a|b)((?=c)c|d)$",
+      "candidates": [
+        {
+          "value": "ac",
+          "matches": true
+        },
+        {
+          "value": "ad",
+          "matches": true
+        },
+        {
+          "value": "bc",
+          "matches": true
+        },
+        {
+          "value": "bd",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "branch-and-surrounding-assertion",
+      "pattern": "^a((?=b)b|c)(?<=ab)d$",
+      "candidates": [
+        {
+          "value": "abd",
+          "matches": true
+        },
+        {
+          "value": "acd",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "alternative-independent-search",
+      "pattern": "^a(?!b)b$|ab",
+      "candidates": [
+        {
+          "value": "xabx",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "empty-alternative-branch",
+      "pattern": "^(?=a)a$|^$",
+      "candidates": [
+        {
+          "value": "",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
           "matches": false
         }
       ]

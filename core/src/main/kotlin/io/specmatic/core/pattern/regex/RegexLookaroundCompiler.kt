@@ -16,7 +16,10 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         if (scan.tokens.none { it is RegexToken.GroupStart.Lookaround }) {
             return RegexLookaroundCompilation.NotApplicable
         }
+        return compileScanned(regex, scan, BRANCH_BUDGET)
+    }
 
+    private fun compileScanned(regex: String, scan: RegexScanner.Result, branchBudget: Int): RegexLookaroundCompilation {
         val scanned = when (scan) {
             is RegexScanner.Result.Scanned -> scan
             is RegexScanner.Result.Malformed -> return RegexLookaroundCompilation.Unsupported(scan.reason)
@@ -26,10 +29,27 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
             return RegexLookaroundCompilation.Unsupported(it)
         }
 
+        val branches = RegexLookaroundBranches().split(regex, scanned)
+        if (branches.size > 1) return compileBranches(branches, branchBudget)
+
         return when (val extracted = RegexLookaroundExtractor().extract(regex, scanned)) {
             is RegexLookaroundExtraction.Extracted -> compileExtracted(extracted)
             is RegexLookaroundExtraction.Unsupported -> RegexLookaroundCompilation.Unsupported(extracted.reason)
         }
+    }
+
+    private fun compileBranches(branches: List<String>, branchBudget: Int): RegexLookaroundCompilation {
+        if (branches.size > branchBudget) {
+            return RegexLookaroundCompilation.Unsupported("Lookaround alternative expansion exceeds the branch budget of $BRANCH_BUDGET")
+        }
+        val automata = mutableListOf<Automaton>()
+        for (branch in branches) {
+            // Divide the budget between siblings to bound products of independent assertion branches.
+            val result = compileScanned(branch, RegexScanner().scan(branch), branchBudget / branches.size)
+            if (result !is RegexLookaroundCompilation.Compiled) return result
+            automata += result.automaton
+        }
+        return RegexLookaroundCompilation.Compiled(Automaton.union(automata))
     }
 
     private fun compileExtracted(pattern: RegexLookaroundExtraction.Extracted): RegexLookaroundCompilation {
@@ -101,5 +121,9 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
 
     private fun compileRegular(regex: String): Automaton {
         return RegExp(cleanRegularContent(regex), 0).toAutomaton()
+    }
+
+    private companion object {
+        const val BRANCH_BUDGET = 64
     }
 }
