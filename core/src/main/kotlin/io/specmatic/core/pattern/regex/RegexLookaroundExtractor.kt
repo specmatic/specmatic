@@ -13,32 +13,42 @@ internal sealed interface RegexLookaroundExtraction {
 }
 
 internal class RegexLookaroundExtractor {
-    fun extract(source: String, groups: List<RegexGroup>): RegexLookaroundExtraction {
-        val lookarounds = groups.filterIsInstance<RegexGroup.Lookaround>().sortedBy { it.span.start }
+    private sealed interface Replacement {
+        val span: RegexSpan
+        data class Omitted(override val span: RegexSpan) : Replacement
+        data class Required(val assertion: MarkedAssertion) : Replacement {
+            override val span: RegexSpan get() = assertion.span
+        }
+    }
+
+    fun extract(source: String, scanned: RegexScanner.Result.Scanned): RegexLookaroundExtraction {
+        val lookarounds = scanned.groups.filterIsInstance<RegexGroup.Lookaround>().sortedBy { it.span.start }
         val markers = ('\uE000'..'\uF8FF').filterNot { it in source }.take(lookarounds.size)
         if (markers.size != lookarounds.size) {
             return RegexLookaroundExtraction.Unsupported("No assertion markers available")
         }
 
-        val assertions = lookarounds.zip(markers) { group, marker ->
-            MarkedAssertion(
-                marker = marker,
-                span = group.span,
-                lookaround = group.opening,
-                body = group.body.text(source),
-            )
+        val replacements = lookarounds.zip(markers) { group, marker ->
+            replacement(source, group, scanned.quantifierAfter(group), marker)
         }
-
-        return RegexLookaroundExtraction.Extracted(markedExpression(source, assertions), assertions)
+        val assertions = replacements.filterIsInstance<Replacement.Required>().map { it.assertion }
+        return RegexLookaroundExtraction.Extracted(markedExpression(source, replacements), assertions)
     }
 
-    private fun markedExpression(source: String, assertions: List<MarkedAssertion>): String = buildString {
+    private fun replacement(source: String, group: RegexGroup.Lookaround, quantifier: RegexToken.Quantifier?, marker: Char): Replacement {
+        val span = RegexSpan(group.span.start, quantifier?.span?.end ?: group.span.end)
+        // A zero minimum may skip the whole check; positive repetitions check the same position once.
+        if (quantifier?.permitsZero(source) == true) return Replacement.Omitted(span)
+        return Replacement.Required(MarkedAssertion(marker, group.body.text(source), span, group.opening))
+    }
+
+    private fun markedExpression(source: String, replacements: List<Replacement>): String = buildString {
         var position = 0
 
-        assertions.forEach { assertion ->
-            append(source, position, assertion.span.start)
-            append(assertion.marker)
-            position = assertion.span.end
+        replacements.forEach { replacement ->
+            append(source, position, replacement.span.start)
+            if (replacement is Replacement.Required) append(replacement.assertion.marker)
+            position = replacement.span.end
         }
 
         append(source, position, source.length)

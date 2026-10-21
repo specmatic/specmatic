@@ -122,6 +122,25 @@ internal class RegexScannerTest {
     }
 
     @Nested
+    inner class QuantifierBounds {
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = [
+            "?→true", "??→true", "*→true", "*?→true", "{0}→true", "{00,2}?→true", "{0,}→true",
+            "+→false", "+?→false", "{1}→false", "{2,10}?→false", "{3,}→false",
+        ])
+        fun `identifies whether a quantifier permits zero occurrences`(source: String, expected: Boolean) {
+            assertThat(RegexToken.Quantifier(RegexSpan(0, source.length)).permitsZero(source)).isEqualTo(expected)
+        }
+
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', nullValues = ["NONE"], value = ["(?=a)+→+", "(?=a)a+→NONE"])
+        fun `finds only quantifiers immediately following a group`(source: String, expected: String?) {
+            val result = scanned(source)
+            assertThat(result.quantifierAfter(result.groups.single())?.text(source)).isEqualTo(expected)
+        }
+    }
+
+    @Nested
     inner class MalformedInput {
         @ParameterizedTest
         @CsvSource(delimiter = '→', value = [")(?=a)a→Unmatched closing group", "(?=a→Unclosed group"])

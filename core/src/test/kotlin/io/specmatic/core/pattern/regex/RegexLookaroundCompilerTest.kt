@@ -78,6 +78,13 @@ internal class RegexLookaroundCompilerTest {
             "^(?=a){1,1}a$→a",
             "^(?!b){1}?a$→a",
             "^((?=a)a){1,1}?$→a",
+            "^(?=ab){2,10}ab$→ab",
+            "^(?!ab){2,10}[ab]{2}$→aa|ba|bb",
+            "^a(?=b)?c$→ac",
+            "^a(?!c)*c$→ac",
+            "^(?=z){0,2}a$→a",
+            "^(?=z){0}a$→a",
+            "^a(?=z)*b(?=c)c$→abc",
         ])
         fun `composes assertions across markers and erases all marker characters`(pattern: String, expected: String) {
             assertThat(compile(pattern)).isEqualTo(RegExp(expected, 0).toAutomaton())

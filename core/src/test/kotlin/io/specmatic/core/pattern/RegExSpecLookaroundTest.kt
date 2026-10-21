@@ -21,6 +21,8 @@ internal class RegExSpecLookaroundTest {
             "^a(?!b)c$→ac",
             "^ab(?<=ab)c$→abc",
             "^a(?<!b)c$→ac",
+            "^(?=ab){2,10}ab$→ab",
+            "^(?=z)*a$→a",
         ])
         fun `uses each assertion type for shortest longest and random generation`(pattern: String, expected: String) {
             val spec = RegExSpec(pattern)

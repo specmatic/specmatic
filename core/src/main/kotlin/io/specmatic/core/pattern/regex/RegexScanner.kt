@@ -8,6 +8,8 @@ internal class RegexScanner {
         data class Scanned(override val tokens: List<RegexToken>, val groups: List<RegexGroup>) : Result {
             fun innermostGroup(span: RegexSpan): RegexGroup? = enclosingGroups(span).maxByOrNull { it.span.start }
             fun enclosingGroups(span: RegexSpan): List<RegexGroup> = groups.filter { it.body.contains(span) }
+            fun quantifierAfter(group: RegexGroup): RegexToken.Quantifier? =
+                tokens.firstOrNull { it.span.start == group.span.end } as? RegexToken.Quantifier
         }
     }
 

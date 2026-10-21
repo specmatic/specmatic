@@ -3,6 +3,8 @@ package io.specmatic.core.pattern.regex
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class RegexLookaroundExtractorTest {
     @Nested
@@ -20,8 +22,8 @@ internal class RegexLookaroundExtractorTest {
                 ),
             )
             // Deliberately reverse the input groups: replacement order must follow source spans.
-            val groups = scanned(source).groups.reversed()
-            assertThat(RegexLookaroundExtractor().extract(source, groups)).isEqualTo(expected)
+            val scanned = scanned(source)
+            assertThat(RegexLookaroundExtractor().extract(source, scanned.copy(groups = scanned.groups.reversed()))).isEqualTo(expected)
         }
 
         @Test
@@ -56,6 +58,26 @@ internal class RegexLookaroundExtractorTest {
     }
 
     @Nested
+    inner class QuantifiedLookaheads {
+        @ParameterizedTest
+        @ValueSource(strings = ["?", "??", "*", "*?", "{0}", "{0,2}", "{0,}"])
+        fun `omits lookaheads whose quantifier permits zero checks`(quantifier: String) {
+            assertThat(extract("^a(?=b)${quantifier}c$")).isEqualTo(RegexLookaroundExtraction.Extracted("^ac$", emptyList()))
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["+", "+?", "{1}", "{2,10}", "{2,10}?", "{3,}"])
+        fun `uses one marker for any positive number of checks at the same position`(quantifier: String) {
+            assertThat(extract("^a(?=b)${quantifier}b$")).isEqualTo(
+                RegexLookaroundExtraction.Extracted(
+                    "^a\uE000b$",
+                    listOf(MarkedAssertion('\uE000', "b", RegexSpan(2, 7 + quantifier.length), RegexToken.GroupStart.Lookaround.Ahead(RegexSpan(2, 5), LookaroundPolarity.POSITIVE))),
+                ),
+            )
+        }
+    }
+
+    @Nested
     inner class MarkerAllocation {
         @Test
         fun `avoids markers that already occur in the source`() {
@@ -76,7 +98,7 @@ internal class RegexLookaroundExtractorTest {
         }
     }
 
-    private fun extract(source: String): RegexLookaroundExtraction = RegexLookaroundExtractor().extract(source, scanned(source).groups)
+    private fun extract(source: String): RegexLookaroundExtraction = RegexLookaroundExtractor().extract(source, scanned(source))
 
     private fun scanned(source: String): RegexScanner.Result.Scanned {
         val result = RegexScanner().scan(source)

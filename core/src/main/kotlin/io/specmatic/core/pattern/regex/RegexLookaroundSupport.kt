@@ -1,6 +1,6 @@
 package io.specmatic.core.pattern.regex
 
-internal class RegexLookaroundSupport(private val source: String, scanned: RegexScanner.Result.Scanned) {
+internal class RegexLookaroundSupport(private val source: String, private val scanned: RegexScanner.Result.Scanned) {
     private val tokens = scanned.tokens
     private val assertions = scanned.groups.filterIsInstance<RegexGroup.Lookaround>()
     private val captureCount = scanned.groups.count { it.opening is RegexToken.GroupStart.Named || it.opening.text(source) == "(" }
@@ -37,13 +37,8 @@ internal class RegexLookaroundSupport(private val source: String, scanned: Regex
     }
 
     private fun assertionPlacementProblem(): String? {
-        // Each assertion needs one marker; (?=a)? can omit it.
-        if (assertions.any(::isOptionalOrRepeated)) {
-            return "Only exact-once lookahead quantifiers are supported"
-        }
-
         // Even (?<=a){1} is invalid ECMAScript; replacing it with a quantified marker would hide that.
-        if (assertions.any { it.opening is RegexToken.GroupStart.Lookaround.Behind && quantifierAfter(it) != null }) {
+        if (assertions.any { it.opening is RegexToken.GroupStart.Lookaround.Behind && scanned.quantifierAfter(it) != null }) {
             return "ECMAScript lookbehind cannot be quantified"
         }
 
@@ -67,12 +62,8 @@ internal class RegexLookaroundSupport(private val source: String, scanned: Regex
     }
 
     private fun isOptionalOrRepeated(group: RegexGroup): Boolean {
-        val quantifier = quantifierAfter(group) ?: return false
+        val quantifier = scanned.quantifierAfter(group) ?: return false
         // Count occurrences only: {1}? is still exact-once, regardless of inherited dk.brics interpretation.
         return quantifier.text(source).removeSuffix("?") !in listOf("{1}", "{1,1}")
-    }
-
-    private fun quantifierAfter(group: RegexGroup): RegexToken.Quantifier? {
-        return tokens.firstOrNull { it.span.start == group.span.end } as? RegexToken.Quantifier
     }
 }

@@ -26,7 +26,7 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
             return RegexLookaroundCompilation.Unsupported(it)
         }
 
-        return when (val extracted = RegexLookaroundExtractor().extract(regex, scanned.groups)) {
+        return when (val extracted = RegexLookaroundExtractor().extract(regex, scanned)) {
             is RegexLookaroundExtraction.Extracted -> compileExtracted(extracted)
             is RegexLookaroundExtraction.Unsupported -> RegexLookaroundCompilation.Unsupported(extracted.reason)
         }

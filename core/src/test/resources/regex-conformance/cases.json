@@ -398,10 +398,14 @@
       "dialect": "ECMAScript",
       "pattern": "^(?=a)?a$",
       "syntaxValid": true,
-      "generation": "UNSUPPORTED",
+      "generation": "SUPPORTED",
       "source": "custom",
-      "candidates": [{"value": "a", "matches": true}],
-      "reason": "Quantified assertions need explicit occurrence/optional-assertion semantics."
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ]
     },
     {
       "id": "body-anchor",
@@ -1477,6 +1481,101 @@
         }
       ],
       "reason": "Named backreference semantics are outside scope; erasing capture names requires references absent."
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "positive-quantified-lookahead",
+      "pattern": "^(?=ab){2,10}ab$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "abab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "negative-quantified-lookahead",
+      "pattern": "^(?!ab)+[ab]{2}$",
+      "candidates": [
+        {
+          "value": "aa",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "zero-minimum-lookahead",
+      "pattern": "^a(?=b){0,2}c$",
+      "candidates": [
+        {
+          "value": "ac",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "zero-minimum-negative-lookahead",
+      "pattern": "^a(?!c)*c$",
+      "candidates": [
+        {
+          "value": "ac",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "omitted-and-required-lookaheads",
+      "pattern": "^a(?=z)*b(?=c)c$",
+      "candidates": [
+        {
+          "value": "abc",
+          "matches": true
+        },
+        {
+          "value": "abb",
+          "matches": false
+        }
+      ]
     }
   ]
 }
