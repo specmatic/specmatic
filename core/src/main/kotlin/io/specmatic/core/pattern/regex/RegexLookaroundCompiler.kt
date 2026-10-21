@@ -3,6 +3,7 @@ package io.specmatic.core.pattern.regex
 import dk.brics.automaton.Automaton
 import dk.brics.automaton.RegExp
 import io.specmatic.core.pattern.RegexMatchMode
+import io.specmatic.core.utilities.Flags
 
 internal sealed interface RegexLookaroundCompilation {
     data object NotApplicable : RegexLookaroundCompilation
@@ -11,16 +12,19 @@ internal sealed interface RegexLookaroundCompilation {
 }
 
 internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, private val cleanRegularContent: (String) -> String) {
+    private val branchLimit = Flags.getStringValue(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET)
+        ?.toIntOrNull()?.takeIf { it > 0 } ?: DEFAULT_BRANCH_BUDGET
+
     fun compile(regex: String): RegexLookaroundCompilation {
         val scan = RegexScanner().scan(regex)
         if (scan.tokens.none { it is RegexToken.GroupStart.Lookaround }) {
             return RegexLookaroundCompilation.NotApplicable
         }
 
-        return compileScanned(regex, scan, BRANCH_BUDGET)
+        return compileScanned(regex, scan, BranchBudget(branchLimit))
     }
 
-    private fun compileScanned(regex: String, scan: RegexScanner.Result, branchBudget: Int): RegexLookaroundCompilation {
+    private fun compileScanned(regex: String, scan: RegexScanner.Result, budget: BranchBudget): RegexLookaroundCompilation {
         val scanned = when (scan) {
             is RegexScanner.Result.Scanned -> scan
             is RegexScanner.Result.Malformed -> return RegexLookaroundCompilation.Unsupported(scan.reason)
@@ -32,7 +36,16 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
 
         val branches = RegexLookaroundBranches().split(regex, scanned)
         if (branches.size > 1) {
-            return compileBranches(branches, branchBudget)
+            return compileBranches(branches, budget)
+        }
+
+        if (!budget.tryConsume()) {
+            return RegexLookaroundCompilation.Unsupported(
+                reason = """
+                Lookaround alternative expansion exceeds the branch budget of $branchLimit;
+                increase ${Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET} to allow more branches
+                """.trimIndent()
+            )
         }
 
         return when (val extracted = RegexLookaroundExtractor().extract(regex, scanned)) {
@@ -41,15 +54,10 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         }
     }
 
-    private fun compileBranches(branches: List<String>, branchBudget: Int): RegexLookaroundCompilation {
-        if (branches.size > branchBudget) {
-            return RegexLookaroundCompilation.Unsupported("Lookaround alternative expansion exceeds the branch budget of $BRANCH_BUDGET")
-        }
-
+    private fun compileBranches(branches: List<String>, budget: BranchBudget): RegexLookaroundCompilation {
         val automata = mutableListOf<Automaton>()
         for (branch in branches) {
-            // Divide the budget between siblings to bound products of independent assertion branches.
-            val result = compileScanned(branch, RegexScanner().scan(branch), branchBudget / branches.size)
+            val result = compileScanned(branch, RegexScanner().scan(branch), budget)
             if (result !is RegexLookaroundCompilation.Compiled) return result
             automata += result.automaton
         }
@@ -130,7 +138,16 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         return RegExp(regex, 0).toAutomaton()
     }
 
+    // Shared only within one compilation. Splits are free; every final route consumes one unit.
+    private class BranchBudget(private var remaining: Int) {
+        fun tryConsume(): Boolean {
+            if (remaining == 0) return false
+            remaining--
+            return true
+        }
+    }
+
     private companion object {
-        const val BRANCH_BUDGET = 64
+        const val DEFAULT_BRANCH_BUDGET = 64
     }
 }

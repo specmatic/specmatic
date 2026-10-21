@@ -4,6 +4,7 @@ import dk.brics.automaton.Automaton
 import dk.brics.automaton.RegExp
 import io.specmatic.core.pattern.RegExSpec
 import io.specmatic.core.pattern.RegexMatchMode
+import io.specmatic.core.utilities.Flags
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -166,16 +167,97 @@ internal class RegexLookaroundCompilerTest {
                 RegexLookaroundCompilation.Unsupported("Assertions inside optional or repeated groups are unsupported"),
             )
         }
+    }
+
+    @Nested
+    inner class BranchBudget {
+        @ParameterizedTest
+        @CsvSource("60, false", "60, true", "63, false", "63, true")
+        fun `shares the total budget across uneven branches regardless of their order`(nestedRoutes: Int, reverse: Boolean) {
+            val alternatives = (0 until nestedRoutes).map { "a$it" }
+            val nested = "^((?=a)" + alternatives.joinToString("|") + ")$"
+            val pattern = if (reverse) "$nested|^z$" else "^z$|$nested"
+            val expected = Automaton.union((alternatives + "z").map(Automaton::makeString))
+
+            assertThat(compile(pattern)).isEqualTo(expected)
+        }
 
         @Test
-        fun `bounds products of independent assertion alternatives`() {
+        fun `declines the whole expression when uneven branches require 65 final routes`() {
+            val alternatives = (0 until 64).joinToString("|") { "a$it" }
+            assertThat(compiler().compile("^z$|^((?=a)$alternatives)$")).isEqualTo(
+                RegexLookaroundCompilation.Unsupported(
+                    "Lookaround alternative expansion exceeds the branch budget of 64;\n" +
+                        "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
+                ),
+            )
+        }
+
+        @Test
+        fun `bounds products of independent assertion alternatives by default`() {
             val group = "((?=a)a|b)"
             val supported = "^" + group.repeat(6) + "$"
             val excessive = "^" + group.repeat(7) + "$"
             assertThat(compile(supported)).isEqualTo(RegExp("[ab]{6}", 0).toAutomaton())
             assertThat(compiler().compile(excessive)).isEqualTo(
-                RegexLookaroundCompilation.Unsupported("Lookaround alternative expansion exceeds the branch budget of 64"),
+                RegexLookaroundCompilation.Unsupported(
+                    "Lookaround alternative expansion exceeds the branch budget of 64;\n" +
+                        "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
+                ),
             )
+        }
+
+        @ParameterizedTest
+        @CsvSource("2, 1", "128, 7")
+        fun `uses the configured budget to compile complete branch languages`(budget: String, groups: Int) {
+            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to budget) {
+                val pattern = "^" + "((?=a)a|b)".repeat(groups) + "$"
+                assertThat(compile(pattern)).isEqualTo(RegExp("[ab]{$groups}", 0).toAutomaton())
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["^(?=a)a$|^b$", "^(?!)a$|^b$"])
+        fun `counts every final route including empty languages against the configured total`(pattern: String) {
+            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to "1") {
+                assertThat(compiler().compile(pattern)).isEqualTo(
+                    RegexLookaroundCompilation.Unsupported(
+                        "Lookaround alternative expansion exceeds the branch budget of 1;\n" +
+                            "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
+                    ),
+                )
+            }
+        }
+
+        @Test
+        fun `starts a fresh budget when reusing a compiler after exhaustion`() {
+            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to "1") {
+                val compiler = compiler()
+                val expected = RegexLookaroundCompilation.Compiled(Automaton.makeString("a"))
+                assertThat(compiler.compile("^(?=a)a$")).isEqualTo(expected)
+                assertThat(compiler.compile("^(?=a)a$|^b$")).isEqualTo(
+                    RegexLookaroundCompilation.Unsupported(
+                        "Lookaround alternative expansion exceeds the branch budget of 1;\n" +
+                            "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
+                    ),
+                )
+                assertThat(compiler.compile("^(?=a)a$")).isEqualTo(expected)
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["", "invalid", "0", "-1", "2147483648"])
+        fun `retains the default budget for invalid settings`(setting: String) {
+            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to setting) {
+                val group = "((?=a)a|b)"
+                assertThat(compile("^" + group.repeat(6) + "$")).isEqualTo(RegExp("[ab]{6}", 0).toAutomaton())
+                assertThat(compiler().compile("^" + group.repeat(7) + "$")).isEqualTo(
+                    RegexLookaroundCompilation.Unsupported(
+                        "Lookaround alternative expansion exceeds the branch budget of 64;\n" +
+                            "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
+                    ),
+                )
+            }
         }
     }
 
