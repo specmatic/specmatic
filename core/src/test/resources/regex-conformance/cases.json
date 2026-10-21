@@ -246,8 +246,7 @@
           "value": "a",
           "matches": false
         }
-      ],
-      "deferredReason": "dk.brics interprets lazy modifiers as further optionality. Shared cleanup of lazy quantifiers is deferred to a follow-up PR."
+      ]
     },
     {
       "id": "empty-positive-lookahead",
@@ -854,8 +853,7 @@
           "value": "a",
           "matches": true
         }
-      ],
-      "deferredReason": "dk.brics interprets lazy modifiers as further optionality. Shared cleanup of lazy quantifiers is deferred to a follow-up PR."
+      ]
     },
     {
       "id": "escaped-assertion-text",
@@ -1388,6 +1386,25 @@
         }
       ],
       "deferredReason": "Existing cleanup narrows [\\D_] to [^0-9_], so the compiled negative assertion admits an invalid underscore witness. Shared class cleanup is deferred to a follow-up PR."
+    },
+    {
+      "id": "lazy-negative-lookahead",
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!a+?)[ab]+?$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "baa",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
     }
   ]
 }

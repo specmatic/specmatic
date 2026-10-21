@@ -5,6 +5,8 @@ import io.specmatic.core.pattern.regex.OpenApiRegexAnchorNormalizer
 import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
 import io.specmatic.core.pattern.regex.RegexLookaroundCompilation
 import io.specmatic.core.pattern.regex.RegexLookaroundCompiler
+import io.specmatic.core.pattern.regex.RegexScanner
+import io.specmatic.core.pattern.regex.RegexToken
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -136,6 +138,15 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
             .requote()
             .replaceNonCapturingGroups()
             .replaceUnescapedDot()
+            .removeLazyQuantifiers()
+    }
+
+    private fun String.removeLazyQuantifiers(): String {
+        return RegexScanner().scan(this).tokens.joinToString("") { token ->
+            val text = token.text(this)
+            // Remove preference modifiers, not optional atoms or literal question marks: a+? -> a+.
+            if (token is RegexToken.Quantifier && text.length > 1 && text.endsWith('?')) text.dropLast(1) else text
+        }
     }
 
     private fun String.removeOuterAnchors(): String {

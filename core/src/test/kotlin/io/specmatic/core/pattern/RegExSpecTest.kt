@@ -15,6 +15,26 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class RegExSpecTest {
+    @Nested
+    inner class LazyQuantifiers {
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = [
+            "a*?→a*", "a+?→a+", "a??→a?", "a{2}?→a{2}", "a{1,3}?→a{1,3}", "a{2,}?→a{2,}",
+            "a?→a?", "[?*+]→[?*+]", "a\\?→a\\?", "\\Qa+?\\E→a\\+\\?",
+        ])
+        fun `removes lazy preference modifiers while preserving literal question marks`(source: String, expected: String) {
+            assertThat(RegExSpec(null).cleanRegularRegexContent(source)).isEqualTo(expected)
+        }
+
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = ["^a+?$→a", "^a{2,4}?$→aa"])
+        fun `generates the shortest member of an ordinary lazy expression`(source: String, expected: String) {
+            val spec = RegExSpec(source)
+            assertThat(spec.generateShortestStringOrRandom(0)).isEqualTo(expected)
+            assertThat(spec.match(StringValue(expected))).isTrue()
+        }
+    }
+
     data class RuntimeMatchCase(val regex: String, val matchingInputs: List<String>, val nonMatchingInputs: List<String> = emptyList()) {
         override fun toString(): String = "regex=/$regex/"
     }

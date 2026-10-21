@@ -26,6 +26,10 @@ internal class RegexLookaroundCompilerTest {
                 "^(?!a(b|c)+)[abc]{3}$→aa[abc]|b[abc]{2}|c[abc]{2}",
                 "^(?=)a$→a",
                 "^a(?<=)b$→ab",
+                "^(?=a+?)a+?$→a+",
+                "^(?!a+?)[ab]+?$→b[ab]*",
+                "^(?=a??)a??$→a?",
+                "^(?=a{2,4}?)a{2,4}?$→a{2,4}",
             ],
         )
         fun `compiles the complete expected language for basic assertions and regular bodies`(pattern: String, expected: String) {
