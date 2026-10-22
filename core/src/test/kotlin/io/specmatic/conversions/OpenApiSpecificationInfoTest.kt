@@ -139,7 +139,7 @@ class OpenApiSpecificationInfoTest {
     }
 
     @Test
-    fun `validateSecuritySchemeParameterDuplication should log warning when header parameter duplicates security scheme`() {
+    fun `validateSecuritySchemeParameterDuplication should not log warning when header parameter duplicates security scheme`() {
         val spec = """
             openapi: 3.0.3
             info:
@@ -178,7 +178,7 @@ class OpenApiSpecificationInfoTest {
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
 
-        assertThat(output).containsIgnoringWhitespaces(
+        assertThat(output).doesNotContain(
             toViolationReportString(
                 breadCrumb = "paths./greet.get.parameters[0].name",
                 details = "Found header parameter with same name as Bearer Authorization security scheme",
@@ -188,7 +188,7 @@ class OpenApiSpecificationInfoTest {
     }
 
     @Test
-    fun `validateSecuritySchemeParameterDuplication should log warning when header parameter duplicates security scheme with ref`() {
+    fun `validateSecuritySchemeParameterDuplication should not log warning when header parameter duplicates security scheme with ref`() {
         val spec = """
             openapi: 3.0.3
             info:
@@ -229,7 +229,7 @@ class OpenApiSpecificationInfoTest {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        assertThat(output).containsIgnoringWhitespaces(
+        assertThat(output).doesNotContain(
             toViolationReportString(
                 breadCrumb = "paths./greet.get.parameters[0].name",
                 details = "Found header parameter with same name as Bearer Authorization security scheme",

@@ -243,18 +243,19 @@ class OpenApiSpecificationValidationWarnings {
         }
         ${
             toViolationReportString(
-                breadCrumb = "paths./users.post.parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
-                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
-            )
-        }
-        ${
-            toViolationReportString(
                 breadCrumb = "paths./users.post.requestBody.content.application/json.schema",
                 details = "Schema has both \$ref (#/components/schemas/User) and a type object defined, ignoring other properties",
                 OpenApiLintViolations.REF_HAS_SIBLINGS
             )
         }
         """.trimIndent())
+
+        assertThat(stdout).doesNotContain(
+            toViolationReportString(
+                breadCrumb = "paths./users.post.parameters[0].name",
+                details = "Found header parameter with same name as Bearer Authorization security scheme",
+                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
+            )
+        )
     }
 }

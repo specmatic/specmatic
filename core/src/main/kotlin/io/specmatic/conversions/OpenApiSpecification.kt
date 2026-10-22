@@ -1873,10 +1873,11 @@ class OpenApiSpecification(
         }.toMap()
 
         val securitySchemesForRequestPattern = parseOperationSecuritySchemas(operation, securitySchemeComponents, collectorContext)
-        validateSecuritySchemeParameterDuplication(
-            securitySchemes = securitySchemesForRequestPattern,
-            parameters = parameters.safeFilter<Parameter>(collectorContext)
-        )
+        // TODO: Re-enable this warning once there is a consensus on the approach to handle security overrides.
+        // validateSecuritySchemeParameterDuplication(
+        //     securitySchemes = securitySchemesForRequestPattern,
+        //     parameters = parameters.safeFilter<Parameter>(collectorContext)
+        // )
 
         val headersMap = parameters.safeFilter<HeaderParameter>(collectorContext).associate { parameterWithContext ->
             val parameter = parameterWithContext.parameter
