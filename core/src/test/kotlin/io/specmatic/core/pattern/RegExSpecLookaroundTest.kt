@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.regex.RegexLookaroundCompilation
 import io.specmatic.core.pattern.regex.RegexLookaroundCompiler
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -18,6 +19,7 @@ internal class RegExSpecLookaroundTest {
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = '→', value = [
             "^a(?=b)b$→ab",
+            "^(?=é)é$→é", "^中(?<=中)文$→中文", "^(?=😀)😀$→😀",
             "^a(?!b)c$→ac",
             "^ab(?<=ab)c$→abc",
             "^a(?<!b)c$→ac",
@@ -58,6 +60,11 @@ internal class RegExSpecLookaroundTest {
     @Nested
     inner class ExistingGenerationBehavior {
         @Test
+        fun `propagates native failure when legacy fallback also cannot compile`() {
+            assertThatThrownBy { RegExSpec("^(?=a)[]$") }.isInstanceOf(IllegalArgumentException::class.java)
+        }
+
+        @Test
         fun `returns the existing empty fallback when no witness fits the requested bounds`() {
             val impossible = "^a(?!b)b$"
             val automaton = compile(impossible)
@@ -83,7 +90,9 @@ internal class RegExSpecLookaroundTest {
             assertThat(spec.toString()).isEqualTo(legacyRegex)
             assertThat(spec.match(StringValue("ab"))).isTrue()
             assertThat(spec.match(StringValue("ac"))).isFalse()
-            assertThat(spec.generateShortestStringOrRandom(0)).isEqualTo(legacyGenerator.generateShortest())
+            val shortest = spec.generateShortestStringOrRandom(0)
+            assertThat(shortest).isEqualTo(legacyGenerator.generateShortest())
+            assertThat(spec.match(StringValue(shortest))).isFalse()
             assertThat(spec.generateLongestStringOrRandom(30)).isEqualTo(legacyGenerator.generateLongest(30))
 
             val generated = spec.generateRandomString(0, 30).toStringLiteral()

@@ -1,6 +1,6 @@
 package io.specmatic.core.pattern.regex
 
-internal class RegexScanner {
+internal class RegexScanner(private val bricsStrings: Boolean = false) {
     sealed interface Result {
         val tokens: List<RegexToken>
 
@@ -46,6 +46,7 @@ internal class RegexScanner {
 
     private fun tokenAt(source: String, start: Int): RegexToken {
         val character = source[start]
+        if (bricsStrings && character == '"') return bricsString(source, start)
         if (character == '(') return groupOpening(source, start)
         if (character == '\\') return escapedToken(source, start)
         if (character == '[') return characterClass(source, start)
@@ -66,7 +67,7 @@ internal class RegexScanner {
 
     private fun escapedToken(source: String, start: Int): RegexToken {
         // Preserve existing JVM-style \Q...\E quoting for compatibility; this is not ECMAScript syntax.
-        if (source.startsWith("\\Q", start)) {
+        if (!bricsStrings && source.startsWith("\\Q", start)) {
             val closing = source.indexOf("\\E", start + 2)
             val end = if (closing < 0) source.length else closing + 2
             return RegexToken.QuotedLiteral(RegexSpan(start, end))
@@ -74,6 +75,13 @@ internal class RegexScanner {
 
         val escapeEnd = (start + 2).coerceAtMost(source.length)
         return RegexToken.Escape(RegexSpan(start, escapeEnd))
+    }
+
+    private fun bricsString(source: String, start: Int): RegexToken.QuotedLiteral {
+        // dk.brics strings end at the next quote; backslashes have no escape role inside them.
+        val closing = source.indexOf('"', start + 1)
+        val end = if (closing < 0) source.length else closing + 1
+        return RegexToken.QuotedLiteral(RegexSpan(start, end))
     }
 
     private fun characterClass(source: String, start: Int): RegexToken.CharacterClass {

@@ -8,59 +8,65 @@ import org.junit.jupiter.params.provider.ValueSource
 
 internal class RegexLookaroundBranchesTest {
     @Nested
-    inner class TopLevelAlternatives {
+    inner class MutuallyExclusiveScopes {
         @Test
-        fun `separates complete branches with independent anchors`() {
-            assertThat(split("^a(?!b)b$|^ab$")).containsExactly("^a(?!b)b$", "^ab$")
+        fun `partitions complete branches with different anchors`() {
+            assertThat(split("^a(?!b)b$|ab")).containsExactly("^a(?!b)b$", "ab")
         }
 
         @Test
-        fun `retains empty branches and ignores escaped class and body alternatives`() {
+        fun `retains empty branches and ignores class escapes and body alternatives`() {
             assertThat(split("|(?=a|b)[a|b]\\||")).containsExactly("", "(?=a|b)[a|b]\\|", "")
         }
 
         @Test
-        fun `splits the root before alternatives inside groups`() {
-            assertThat(split("^((?=a)a|b)$|^c$")).containsExactly("^((?=a)a|b)$", "^c$")
-        }
-    }
-
-    @Nested
-    inner class OrdinaryGroupAlternatives {
-        @Test
-        fun `preserves surrounding consuming context and anchors`() {
-            assertThat(split("^x(a(?=b)b|c)y$")).containsExactly("^x(a(?=b)b)y$", "^x(c)y$")
+        fun `partitions the outermost exclusive assertion scope first`() {
+            assertThat(split("^(((?=a)a|b)|(?=c)c)$")).containsExactly("^(((?=a)a|b))$", "^((?=c)c)$")
         }
 
         @Test
-        fun `retains named group wrappers during branch expansion`() {
-            assertThat(split("^(?<value>a(?=b)b|c)$")).containsExactly("^(?<value>a(?=b)b)$", "^(?<value>c)$")
-        }
-
-        @Test
-        fun `separates all branches of one group without splitting assertion body alternatives`() {
+        fun `preserves surrounding context when all assertions belong to one disjunction`() {
             assertThat(split("^x(a(?=b|c)[bc]|d|e)y$")).containsExactly(
                 "^x(a(?=b|c)[bc])y$", "^x(d)y$", "^x(e)y$",
             )
         }
 
         @Test
-        fun `expands one assertion dependent group at a time`() {
-            assertThat(split("^((?=a)a|b)((?=c)c|d)$")).containsExactly(
-                "^((?=a)a)((?=c)c|d)$", "^(b)((?=c)c|d)$",
-            )
+        fun `preserves named group wrappers`() {
+            assertThat(split("^(?<value>a(?=b)b|c)$")).containsExactly("^(?<value>a(?=b)b)$", "^(?<value>c)$")
         }
 
         @ParameterizedTest
-        @ValueSource(strings = ["^(?=(a|b)+)[ab]+$", "^(a|b)(?=c)c$", "(?<=(ab|ac))d"])
-        fun `leaves alternatives unrelated to assertion occurrence unchanged`(source: String) {
+        @ValueSource(strings = ["(?=[ac])", "(?=z)?"])
+        fun `retains shared unconditional or omitted checks without distributing independent choices`(prefix: String) {
+            assertThat(split("$prefix(a(?=b)b|c)")).containsExactly("$prefix(a(?=b)b)", "$prefix(c)")
+        }
+
+        @Test
+        fun `preserves an unconditional lookbehind across the selected alternatives`() {
+            assertThat(split("^a((?=b)b|c)(?<=ab)d$")).containsExactly("^a((?=b)b)(?<=ab)d$", "^a(c)(?<=ab)d$")
+        }
+
+        @Test
+        fun `ignores directly skippable checks when locating conditional scopes`() {
+            assertThat(split("((?=z)?a|b)((?=c)c|d)")).containsExactly("((?=z)?a|b)((?=c)c)", "((?=z)?a|b)(d)")
+        }
+    }
+
+    @Nested
+    inner class IndependentScopes {
+        @ParameterizedTest
+        @ValueSource(strings = [
+            "^((?=a)a|b)((?=c)c|d)$",
+            "^(?=(a|b)+)[ab]+$", "^(a|b)(?=c)c$", "(?<=(ab|ac))d", "^(a|b)(c|d)$",
+        ])
+        fun `retains independent choices and assertion body alternatives inside dk brics`(source: String) {
             assertThat(split(source)).containsExactly(source)
         }
     }
 
     private fun split(source: String): List<String> {
-        val scanned = RegexScanner().scan(source)
-        assertThat(scanned).isInstanceOf(RegexScanner.Result.Scanned::class.java)
-        return RegexLookaroundBranches().split(source, scanned as RegexScanner.Result.Scanned)
+        val scanned = RegexScanner().scan(source) as RegexScanner.Result.Scanned
+        return RegexLookaroundBranches().split(source, scanned)
     }
 }

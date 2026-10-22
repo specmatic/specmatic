@@ -193,6 +193,33 @@ internal class RegexScannerTest {
         }
     }
 
+    @Nested
+    inner class BricsStringLiterals {
+        @Test
+        fun `keeps brics strings opaque to class protection without changing default scanning`() {
+            val source = "\"[ab]\"[cd]"
+            assertThat(RegexScanner(bricsStrings = true).scan(source)).isEqualTo(
+                RegexScanner.Result.Scanned(
+                    listOf(RegexToken.QuotedLiteral(RegexSpan(0, 6)), RegexToken.CharacterClass(RegexSpan(6, 10))),
+                    emptyList(),
+                ),
+            )
+            assertThat(RegexScanner().scan("\"[ab]\"")).isEqualTo(
+                RegexScanner.Result.Scanned(
+                    listOf(RegexToken.Character(RegexSpan(0, 1)), RegexToken.CharacterClass(RegexSpan(1, 5)), RegexToken.Character(RegexSpan(5, 6))),
+                    emptyList(),
+                ),
+            )
+        }
+
+        @Test
+        fun `leaves unterminated brics strings for native compilation to reject`() {
+            assertThat(RegexScanner(bricsStrings = true).scan("\"[ab]")).isEqualTo(
+                RegexScanner.Result.Scanned(listOf(RegexToken.QuotedLiteral(RegexSpan(0, 5))), emptyList()),
+            )
+        }
+    }
+
     private fun scanned(source: String): RegexScanner.Result.Scanned {
         val result = RegexScanner().scan(source)
         assertThat(result).isInstanceOf(RegexScanner.Result.Scanned::class.java)

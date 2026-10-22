@@ -4,7 +4,6 @@ import dk.brics.automaton.Automaton
 import dk.brics.automaton.RegExp
 import io.specmatic.core.pattern.RegExSpec
 import io.specmatic.core.pattern.RegexMatchMode
-import io.specmatic.core.utilities.Flags
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -170,94 +169,49 @@ internal class RegexLookaroundCompilerTest {
     }
 
     @Nested
-    inner class BranchBudget {
+    inner class AnchoredAlternatives {
         @ParameterizedTest
-        @CsvSource("60, false", "60, true", "63, false", "63, true")
-        fun `shares the total budget across uneven branches regardless of their order`(nestedRoutes: Int, reverse: Boolean) {
-            val alternatives = (0 until nestedRoutes).map { "a$it" }
-            val nested = "^((?=a)" + alternatives.joinToString("|") + ")$"
-            val pattern = if (reverse) "$nested|^z$" else "^z$|$nested"
-            val expected = Automaton.union((alternatives + "z").map(Automaton::makeString))
+        @ValueSource(ints = [32, 64, 128, 256, 512, 1024])
+        fun `compiles complete anchored alternatives without a route cutoff`(routes: Int) {
+            val words = (0 until routes).map { "a$it" }
+            val source = words.joinToString("|") { "^(?=a)$it$" }
+            assertThat(compile(source)).isEqualTo(Automaton.union(words.map(Automaton::makeString)))
+        }
 
-            assertThat(compile(pattern)).isEqualTo(expected)
+        @ParameterizedTest
+        @CsvSource("60, false", "60, true", "128, false", "128, true")
+        fun `normalizes nested anchored alternatives independently regardless of their order`(nestedRoutes: Int, reverse: Boolean) {
+            val words = (0 until nestedRoutes).map { "a$it" }
+            val nested = "(" + words.joinToString("|") { "^(?=a)$it$" } + ")"
+            val source = if (reverse) "$nested|^z$" else "^z$|$nested"
+            assertThat(compile(source)).isEqualTo(Automaton.union((words + "z").map(Automaton::makeString)))
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = [32, 256])
+        fun `shares unconditional context across exclusive alternatives without a route cutoff`(routes: Int) {
+            val words = (0 until routes).map { "a$it" }
+            val source = "^(?=a)(" + words.joinToString("|") { "(?=a)$it" } + ")$"
+            assertThat(compile(source)).isEqualTo(Automaton.union(words.map(Automaton::makeString)))
         }
 
         @Test
-        fun `declines the whole expression when uneven branches require 65 final routes`() {
-            val alternatives = (0 until 64).joinToString("|") { "a$it" }
-            assertThat(compiler().compile("^z$|^((?=a)$alternatives)$")).isEqualTo(
-                RegexLookaroundCompilation.Unsupported(
-                    "Lookaround alternative expansion exceeds the branch budget of 64;\n" +
-                        "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
-                ),
+        fun `retains an empty branch and discards only the infeasible branch`() {
+            assertThat(compile("^(?!)a$|^$|^(?=b)b$")).isEqualTo(RegExp("()|b", 0).toAutomaton())
+        }
+
+        @Test
+        fun `does not widen support for anchors embedded in consuming context`() {
+            assertThat(compiler().compile("(?=a)(^a|b)c")).isEqualTo(
+                RegexLookaroundCompilation.Unsupported("Anchor assertion occurs in a position that cannot be normalized safely: \uE000(^a|b)c"),
             )
         }
 
-        @Test
-        fun `bounds products of independent assertion alternatives by default`() {
-            val group = "((?=a)a|b)"
-            val supported = "^" + group.repeat(6) + "$"
-            val excessive = "^" + group.repeat(7) + "$"
-            assertThat(compile(supported)).isEqualTo(RegExp("[ab]{6}", 0).toAutomaton())
-            assertThat(compiler().compile(excessive)).isEqualTo(
-                RegexLookaroundCompilation.Unsupported(
-                    "Lookaround alternative expansion exceeds the branch budget of 64;\n" +
-                        "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
-                ),
-            )
-        }
-
         @ParameterizedTest
-        @CsvSource("2, 1", "128, 7")
-        fun `uses the configured budget to compile complete branch languages`(budget: String, groups: Int) {
-            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to budget) {
-                val pattern = "^" + "((?=a)a|b)".repeat(groups) + "$"
-                assertThat(compile(pattern)).isEqualTo(RegExp("[ab]{$groups}", 0).toAutomaton())
-            }
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = ["^(?=a)a$|^b$", "^(?!)a$|^b$"])
-        fun `counts every final route including empty languages against the configured total`(pattern: String) {
-            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to "1") {
-                assertThat(compiler().compile(pattern)).isEqualTo(
-                    RegexLookaroundCompilation.Unsupported(
-                        "Lookaround alternative expansion exceeds the branch budget of 1;\n" +
-                            "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
-                    ),
-                )
-            }
-        }
-
-        @Test
-        fun `starts a fresh budget when reusing a compiler after exhaustion`() {
-            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to "1") {
-                val compiler = compiler()
-                val expected = RegexLookaroundCompilation.Compiled(Automaton.makeString("a"))
-                assertThat(compiler.compile("^(?=a)a$")).isEqualTo(expected)
-                assertThat(compiler.compile("^(?=a)a$|^b$")).isEqualTo(
-                    RegexLookaroundCompilation.Unsupported(
-                        "Lookaround alternative expansion exceeds the branch budget of 1;\n" +
-                            "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
-                    ),
-                )
-                assertThat(compiler.compile("^(?=a)a$")).isEqualTo(expected)
-            }
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = ["", "invalid", "0", "-1", "2147483648"])
-        fun `retains the default budget for invalid settings`(setting: String) {
-            Flags.using(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to setting) {
-                val group = "((?=a)a|b)"
-                assertThat(compile("^" + group.repeat(6) + "$")).isEqualTo(RegExp("[ab]{6}", 0).toAutomaton())
-                assertThat(compiler().compile("^" + group.repeat(7) + "$")).isEqualTo(
-                    RegexLookaroundCompilation.Unsupported(
-                        "Lookaround alternative expansion exceeds the branch budget of 64;\n" +
-                            "increase SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET to allow more branches",
-                    ),
-                )
-            }
+        @ValueSource(ints = [6, 10, 14])
+        fun `represents intrinsic suffix state growth without imposing a state cutoff`(distance: Int) {
+            val expected = RegExp("[ab]*a[ab]{$distance}", 0).toAutomaton()
+            assertThat(compile("^[ab]*(?<=a[ab]{$distance})$")).isEqualTo(expected)
         }
     }
 
@@ -300,9 +254,9 @@ internal class RegexLookaroundCompilerTest {
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = [
-            "^a(?!b)b$", "^a(?!bc)b(?=c)c$", "^a(?<!a)b$", "^(?!)a$", "^a(?<!)b$", "^(?=é)é$",
+            "^a(?!b)b$", "^a(?!bc)b(?=c)c$", "^a(?<!a)b$", "^(?!)a$", "^a(?<!)b$",
         ])
-        fun `returns a compiled empty automaton for contradictions and non ASCII only languages`(pattern: String) {
+        fun `returns a compiled empty automaton for contradictions`(pattern: String) {
             assertThat(compile(pattern).isEmpty).isTrue()
         }
 
@@ -310,8 +264,8 @@ internal class RegexLookaroundCompilerTest {
         @CsvSource(delimiter = '→', value = [
             ")(?=a)a→Unmatched closing group",
             "(?=a→Unclosed group",
-            "^(?=a)[]$→expected ']' at position 3",
-            "(?=a)[\\→expected ']' at position 4",
+            "^(?=a)[]$→expected ']' at position 2",
+            "(?=a)[\\→expected ']' at position 3",
             "(?=(?!a)b)b→Nested lookarounds are unsupported",
         ])
         fun `returns explicit unsupported results for malformed or out of scope compilation`(pattern: String, reason: String) {
@@ -319,8 +273,8 @@ internal class RegexLookaroundCompilerTest {
         }
 
         @Test
-        fun `restricts the generation domain without rejecting non ASCII source syntax`() {
-            assertThat(compile("^(?=[aé])[aé]$")).isEqualTo(Automaton.makeString("a"))
+        fun `preserves non ASCII source characters in positive and negative assertions`() {
+            assertThat(compile("^(?=[aé])[aé]$")).isEqualTo(RegExp("[aé]", 0).toAutomaton())
             assertThat(compile("^(?!é)[aé]$")).isEqualTo(Automaton.makeString("a"))
         }
     }

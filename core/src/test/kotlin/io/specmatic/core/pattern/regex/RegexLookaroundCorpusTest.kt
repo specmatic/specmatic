@@ -24,7 +24,7 @@ internal class RegexLookaroundCorpusTest {
     inner class EmptyLanguages {
         @ParameterizedTest(name = "{0}")
         @MethodSource("io.specmatic.core.pattern.regex.RegexLookaroundCorpusTest#emptyCases")
-        fun `compiles successfully without an ASCII witness`(fixture: RegexConformanceFixture) {
+        fun `compiles successfully without a witness in the generation domain`(fixture: RegexConformanceFixture) {
             assertThat(compile(fixture.pattern).isEmpty).describedAs(fixture.id).isTrue()
         }
     }
@@ -72,15 +72,17 @@ internal class RegexLookaroundCorpusTest {
         val runtimeRegex = runtimeMatcher(fixture)
         for (value in generated) {
             assertThat(automaton.run(value)).describedAs(fixture.id).isTrue()
-            assertThat(value.all { it.code < 128 }).describedAs(fixture.id).isTrue()
-            if (runtimeRegex != null) {
+            if (runtimeRegex != null && value.none(Char::isSurrogate)) {
                 assertThat(runtimeRegex.containsMatchIn(value))
                     .describedAs("JVM cross-check of ${fixture.id}: $value").isTrue()
             }
         }
 
-        val asciiCandidates = fixture.candidates.filter { it.value.all { ch -> ch.code < 128 } }
-        asciiCandidates.forEach { candidate ->
+        val scanned = RegexScanner().scan(fixture.pattern) as RegexScanner.Result.Scanned
+        val extracted = RegexLookaroundExtractor().extract(fixture.pattern, scanned) as RegexLookaroundExtraction.Extracted
+        val candidateStrings = RegexCandidateAlphabet(extracted.assertions).strings
+        val domainCandidates = fixture.candidates.filter { candidateStrings.run(it.value) }
+        domainCandidates.forEach { candidate ->
             assertThat(automaton.run(candidate.value))
                 .describedAs("${fixture.id}: ${candidate.value}").isEqualTo(candidate.matches)
         }

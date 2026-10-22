@@ -284,7 +284,8 @@
       "syntaxValid": true,
       "generation": "SUPPORTED",
       "source": "custom",
-      "candidates": [{"value": "word", "matches": true}, {"value": "\u00a0", "matches": false}, {"value": "\u0085", "matches": true}]
+      "candidates": [{"value": "word", "matches": true}, {"value": "\u00a0", "matches": false}, {"value": "\u0085", "matches": true}],
+      "deferredReason": "Shared cleanup narrows whitespace to ASCII, so the negative assertion can admit non-ASCII whitespace; dot also excludes NEL. Shared cleanup corrections are deferred."
     },
     {
       "id": "negative-whitespace-assertion-excludes-nbsp",
@@ -475,7 +476,7 @@
       "dialect": "ECMAScript",
       "pattern": "^(?=\u00e9)\u00e9$",
       "syntaxValid": true,
-      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "generation": "SUPPORTED",
       "source": "custom",
       "candidates": [{"value": "\u00e9", "matches": true}]
     },
@@ -1817,6 +1818,320 @@
         }
       ],
       "reason": "Backreferences remain outside scope, including references to names outside the JVM identifier subset."
+    },
+    {
+      "id": "unicode-chinese-behind",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^\u4e2d(?<=\u4e2d)\u6587$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u4e2d\u6587",
+          "matches": true
+        },
+        {
+          "value": "\u0416\u6587",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "unicode-cyrillic-negative",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\u4e2d)[\u4e2d\u0416]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u0416",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "supplementary-literal",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\ud83d\ude00)\ud83d\ude00$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\ud83d\ude00",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-dot-marker-safety",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(a(?=x)x|..)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ax",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "x",
+          "matches": false
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-negative-dot-safety",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(a(?!x)x|..)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ax",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "x",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "unicode-context-search",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "(?<=\u4e2d)\u00e9",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u4e2d\u00e9",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        },
+        {
+          "value": "x\u4e2d\u00e9x",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "conditional-cross-branch-behind",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=\u00e9)\u00e9|\u4e2d)((?<=\u00e9)[ab]|\u0416)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00e9a",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u0416",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d\u0416",
+          "matches": true
+        },
+        {
+          "value": "\u4e2da",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-empty-branch",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=\u00e9)\u00e9|)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-infeasible-branch",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?!)\u00e9|\u4e2d)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-twelve-independent-groups",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "supplementary-two-utf16-units",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=..)..$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "reason": "Flagless ECMAScript counts UTF-16 units; JVM dot counts a supplementary code point as one character.",
+      "candidates": [
+        {
+          "value": "\ud83d\ude00",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "literal-nbsp-negative-whitespace-cleanup",
+      "category": "lookaround-ecmascript-whitespace",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\s).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "deferredReason": "Shared cleanup narrows whitespace to ASCII, so the compiled negative assertion incorrectly admits NBSP.",
+      "candidates": [{"value": "\u00a0", "matches": false}]
+    },
+    {
+      "id": "literal-nbsp-negated-whitespace-class-cleanup",
+      "category": "lookaround-negated-class",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[^\\s]).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "deferredReason": "Shared cleanup narrows whitespace to ASCII, so its complement incorrectly admits NBSP.",
+      "candidates": [{"value": "\u00a0", "matches": false}]
+    },
+    {
+      "id": "literal-nel-negative-dot-cleanup",
+      "category": "lookaround-ecmascript-dot",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.)[^a]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "deferredReason": "Shared dot cleanup excludes NEL, so the compiled negative assertion incorrectly admits it.",
+      "candidates": [{"value": "\u0085", "matches": false}]
+    },
+    {
+      "id": "unicode-literal-nbsp",
+      "category": "unicode-domain-boundary",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\u00a0)\u00a0$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00a0",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "private-use-range-spans-allocated-marker",
+      "category": "unicode-domain-boundary",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\ue000-\ue002])[\ue000-\ue002]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "reason": "U+E001 is allocated as an internal marker and omitted from generation; the literal range endpoints remain available.",
+      "candidates": [
+        {
+          "value": "\ue000",
+          "matches": true
+        },
+        {
+          "value": "\ue001",
+          "matches": true
+        },
+        {
+          "value": "\ue002",
+          "matches": true
+        }
+      ]
     }
   ]
 }

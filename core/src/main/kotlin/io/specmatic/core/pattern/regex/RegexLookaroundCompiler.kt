@@ -3,7 +3,6 @@ package io.specmatic.core.pattern.regex
 import dk.brics.automaton.Automaton
 import dk.brics.automaton.RegExp
 import io.specmatic.core.pattern.RegexMatchMode
-import io.specmatic.core.utilities.Flags
 
 internal sealed interface RegexLookaroundCompilation {
     data object NotApplicable : RegexLookaroundCompilation
@@ -12,19 +11,16 @@ internal sealed interface RegexLookaroundCompilation {
 }
 
 internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, private val cleanRegularContent: (String) -> String) {
-    private val branchLimit = Flags.getStringValue(Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET)
-        ?.toIntOrNull()?.takeIf { it > 0 } ?: DEFAULT_BRANCH_BUDGET
-
     fun compile(regex: String): RegexLookaroundCompilation {
         val scan = RegexScanner().scan(regex)
         if (scan.tokens.none { it is RegexToken.GroupStart.Lookaround }) {
             return RegexLookaroundCompilation.NotApplicable
         }
 
-        return compileScanned(regex, scan, BranchBudget(branchLimit))
+        return compileScanned(regex, scan)
     }
 
-    private fun compileScanned(regex: String, scan: RegexScanner.Result, budget: BranchBudget): RegexLookaroundCompilation {
+    private fun compileScanned(regex: String, scan: RegexScanner.Result): RegexLookaroundCompilation {
         val scanned = when (scan) {
             is RegexScanner.Result.Scanned -> scan
             is RegexScanner.Result.Malformed -> return RegexLookaroundCompilation.Unsupported(scan.reason)
@@ -35,18 +31,7 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         }
 
         val branches = RegexLookaroundBranches().split(regex, scanned)
-        if (branches.size > 1) {
-            return compileBranches(branches, budget)
-        }
-
-        if (!budget.tryConsume()) {
-            return RegexLookaroundCompilation.Unsupported(
-                reason = """
-                Lookaround alternative expansion exceeds the branch budget of $branchLimit;
-                increase ${Flags.SPECMATIC_REGEX_LOOKAROUND_BRANCH_BUDGET} to allow more branches
-                """.trimIndent()
-            )
-        }
+        if (branches.size > 1) return compileBranches(branches)
 
         return when (val extracted = RegexLookaroundExtractor().extract(regex, scanned)) {
             is RegexLookaroundExtraction.Extracted -> compileExtracted(extracted)
@@ -54,23 +39,26 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         }
     }
 
-    private fun compileBranches(branches: List<String>, budget: BranchBudget): RegexLookaroundCompilation {
-        val automata = mutableListOf<Automaton>()
+    private fun compileBranches(branches: List<String>): RegexLookaroundCompilation {
+        var language = Automaton.makeEmpty()
+
         for (branch in branches) {
-            val result = compileScanned(branch, RegexScanner().scan(branch), budget)
+            val result = compileScanned(branch, RegexScanner().scan(branch))
             if (result !is RegexLookaroundCompilation.Compiled) return result
-            automata += result.automaton
+            language = language.union(result.automaton)
+            language.minimize()
         }
 
-        return RegexLookaroundCompilation.Compiled(Automaton.union(automata))
+        return RegexLookaroundCompilation.Compiled(language)
     }
 
     private fun compileExtracted(pattern: RegexLookaroundExtraction.Extracted): RegexLookaroundCompilation {
         return try {
             // Strip capture prefixes before examining anchors: $ in (?<$id>a) belongs to the name.
             val cleanedExpression = cleanRegularContent(pattern.expression)
+            val alphabet = RegexCandidateAlphabet(pattern.assertions)
             val anchors = OpenApiRegexAnchorNormalizer(
-                anyCharacterSequence = "[\u0000-\u007F]*",
+                anyCharacterSequence = alphabet.contextRegex,
                 allowUnanchoredSides = matchMode == RegexMatchMode.SEARCH,
             ).normalize(cleanedExpression)
 
@@ -78,33 +66,47 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
                 return RegexLookaroundCompilation.Unsupported(anchors.reason)
             }
 
-            val asciiStrings = Automaton.makeCharRange('\u0000', '\u007F').repeat()
-            val main = compileMain(anchors, asciiStrings)
-            val constrained = constrainAssertions(main, pattern.assertions, asciiStrings)
-            RegexLookaroundCompilation.Compiled(eraseMarkers(constrained, pattern.assertions))
+            compileNormalized(pattern, anchors, alphabet)
         } catch (e: IllegalArgumentException) {
             RegexLookaroundCompilation.Unsupported(e.message ?: "Could not compile regular content with dk.brics")
         }
     }
 
-    private fun compileMain(anchors: OpenApiRegexAnchorNormalizer.Result, asciiStrings: Automaton): Automaton {
-        val consuming = compileRegular(anchors.regex)
-        if (matchMode != RegexMatchMode.SEARCH || anchors !is OpenApiRegexAnchorNormalizer.Result.Unchanged) return consuming
-        return asciiStrings.concatenate(consuming).concatenate(asciiStrings)
+    private fun compileNormalized(pattern: RegexLookaroundExtraction.Extracted, anchors: OpenApiRegexAnchorNormalizer.Result, alphabet: RegexCandidateAlphabet): RegexLookaroundCompilation {
+        val main = compileMain(anchors, alphabet)
+        val constrained = constrainAssertions(main, pattern.assertions, alphabet)
+        return RegexLookaroundCompilation.Compiled(eraseMarkers(constrained, pattern.assertions))
     }
 
-    private fun constrainAssertions(main: Automaton, assertions: List<MarkedAssertion>, asciiStrings: Automaton): Automaton {
-        val markerStrings = Automaton.makeCharSet(assertions.map { it.marker }.joinToString("")).repeat()
-        var language = main.intersection(markerSequence(assertions, asciiStrings))
+    private fun compileMain(anchors: OpenApiRegexAnchorNormalizer.Result, alphabet: RegexCandidateAlphabet): Automaton {
+        val consuming = RegexMarkedAutomaton(alphabet.character).compile(anchors.regex)
+        if (matchMode != RegexMatchMode.SEARCH || anchors !is OpenApiRegexAnchorNormalizer.Result.Unchanged) return consuming
+        return alphabet.strings.concatenate(consuming).concatenate(alphabet.strings)
+    }
+
+    private fun constrainAssertions(main: Automaton, assertions: List<MarkedAssertion>, alphabet: RegexCandidateAlphabet): Automaton {
+        var language = main
+        language.minimize()
+
         for (assertion in assertions) {
-            val condition = assertionCondition(assertion, asciiStrings, markerStrings)
+            val condition = assertionCondition(assertion, alphabet)
             language = when (assertion.lookaround.polarity) {
                 LookaroundPolarity.NEGATIVE -> language.minus(condition)
-                LookaroundPolarity.POSITIVE -> language.intersection(condition)
+                LookaroundPolarity.POSITIVE -> {
+                    language
+                        .intersection(condition)
+                        .union(language.minus(markerPresence(assertion.marker)))
+                }
             }
+
+            language.minimize()
         }
 
         return language
+    }
+
+    private fun markerPresence(marker: Char): Automaton {
+        return Automaton.makeAnyString().concatenate(Automaton.makeChar(marker)).concatenate(Automaton.makeAnyString())
     }
 
     private fun eraseMarkers(language: Automaton, assertions: List<MarkedAssertion>): Automaton {
@@ -114,17 +116,11 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
         return unmarked
     }
 
-    private fun markerSequence(assertions: List<MarkedAssertion>, asciiStrings: Automaton): Automaton {
-        // Exactly one occurrence per marker also prevents consuming dots/classes from swallowing markers.
-        return assertions.fold(asciiStrings) { sequence, assertion ->
-            sequence.concatenate(Automaton.makeChar(assertion.marker)).concatenate(asciiStrings)
-        }
-    }
+    private fun assertionCondition(assertion: MarkedAssertion, alphabet: RegexCandidateAlphabet): Automaton {
+        val body = compileRegular(cleanRegularContent(assertion.body))
+            .intersection(alphabet.strings)
+            .shuffle(alphabet.otherMarkerStrings(assertion.marker))
 
-    private fun assertionCondition(assertion: MarkedAssertion, asciiStrings: Automaton, markerStrings: Automaton): Automaton {
-        // No search normalisation here: a body must match immediately next to its marker.
-        // It consumes only input characters, skipping other zero-width assertion markers.
-        val body = compileRegular(cleanRegularContent(assertion.body)).intersection(asciiStrings).shuffle(markerStrings)
         val marker = Automaton.makeChar(assertion.marker)
         val local = when (assertion.lookaround) {
             is RegexToken.GroupStart.Lookaround.Ahead -> marker.concatenate(body)
@@ -136,18 +132,5 @@ internal class RegexLookaroundCompiler(private val matchMode: RegexMatchMode, pr
 
     private fun compileRegular(regex: String): Automaton {
         return RegExp(regex, 0).toAutomaton()
-    }
-
-    // Shared only within one compilation. Splits are free; every final route consumes one unit.
-    private class BranchBudget(private var remaining: Int) {
-        fun tryConsume(): Boolean {
-            if (remaining == 0) return false
-            remaining--
-            return true
-        }
-    }
-
-    private companion object {
-        const val DEFAULT_BRANCH_BUDGET = 64
     }
 }
