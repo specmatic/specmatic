@@ -1118,7 +1118,7 @@ class YamlToPatternTests {
 
         @JvmStatic
         fun allOfOneOfScenarios(): Stream<Arguments> {
-            return multiVersionCompositeCase("allOf required fields apply to oneOf option properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+            val allOfRequiredFieldsCase = multiVersionCompositeCase("allOf required fields apply to oneOf option properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                 schema("PaymentRequirements") {
                     schema {
                         put("type", "object")
@@ -1161,7 +1161,42 @@ class YamlToPatternTests {
                     assertFailure(paymentPattern.match(mapOf("cardNumber" to "4111"), resolver))
                     assertFailure(paymentPattern.match(mapOf("accountNumber" to "acct-2"), resolver))
                 }
-            }.stream()
+            }
+
+            val branchSpecificRequiredFieldsCase = multiVersionCompositeCase("oneOf branch requirements apply to inherited allOf properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                schema("Payment") {
+                    schema {
+                        put("allOf", listOf(
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("id" to mapOf("type" to "string"))
+                            ),
+                            mapOf("oneOf" to listOf(
+                                mapOf(
+                                    "type" to "object",
+                                    "required" to listOf("kind", "id"),
+                                    "properties" to mapOf("kind" to mapOf("type" to "string", "enum" to listOf("card")))
+                                ),
+                                mapOf(
+                                    "type" to "object",
+                                    "required" to listOf("kind"),
+                                    "properties" to mapOf("kind" to mapOf("type" to "string", "enum" to listOf("bank")))
+                                )
+                            ))
+                        ))
+                    }
+                }
+
+                validate { patterns, resolver ->
+                    val paymentPattern = patterns.getValue("Payment")
+                    assertFailure(paymentPattern.match(mapOf("kind" to "card"), resolver))
+                    assertSuccess(paymentPattern.match(mapOf("kind" to "bank"), resolver))
+                    assertSuccess(paymentPattern.match(mapOf("kind" to "card", "id" to "123"), resolver))
+                    assertSuccess(paymentPattern.match(mapOf("kind" to "bank", "id" to "123"), resolver))
+                }
+            }
+
+            return (allOfRequiredFieldsCase + branchSpecificRequiredFieldsCase).stream()
         }
 
         @JvmStatic

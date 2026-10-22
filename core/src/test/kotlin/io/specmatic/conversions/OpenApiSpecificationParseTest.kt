@@ -134,6 +134,65 @@ class OpenApiSpecificationParseTest {
             assertThat(petPattern.matches(parsedJSONObject("""{"weightKg":20.0}"""), resolver))
                 .isInstanceOf(Result.Failure::class.java)
         }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["3.0.2", "3.1.0"])
+        fun `a property required by one branch remains optional in another`(openApiVersion: String) {
+            val specification = OpenApiSpecification.fromYAML(
+                yamlContent = $$"""
+                openapi: $$openApiVersion
+                info:
+                  title: Payment API
+                  version: '1.0'
+                paths:
+                  /payments:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              $ref: '#/components/schemas/Payment'
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  schemas:
+                    Payment:
+                      allOf:
+                        - type: object
+                          properties:
+                            id:
+                              type: string
+                        - oneOf:
+                            - type: object
+                              required: [kind, id]
+                              properties:
+                                kind:
+                                  type: string
+                                  enum: [card]
+                            - type: object
+                              required: [kind]
+                              properties:
+                                kind:
+                                  type: string
+                                  enum: [bank]
+                """.trimIndent(),
+                openApiFilePath = "one-of-branch-requiredness.yaml"
+            )
+
+            val scenario = specification.toFeature().scenarios.single()
+            val (requestBodyPattern, resolver) = resolvedHop(scenario.httpRequestPattern.body, scenario.resolver) to scenario.resolver
+
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"card"}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"card","id":"123"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"bank"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"bank","id":"123"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+        }
     }
 
     @Nested

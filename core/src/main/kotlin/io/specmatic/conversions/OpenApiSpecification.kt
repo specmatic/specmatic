@@ -2967,7 +2967,7 @@ class OpenApiSpecification(
                 val propertyNamesInComposition = allOfPropertyNames + resolvedRef.resolvedSchema.properties.orEmpty().keys
                 val requiredFieldsInComposition = (allOfRequiredFields + resolvedRef.resolvedSchema.required.orEmpty()).distinct()
 
-                resolvedRef.componentName to SchemaProperty(
+                Triple(resolvedRef.componentName, SchemaProperty(
                     resolvedRef.resolvedSchema.extensions.orEmpty(), toSchemaProperties(
                         schema = resolvedRef.resolvedSchema,
                         requiredFields = requiredFieldsInComposition,
@@ -2976,12 +2976,16 @@ class OpenApiSpecification(
                         collectorContext = resolvedRef.collectorContext,
                         requiredFieldPropertyNames = propertyNamesInComposition,
                     )
-                )
-            }.flatMap { (componentName, schemaProperty) ->
+                ), requiredFieldsInComposition.toSet())
+            }.flatMap { (componentName, schemaProperty, requiredFields) ->
                 schemaProperties.map {
                     componentName to SchemaProperty(
                         extensions = it.extensions.plus(schemaProperty.extensions),
                         properties = combine(it.properties, schemaProperty.properties)
+                            .mapKeys { (name, _) ->
+                                val propertyName = withoutOptionality(name)
+                                if (propertyName in requiredFields) propertyName else name
+                            }
                     )
                 }
             }
