@@ -2571,6 +2571,35 @@ class LenientParserTest {
         @JvmStatic
         fun allOfSchemaTestCases(): Stream<Arguments> {
             return listOf(
+                multiVersionLenientCase(name = "required allOf property is defined in another member", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("allOf", listOf(
+                                                        mapOf(
+                                                            "type" to "object",
+                                                            "required" to listOf("id")
+                                                        ),
+                                                        mapOf(
+                                                            "type" to "object",
+                                                            "properties" to mapOf("id" to mapOf("type" to "string"))
+                                                        )
+                                                    ))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0); totalViolations(0) }
+                },
                 multiVersionLenientCase(name = "element has invalid bounds", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {

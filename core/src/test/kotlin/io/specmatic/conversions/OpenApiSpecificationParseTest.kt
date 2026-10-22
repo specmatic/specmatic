@@ -59,6 +59,84 @@ import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
     @Nested
+    inner class AllOfRequiredDiscriminatorProperties {
+        @ParameterizedTest
+        @ValueSource(strings = ["3.0.2", "3.1.0"])
+        fun inheritedRequiredDiscriminatorPropertyRemainsRequiredWhenRedeclared(openApiVersion: String) {
+            val specification = OpenApiSpecification.fromYAML(
+                yamlContent = $$"""
+                openapi: $$openApiVersion
+                info:
+                  title: Pet Shelter API
+                  version: '1.0'
+                paths:
+                  /pets:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              $ref: '#/components/schemas/Pet'
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  schemas:
+                    Pet:
+                      oneOf:
+                        - $ref: '#/components/schemas/Dog'
+                      discriminator:
+                        propertyName: type
+                        mapping:
+                          Dog: '#/components/schemas/Dog'
+                    PetDetails:
+                      type: object
+                      properties:
+                        weightKg:
+                          type: number
+                          minimum: 0
+                        type:
+                          type: string
+                      required:
+                        - weightKg
+                        - type
+                    Dog:
+                      allOf:
+                        - $ref: '#/components/schemas/PetDetails'
+                        - type: object
+                          properties:
+                            type:
+                              type: string
+                              enum: ['Dog']
+                """.trimIndent(),
+                openApiFilePath = "issue-2771.yaml"
+            )
+
+            val patterns = specification.parseUnreferencedSchemas()
+            assertThat(patterns.keys).containsExactlyInAnyOrder("(Pet)", "(PetDetails)", "(Dog)")
+
+            val resolver = Resolver(newPatterns = specification.patterns)
+            val dogPattern = resolvedHop(patterns.getValue("(Dog)"), resolver) as JSONObjectPattern
+            assertThat(dogPattern.pattern.keys).containsExactlyInAnyOrder("weightKg", "type")
+            assertThat(dogPattern.pattern).doesNotContainKey("type?")
+            assertThat(dogPattern.pattern.getValue("type")).isInstanceOf(EnumPattern::class.java)
+            assertThat(dogPattern.matches(parsedJSONObject("""{"weightKg":20.0,"type":"Dog"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(dogPattern.matches(parsedJSONObject("""{"weightKg":20.0}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+            assertThat(dogPattern.matches(parsedJSONObject("""{"weightKg":20.0,"type":"Cat"}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+
+            val petPattern = patterns.getValue("(Pet)")
+            assertThat(petPattern.matches(parsedJSONObject("""{"weightKg":20.0,"type":"Dog"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(petPattern.matches(parsedJSONObject("""{"weightKg":20.0}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+        }
+    }
+
+    @Nested
     inner class ResponseStatusPatterns {
         @ParameterizedTest
         @ValueSource(strings = ["3.0.0", "3.1.0"])
