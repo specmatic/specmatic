@@ -782,7 +782,7 @@ class LenientParserTest {
                     }
                 },
 
-                multiVersionLenientCase(name = "api key header parameter duplication", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "api key header parameter duplication does not warn", *OpenApiVersion.allVersions()) {
                     openApi {
                         components {
                             securitySchemes {
@@ -808,13 +808,9 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.parameters[0].name") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED)
-                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0); totalViolations(0) }
                 },
-                multiVersionLenientCase(name = "api key query parameter duplication", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "api key query parameter duplication does not warn", *OpenApiVersion.allVersions()) {
                     openApi {
                         components {
                             securitySchemes {
@@ -840,11 +836,7 @@ class LenientParserTest {
                             }
                         }
                     }
-                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(1); totalViolations(1) }
-                    assert("paths./test.get.parameters[0].name") {
-                        toHaveSeverity(IssueSeverity.WARNING)
-                        toContainViolation(OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED)
-                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0); totalViolations(0) }
                 },
             ).flatten().stream()
         }
