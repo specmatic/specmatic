@@ -1,5 +1,6 @@
 package application
 
+import io.specmatic.testPort
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.Feature
@@ -16,11 +17,11 @@ import org.junit.jupiter.api.Test
 class HTTPStubEngineTest {
 
     companion object {
-        private fun runHttpStubEngineWithMockPaths(vararg paths: String, specToBaseUrlMap: Map<String, String?>) {
+        private fun runHttpStubEngineWithMockPaths(vararg paths: String, port: Int = testPort(), specToBaseUrlMap: Map<String, String?>) {
             HTTPStubEngine().runHTTPStub(
                 stubs = paths.map { it.toMockkFeature() to emptyList() },
                 host = "0.0.0.0",
-                port = 9000,
+                port = port,
                 keyDataRegistry = KeyDataRegistry.empty(),
                 incomingMtlsRegistry = IncomingMtlsRegistry.empty(),
                 strictMode = false,
@@ -42,24 +43,26 @@ class HTTPStubEngineTest {
 
     @Test
     fun `should log sever startup messages for each base urls`() {
+        val apiPort = testPort(1)
+        val bffPort = testPort(2)
         val (stdOut, _) = captureStandardOutput {
             runHttpStubEngineWithMockPaths(
                 "api.yaml",
                 "bff.yaml",
                 specToBaseUrlMap =
                     mapOf(
-                        "api.yaml" to "http://localhost:8000/api/v3",
-                        "bff.yaml" to "http://localhost:9000",
+                        "api.yaml" to "http://localhost:$apiPort/api/v3",
+                        "bff.yaml" to "http://localhost:$bffPort",
                     ),
             )
         }
 
         assertThat(stdOut).containsIgnoringNewLines("""
         |Mock server is running on the following URLs:
-        |- http://localhost:8000/api/v3 serving endpoints from specs:
+        |- http://localhost:$apiPort/api/v3 serving endpoints from specs:
         |\t1. api.yaml
         |
-        |- http://localhost:9000 serving endpoints from specs:
+        |- http://localhost:$bffPort serving endpoints from specs:
         |\t1. bff.yaml
         |
         |Press Ctrl + C to stop.
@@ -68,17 +71,18 @@ class HTTPStubEngineTest {
 
     @Test
     fun `should only log startup messages for parsed feature and ignore other specifications from baseUrlMap`() {
+        val apiPort = testPort(1)
         val (stdOut, _) = captureStandardOutput {
             runHttpStubEngineWithMockPaths("api.yaml", specToBaseUrlMap = mapOf(
-                "api.yaml" to "http://localhost:8000/api/v3",
-                "grpc.proto" to "http://localhost:5000",
+                "api.yaml" to "http://localhost:$apiPort/api/v3",
+                "grpc.proto" to "http://localhost:${testPort(2)}",
                 "kafka.yaml" to null
             ))
         }
 
         assertThat(stdOut).containsIgnoringNewLines("""
         |Mock server is running on the following URLs:
-        |- http://localhost:8000/api/v3 serving endpoints from specs:
+        |- http://localhost:$apiPort/api/v3 serving endpoints from specs:
         |\t1. api.yaml
         |
         |Press Ctrl + C to stop.
@@ -87,8 +91,9 @@ class HTTPStubEngineTest {
 
     @Test
     fun `should log the final baseUrl for specification which initially was null in specToBaseUrlMap`() {
+        val port = testPort(1)
         val (stdOut, _) = captureStandardOutput {
-            runHttpStubEngineWithMockPaths("api.yaml", "uuid.yaml", specToBaseUrlMap = mapOf(
+            runHttpStubEngineWithMockPaths("api.yaml", "uuid.yaml", port = port, specToBaseUrlMap = mapOf(
                 "api.yaml" to null,
                 "uuid.yaml" to null,
                 "kafka.yaml" to "http://localghost:9092"
@@ -97,7 +102,7 @@ class HTTPStubEngineTest {
 
         assertThat(stdOut).containsIgnoringNewLines("""
         |Mock server is running on the following URLs:
-        |- http://0.0.0.0:9000 serving endpoints from specs:
+        |- http://0.0.0.0:$port serving endpoints from specs:
         |\t1. api.yaml
         |\t2. uuid.yaml
         |
@@ -113,18 +118,19 @@ class HTTPStubEngineTest {
 
     @Test
     fun `agentMode still prints mock startup banner`() {
+        val port = testPort()
         val (stdOut, _) = captureStandardOutput {
             HTTPStubEngine().runHTTPStub(
                 stubs = listOf("api.yaml".toMockkFeature() to emptyList()),
                 host = "0.0.0.0",
-                port = 9000,
+                port = port,
                 keyDataRegistry = KeyDataRegistry.empty(),
                 incomingMtlsRegistry = IncomingMtlsRegistry.empty(),
                 strictMode = false,
                 httpClientFactory = HttpClientFactory(),
                 workingDirectory = WorkingDirectory(),
                 gracefulRestartTimeoutInMs = 0,
-                specToBaseUrlMap = mapOf("api.yaml" to "http://localhost:9000"),
+                specToBaseUrlMap = mapOf("api.yaml" to "http://localhost:$port"),
                 specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(SpecmaticConfig()),
                 insightsReportOptions = InsightsReportOptions(),
                 agentMode = true,

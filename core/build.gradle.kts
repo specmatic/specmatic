@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("java-test-fixtures")
     kotlin("jvm")
     kotlin("plugin.serialization") version "2.3.21"
 }

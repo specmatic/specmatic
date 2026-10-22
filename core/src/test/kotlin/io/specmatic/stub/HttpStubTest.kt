@@ -4309,9 +4309,13 @@ Then status 200
 
         @Test
         fun `should server requests from specified host filling in missing scheme and port with defaults in specmatic config`() {
+            val port = testPort(1)
             stubTest(
+                port = port,
                 configYaml = """
                 version: 2
+                stub:
+                  baseUrl: http://localhost:$port
                 contracts:
                 - consumes:
                   - host: 0.0.0.0
@@ -4319,7 +4323,7 @@ Then status 200
                     - ${simpleProductIdSpec.path}
                 """.trimIndent()
             ) {
-                val client = LegacyHttpClient("http://0.0.0.0:9000")
+                val client = LegacyHttpClient("http://0.0.0.0:$port")
                 assertGetProductResponse(client)
             }
         }
@@ -4343,9 +4347,13 @@ Then status 200
 
         @Test
         fun `should server requests from specified basePath filling in missing scheme, host and port with defaults in specmatic config`() {
+            val port = testPort(2)
             stubTest(
+                port = port,
                 configYaml = """
                 version: 2
+                stub:
+                  baseUrl: http://localhost:$port
                 contracts:
                 - consumes:
                   - basePath: /api/v2
@@ -4353,7 +4361,7 @@ Then status 200
                     - ${simpleProductIdSpec.path}
                 """.trimIndent()
             ) {
-                val client = LegacyHttpClient("http://0.0.0.0:9000/api/v2")
+                val client = LegacyHttpClient("http://0.0.0.0:$port/api/v2")
                 assertGetProductResponse(client)
             }
         }

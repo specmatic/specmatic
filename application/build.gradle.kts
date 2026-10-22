@@ -4,6 +4,15 @@ plugins {
     kotlin("plugin.serialization") version "2.3.21"
 }
 
+abstract class JUnit5SystemExitArgumentProvider : CommandLineArgumentProvider {
+    @get:Classpath
+    abstract val testRuntimeClasspath: ConfigurableFileCollection
+
+    override fun asArguments(): Iterable<String> = listOf(
+        "-javaagent:${testRuntimeClasspath.files.single { it.name.contains("junit5-system-exit") }}"
+    )
+}
+
 dependencies {
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
@@ -36,6 +45,7 @@ dependencies {
     implementation("org.apache.ant:ant-junit:1.10.18")
 
     implementation(project(":specmatic-core"))
+    testImplementation(testFixtures(project(":specmatic-core")))
     implementation(project(":junit5-support"))
     implementation(project(":specmatic-mcp"))
 
@@ -57,11 +67,10 @@ dependencies {
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.1")
 }
 
-tasks.test {
-    jvmArgumentProviders.add(CommandLineArgumentProvider {
-        val junit5SystemExit =
-            configurations.testRuntimeClasspath.get().files.find { it.name.contains("junit5-system-exit") }
+val junit5SystemExitArgumentProvider = objects.newInstance<JUnit5SystemExitArgumentProvider>().apply {
+    testRuntimeClasspath.from(configurations.getByName("testRuntimeClasspath"))
+}
 
-        listOf("-javaagent:$junit5SystemExit")
-    })
+tasks.test {
+    jvmArgumentProviders.add(junit5SystemExitArgumentProvider)
 }
