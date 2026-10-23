@@ -55,7 +55,7 @@ dependencies {
     testImplementation("com.ginsberg:junit5-system-exit:2.0.3")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
-    testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.1")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.6")
 }
 
 val junit5SystemExitArgumentProvider = objects.newInstance<JUnit5SystemExitArgumentProvider>().apply {
