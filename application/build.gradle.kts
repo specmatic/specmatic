@@ -36,6 +36,7 @@ dependencies {
     implementation("org.apache.ant:ant-junit:1.10.18")
 
     implementation(project(":specmatic-core"))
+    testImplementation(testFixtures(project(":specmatic-core")))
     implementation(project(":junit5-support"))
     implementation(project(":specmatic-mcp"))
 
@@ -57,11 +58,10 @@ dependencies {
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.2.1")
 }
 
-tasks.test {
-    jvmArgumentProviders.add(CommandLineArgumentProvider {
-        val junit5SystemExit =
-            configurations.testRuntimeClasspath.get().files.find { it.name.contains("junit5-system-exit") }
+val junit5SystemExitArgumentProvider = objects.newInstance<JUnit5SystemExitArgumentProvider>().apply {
+    runtimeClasspath.from(configurations.getByName("testRuntimeClasspath"))
+}
 
-        listOf("-javaagent:$junit5SystemExit")
-    })
+tasks.test {
+    jvmArgumentProviders.add(junit5SystemExitArgumentProvider)
 }

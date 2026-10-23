@@ -20,6 +20,7 @@ import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.commons.shutdown.ShutdownRegistrar
 import io.specmatic.commons.shutdown.ShutdownTask
 import io.specmatic.core.lifecycle.NoOpShutdownRegistrar
+import io.specmatic.testPort
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -290,7 +291,7 @@ internal class StubCommandTest {
             }.returns(stubInfo)
 
             val host = "0.0.0.0"
-            val port = 9000
+            val port = testPort()
             val strictMode = false
 
             every {
@@ -317,7 +318,7 @@ internal class StubCommandTest {
 
             every { specmaticConfig.contractStubPaths() }.returns(arrayListOf(contractPath))
 
-            val exitStatus = CommandLine(stubCommand).execute(contractPath)
+            val exitStatus = CommandLine(stubCommand).execute("--port=$port", contractPath)
             assertThat(exitStatus).isZero()
 
             verify(exactly = 1) {
@@ -421,7 +422,7 @@ internal class StubCommandTest {
             }.returns(stubInfo)
 
             val host = "0.0.0.0"
-            val port = 9000
+            val port = testPort()
             val strictMode = false
             val passThroughTargetBase = "http://passthroughTargetBase"
 
@@ -451,6 +452,7 @@ internal class StubCommandTest {
 
             val exitStatus = CommandLine(stubCommand).execute(
                 "--passThroughTargetBase=$passThroughTargetBase",
+                "--port=$port",
                 contractPath
             )
             assertThat(exitStatus).isZero()
@@ -866,6 +868,7 @@ internal class StubCommandTest {
         val portSlot = slot<Int>()
         val strictModeSlot = slot<Boolean>()
         val timeoutSlot = slot<Long>()
+        val defaultPortIsInUse = portIsInUse("0.0.0.0", 9000)
         var capturedKeyDataRegistry: KeyDataRegistry? = null
 
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
@@ -900,7 +903,11 @@ internal class StubCommandTest {
 
         assertThat(capturedKeyDataRegistry?.hasAny()).isFalse()
         assertThat(hostSlot.captured).isEqualTo("0.0.0.0")
-        assertThat(portSlot.captured).isEqualTo(9000)
+        if (defaultPortIsInUse) {
+            assertThat(portSlot.captured).isNotEqualTo(9000)
+        } else {
+            assertThat(portSlot.captured).isEqualTo(9000)
+        }
         assertThat(strictModeSlot.captured).isFalse()
         assertThat(timeoutSlot.captured).isEqualTo(1000L)
     }
@@ -953,6 +960,7 @@ internal class StubCommandTest {
     fun `does not override CLI defaults with config baseUrl`(@TempDir tempDir: File) {
         val hostSlot = slot<String>()
         val portSlot = slot<Int>()
+        val port = testPort()
 
         val configFile = writeSpecmaticYaml(tempDir, """
         version: 2
@@ -986,11 +994,11 @@ internal class StubCommandTest {
         } returns mockk { every { close() } returns Unit }
 
         Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-            CommandLine(stubCommand).execute("--host=0.0.0.0", "--port=9000")
+            CommandLine(stubCommand).execute("--host=0.0.0.0", "--port=$port")
         }
 
         assertThat(hostSlot.captured).isEqualTo("0.0.0.0")
-        assertThat(portSlot.captured).isEqualTo(9000)
+        assertThat(portSlot.captured).isEqualTo(port)
     }
 
     @Test

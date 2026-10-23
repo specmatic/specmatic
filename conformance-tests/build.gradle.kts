@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm")
 }
+
 dependencies {
     implementation("ch.qos.logback:logback-core:1.5.37")
     implementation("org.slf4j:slf4j-api:2.0.20")
@@ -21,9 +22,9 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.27.7")
 }
 
-val enableConformanceTests: String? by project
-val specmaticVersionForConformanceTests: String? by project
-val succeedOnExpectedFailures: String? by project
+val enableConformanceTests = findProperty("enableConformanceTests") as String?
+val specmaticVersionForConformanceTests = findProperty("specmaticVersionForConformanceTests") as String?
+val succeedOnExpectedFailures = findProperty("succeedOnExpectedFailures") as String?
 
 val conformanceTestResultsJsonlFile = layout.buildDirectory.file("conformance-test-results.jsonl")
 
@@ -51,50 +52,9 @@ tasks.test {
     }
 }
 
-val generateConformanceTests by tasks.registering {
-    val specsDir = file("src/test/resources/specs")
-    val outputDir = file("build/generated/sources/conformance/kotlin")
-
-    inputs.dir(specsDir)
-    outputs.dir(outputDir)
-
-    doLast {
-        outputDir.deleteRecursively()
-        outputDir.mkdirs()
-
-        val specFiles = specsDir.walkTopDown()
-            .filter { it.isFile && it.extension in listOf("yaml", "yml") }
-            .map { it.relativeTo(specsDir).path.replace("\\", "/") }
-            .sorted()
-            .toList()
-
-        val header = """package io.specmatic.conformance_tests
-import org.junit.jupiter.api.DisplayName
-"""
-
-        val classes = specFiles.joinToString("\n") { relativePath ->
-            val className = generateClassName(relativePath)
-            val displayName = relativePath.substringBefore(".")
-
-            """
-                |@DisplayName("$displayName")
-                |class $className : AbstractConformanceTest("$relativePath")
-                |""".trimMargin()
-        }
-
-        outputDir.resolve("ConformanceTests.kt").writeText(header + "\n" + classes)
-
-        println("Generated ${specFiles.size} conformance test classes")
-    }
-}
-
-fun generateClassName(relativePath: String): String {
-    val segments = relativePath.split("/")
-    return "S" + segments.joinToString("_") { segment ->
-        segment.removeSuffix(".yaml").removeSuffix(".yml")
-            .split("-")
-            .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
-    } + "Test"
+val generateConformanceTests = tasks.register<GenerateConformanceTestsTask>("generateConformanceTests") {
+    specsDirectory.set(layout.projectDirectory.dir("src/test/resources/specs"))
+    generatedSourcesDirectory.set(layout.buildDirectory.dir("generated/sources/conformance/kotlin"))
 }
 
 kotlin {
