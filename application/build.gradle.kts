@@ -4,15 +4,6 @@ plugins {
     kotlin("plugin.serialization") version "2.3.21"
 }
 
-abstract class JUnit5SystemExitArgumentProvider : CommandLineArgumentProvider {
-    @get:Classpath
-    abstract val testRuntimeClasspath: ConfigurableFileCollection
-
-    override fun asArguments(): Iterable<String> = listOf(
-        "-javaagent:${testRuntimeClasspath.files.single { it.name.contains("junit5-system-exit") }}"
-    )
-}
-
 dependencies {
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
