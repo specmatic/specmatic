@@ -59,7 +59,7 @@ dependencies {
 }
 
 val junit5SystemExitArgumentProvider = objects.newInstance<JUnit5SystemExitArgumentProvider>().apply {
-    testRuntimeClasspath.from(configurations.getByName("testRuntimeClasspath"))
+    runtimeClasspath.from(configurations.getByName("testRuntimeClasspath"))
 }
 
 tasks.test {
