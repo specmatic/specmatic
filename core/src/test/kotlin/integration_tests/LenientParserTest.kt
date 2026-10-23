@@ -7,8 +7,12 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
 import io.specmatic.core.Feature
 import io.specmatic.core.IssueSeverity
+import io.specmatic.core.Result
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.TestInfo
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -2563,6 +2567,35 @@ class LenientParserTest {
         @JvmStatic
         fun allOfSchemaTestCases(): Stream<Arguments> {
             return listOf(
+                multiVersionLenientCase(name = "required allOf property is defined in another member", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/test") {
+                                operation("get") {
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("allOf", listOf(
+                                                        mapOf(
+                                                            "type" to "object",
+                                                            "required" to listOf("id")
+                                                        ),
+                                                        mapOf(
+                                                            "type" to "object",
+                                                            "properties" to mapOf("id" to mapOf("type" to "string"))
+                                                        )
+                                                    ))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0); totalViolations(0) }
+                },
                 multiVersionLenientCase(name = "element has invalid bounds", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
@@ -2795,6 +2828,62 @@ class LenientParserTest {
         @JvmStatic
         fun oneOfSchemaTestCases(): Stream<Arguments> {
             return listOf(
+                multiVersionLenientCase(name = "allOf oneOf branch requirements apply to inherited properties", *OpenApiVersion.allVersions()) {
+                    openApi {
+                        paths {
+                            path("/payments") {
+                                operation("post") {
+                                    requestBody {
+                                        required()
+                                        content {
+                                            mediaType("application/json") {
+                                                schema {
+                                                    put("allOf", listOf(
+                                                        mapOf(
+                                                            "type" to "object",
+                                                            "properties" to mapOf("id" to mapOf("type" to "string"))
+                                                        ),
+                                                        mapOf("oneOf" to listOf(
+                                                            mapOf(
+                                                                "type" to "object",
+                                                                "required" to listOf("kind", "id"),
+                                                                "properties" to mapOf("kind" to mapOf("type" to "string", "enum" to listOf("card")))
+                                                            ),
+                                                            mapOf(
+                                                                "type" to "object",
+                                                                "required" to listOf("kind"),
+                                                                "properties" to mapOf("kind" to mapOf("type" to "string", "enum" to listOf("bank")))
+                                                            )
+                                                        ))
+                                                    ))
+                                                }
+                                            }
+                                        }
+                                    }
+                                    response(200) {
+                                        content {
+                                            mediaType("application/json") {
+                                                schema { put("type", "object") }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    assert(RuleViolationAssertion.ALL_ISSUES) { totalIssues(0); totalViolations(0) }
+                    check { feature ->
+                        val scenario = feature.scenarios.single()
+                        val bodyPattern = resolvedHop(scenario.httpRequestPattern.body, scenario.resolver)
+                        assertThat(bodyPattern.matches(parsedJSONObject("""{"kind":"card"}"""), scenario.resolver))
+                            .isInstanceOf(Result.Failure::class.java)
+                        assertThat(bodyPattern.matches(parsedJSONObject("""{"kind":"card","id":"123"}"""), scenario.resolver))
+                            .isInstanceOf(Result.Success::class.java)
+                        assertThat(bodyPattern.matches(parsedJSONObject("""{"kind":"bank"}"""), scenario.resolver))
+                            .isInstanceOf(Result.Success::class.java)
+                    }
+                },
                 multiVersionLenientCase(name = "oneOf element has invalid bounds", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
