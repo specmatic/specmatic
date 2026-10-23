@@ -81,12 +81,6 @@ enum class OpenApiLintViolations(
     ),
 
     /* -------- Security -------- */
-    SECURITY_PROPERTY_REDEFINED(
-        id = "OAS0020",
-        title = "Security property redefined",
-        summary = "Security scheme properties should not be redefined in parameters"
-    ),
-
     SECURITY_SCHEME_MISSING(
         id = "OAS0021",
         title = "Security scheme missing",

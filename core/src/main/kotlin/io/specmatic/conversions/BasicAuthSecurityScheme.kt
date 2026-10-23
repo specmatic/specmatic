@@ -3,8 +3,6 @@ package io.specmatic.conversions
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
-import io.swagger.v3.oas.models.parameters.HeaderParameter
-import io.swagger.v3.oas.models.parameters.Parameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.util.Base64
 
@@ -143,13 +141,4 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
         return AUTHORIZATION
     }
 
-    override fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>) {
-        parameter.filter { parameterWithContext -> parameterWithContext.parameter is HeaderParameter }.forEach { parameterWithContext ->
-            parameterWithContext.collectorContext.check(name = "name", value = parameterWithContext.parameter, isValid = { !it.name.equals(AUTHORIZATION, ignoreCase = true) })
-                .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
-                .message { "Found header parameter with same name as Basic Auth security scheme" }
-                .orUse { parameterWithContext.parameter }
-                .build(isWarning = true)
-        }
-    }
 }

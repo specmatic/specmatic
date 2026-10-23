@@ -6,7 +6,6 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
-import io.swagger.v3.oas.models.parameters.Parameter
 
 interface OpenAPISecurityScheme {
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result
@@ -17,7 +16,6 @@ interface OpenAPISecurityScheme {
     fun isInRow(row: Row): Boolean
     fun isInRequest(request: HttpRequest, complete: Boolean): Boolean
     fun getHeaderKey(): String? = null
-    fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>)
     fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result
     fun fixValue(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
         return if (matches(httpRequest, resolver).isSuccess()) {
