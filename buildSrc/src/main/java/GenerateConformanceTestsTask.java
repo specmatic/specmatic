@@ -55,17 +55,17 @@ public abstract class GenerateConformanceTestsTask extends DefaultTask {
                 .toList();
         }
 
-        String header = "package io.specmatic.conformance_tests\\nimport org.junit.jupiter.api.DisplayName\\n";
+        String header = "package io.specmatic.conformance_tests\nimport org.junit.jupiter.api.DisplayName\n";
         StringBuilder classes = new StringBuilder();
         for (String relativePath : specFiles) {
             String className = generateClassName(relativePath);
             String displayName = relativePath.substring(0, relativePath.indexOf('.'));
-            classes.append("\\n@DisplayName(\\\"").append(displayName).append("\\")\\n")
-                .append("class ").append(className).append(" : AbstractConformanceTest(\\\"")
-                .append(relativePath).append("\\")\\n");
+            classes.append("\n@DisplayName(\"").append(displayName).append("\")\n")
+                .append("class ").append(className).append(" : AbstractConformanceTest(\"")
+                .append(relativePath).append("\")\n");
         }
 
-        Files.writeString(outputPath.resolve("ConformanceTests.kt"), header + "\\n" + classes);
+        Files.writeString(outputPath.resolve("ConformanceTests.kt"), header + "\n" + classes);
         getLogger().lifecycle("Generated {} conformance test classes", specFiles.size());
     }
 
@@ -73,7 +73,7 @@ public abstract class GenerateConformanceTestsTask extends DefaultTask {
         StringBuilder className = new StringBuilder("S");
         String[] segments = relativePath.split("/");
         for (int index = 0; index < segments.length; index++) {
-            String segment = segments[index].replaceFirst("\\\\.(yaml|yml)$", "");
+            String segment = segments[index].replaceFirst("\\.(yaml|yml)$", "");
             if (index > 0) className.append('_');
             for (String part : segment.split("-")) {
                 if (!part.isEmpty()) {
