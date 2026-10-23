@@ -3,8 +3,6 @@ package io.specmatic.conversions
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
-import io.swagger.v3.oas.models.parameters.Parameter
-import io.swagger.v3.oas.models.parameters.QueryParameter
 
 const val apiKeyParamName = "API-Key"
 
@@ -67,13 +65,4 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
         return apiKeyParamName
     }
 
-    override fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>) {
-        parameter.filter { parameterWithContext -> parameterWithContext.parameter is QueryParameter }.forEach { parameterWithContext ->
-            parameterWithContext.collectorContext.check(name = "name", value = parameterWithContext.parameter, isValid = { !it.name.equals(name, ignoreCase = true) })
-                .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
-                .message { "Found query parameter with same name as query api-key security scheme \"$name\"" }
-                .orUse { parameterWithContext.parameter }
-                .build(isWarning = true)
-        }
-    }
 }

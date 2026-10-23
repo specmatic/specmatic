@@ -3,8 +3,6 @@ package io.specmatic.conversions
 import io.specmatic.core.*
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
-import io.swagger.v3.oas.models.parameters.HeaderParameter
-import io.swagger.v3.oas.models.parameters.Parameter
 
 
 data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
@@ -48,16 +46,6 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
 
     override fun isInRequest(request: HttpRequest, complete: Boolean): Boolean {
         return request.hasHeader(name)
-    }
-
-    override fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>) {
-        parameter.filter { parameterWithContext -> parameterWithContext.parameter is HeaderParameter }.forEach { parameterWithContext ->
-            parameterWithContext.collectorContext.check(name = "name", value = parameterWithContext.parameter, isValid = { !it.name.equals(name, ignoreCase = true) })
-                .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
-                .message { "Found header parameter with same name as header api-key security scheme \"$name\"" }
-                .orUse { parameterWithContext.parameter }
-                .build(isWarning = true)
-        }
     }
 
     override fun getHeaderKey(): String? {

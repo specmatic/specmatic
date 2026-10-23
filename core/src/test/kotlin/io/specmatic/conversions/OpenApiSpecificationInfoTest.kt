@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import io.specmatic.stub.captureStandardOutput
-import io.specmatic.toViolationReportString
 
 class OpenApiSpecificationInfoTest {
     @Test
@@ -139,7 +138,7 @@ class OpenApiSpecificationInfoTest {
     }
 
     @Test
-    fun `validateSecuritySchemeParameterDuplication should not log warning when header parameter duplicates security scheme`() {
+    fun `should not warn when header parameter duplicates bearer security scheme`() {
         val spec = """
             openapi: 3.0.3
             info:
@@ -178,17 +177,12 @@ class OpenApiSpecificationInfoTest {
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
 
-        assertThat(output).doesNotContain(
-            toViolationReportString(
-                breadCrumb = "paths./greet.get.parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
-                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
-            )
-        )
+        assertThat(output).doesNotContain("paths./greet.get.parameters[0].name")
+        assertThat(output).doesNotContain("Found header parameter with same name as Bearer Authorization security scheme")
     }
 
     @Test
-    fun `validateSecuritySchemeParameterDuplication should not log warning when header parameter duplicates security scheme with ref`() {
+    fun `should not warn when referenced header parameter duplicates bearer security scheme`() {
         val spec = """
             openapi: 3.0.3
             info:
@@ -229,13 +223,8 @@ class OpenApiSpecificationInfoTest {
         """.trimIndent()
 
         val (output, _) = captureStandardOutput { OpenApiSpecification.fromYAML(spec, "").toFeature()  }
-        assertThat(output).doesNotContain(
-            toViolationReportString(
-                breadCrumb = "paths./greet.get.parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
-                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
-            )
-        )
+        assertThat(output).doesNotContain("paths./greet.get.parameters[0].name")
+        assertThat(output).doesNotContain("Found header parameter with same name as Bearer Authorization security scheme")
     }
 
     @Test

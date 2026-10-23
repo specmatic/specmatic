@@ -250,12 +250,7 @@ class OpenApiSpecificationValidationWarnings {
         }
         """.trimIndent())
 
-        assertThat(stdout).doesNotContain(
-            toViolationReportString(
-                breadCrumb = "paths./users.post.parameters[0].name",
-                details = "Found header parameter with same name as Bearer Authorization security scheme",
-                OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED
-            )
-        )
+        assertThat(stdout).doesNotContain("paths./users.post.parameters[0].name")
+        assertThat(stdout).doesNotContain("Found header parameter with same name as Bearer Authorization security scheme")
     }
 }

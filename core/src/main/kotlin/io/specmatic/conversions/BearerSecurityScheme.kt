@@ -3,8 +3,6 @@ package io.specmatic.conversions
 import io.specmatic.core.*
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
-import io.swagger.v3.oas.models.parameters.HeaderParameter
-import io.swagger.v3.oas.models.parameters.Parameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 
 data class BearerSecurityScheme(private val configuredToken: String? = null) : OpenAPISecurityScheme {
@@ -74,13 +72,4 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
         return AUTHORIZATION
     }
 
-    override fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>) {
-        parameter.filter { parameterWithContext -> parameterWithContext.parameter is HeaderParameter }.forEach { parameterWithContext ->
-            parameterWithContext.collectorContext.check(name = "name", value = parameterWithContext.parameter, isValid = { !it.name.equals(AUTHORIZATION, ignoreCase = true) })
-                .violation { OpenApiLintViolations.SECURITY_PROPERTY_REDEFINED }
-                .message { "Found header parameter with same name as Bearer Authorization security scheme" }
-                .orUse { parameterWithContext.parameter }
-                .build(isWarning = true)
-        }
-    }
 }

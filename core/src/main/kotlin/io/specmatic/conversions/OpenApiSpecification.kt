@@ -1873,11 +1873,6 @@ class OpenApiSpecification(
         }.toMap()
 
         val securitySchemesForRequestPattern = parseOperationSecuritySchemas(operation, securitySchemeComponents, collectorContext)
-        // TODO: Re-enable this warning once there is a consensus on the approach to handle security overrides.
-        // validateSecuritySchemeParameterDuplication(
-        //     securitySchemes = securitySchemesForRequestPattern,
-        //     parameters = parameters.safeFilter<Parameter>(collectorContext)
-        // )
 
         val headersMap = parameters.safeFilter<HeaderParameter>(collectorContext).associate { parameterWithContext ->
             val parameter = parameterWithContext.parameter
@@ -4156,11 +4151,5 @@ private fun Pattern.isConstrainedStringOrEnumPattern(): Boolean {
         is StringPattern -> this.minLength != null || this.maxLength != null || this.regex != null
         is ExactValuePattern -> this.pattern is StringValue
         else -> false
-    }
-}
-
-internal fun validateSecuritySchemeParameterDuplication(securitySchemes: List<OpenAPISecurityScheme>, parameters: List<ParameterWithContext<Parameter>>?) {
-    securitySchemes.forEach { securityScheme ->
-        securityScheme.collectErrorIfExistsInParameters(parameters.orEmpty())
     }
 }
