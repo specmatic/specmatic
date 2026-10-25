@@ -48,7 +48,7 @@ dependencies {
 
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
 
-    implementation("dk.brics:automaton:1.12-4")
+    implementation("dk.brics:automaton:1.13-1")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
