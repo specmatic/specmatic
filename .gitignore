@@ -4,6 +4,7 @@ dependency-reduced-pom.xml
 target/*
 .DS_Store
 .gradle/*
+buildSrc/.gradle/
 **/build/*
 gen/*
 *.class
