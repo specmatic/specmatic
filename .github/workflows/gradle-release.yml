@@ -66,6 +66,8 @@ jobs:
               https://api.github.com/repos/specmatic/specmatic-python-extensions/actions/workflows/update-specmatic-version-and-publish.yml/dispatches \
               -d '{"ref":"main","inputs":{"specmatic-core-version":"'"${RELEASE_VERSION}"'"}}'
         env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: '${{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}'
+          ORG_GRADLE_PROJECT_mavenCentralPassword: '${{ secrets.SPECMATIC_MAVEN_CENTRAL_PASSWORD }}'
           ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY }}"
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: "${{ secrets.SPECMATIC_GPG_KEY_ID }}"
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY_PASSPHRASE }}"
