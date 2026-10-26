@@ -11,6 +11,9 @@ data class ReferredType(val wsdlTypeReference: String, val element: XMLNode, val
     WSDLElement {
     private val elementType: WSDLElement
       get() {
+          if (element.findFirstChildByName("simpleType") != null)
+              return SimpleElement(wsdlTypeReference, element, wsdl)
+
           val typeNode: XMLNode = element.attributes["type"]?.let {
               wsdl.getSimpleTypeXMLNode(element)
           } ?: element
