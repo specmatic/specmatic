@@ -260,6 +260,172 @@ class ConfigSchemaValidationTest {
         }
 
         @Test
+        fun `accepts Arazzo workflow options on services and reusable run-option components`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, $$"""
+            version: 3
+            components:
+              runOptions:
+                sharedWorkflowTest:
+                  arazzo:
+                    type: test
+                    vault:
+                      type: hashicorp
+                      url: http://localhost:8200
+                      tokenKey: VAULT_AUTH_TOKEN
+                      environment:
+                        VAULT_AUTH_TOKEN: token
+                    security:
+                      oauth2:
+                        clientId:
+                          env: OAUTH_CLIENT_ID
+                        clientSecret:
+                          vault:
+                            secretKey: oauth/client
+                            field: client_secret
+                        clientAuthentication: client_secret_post
+                      bearer:
+                        env: API_TOKEN
+                      basic:
+                        username:
+                          env: BASIC_USERNAME
+                        password:
+                          vault:
+                            secretKey: api/basic
+                      apiKey:
+                        vault:
+                          secretKey: api/key
+                          field: value
+                    baseUrls:
+                      orders: https://orders.example.test
+                sharedWorkflowMock:
+                  arazzo:
+                    type: mock
+                    security:
+                      bearer:
+                        env: MOCK_API_TOKEN
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                        - orders.arazzo.yaml
+                runOptions:
+                  arazzo:
+                    security:
+                      oauth2: {}
+                    baseUrls:
+                      payments: https://payments.example.test
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem: {}
+                          specs:
+                            - payments.arazzo.yaml
+                    runOptions:
+                      $ref: '#/components/runOptions/sharedWorkflowMock'
+            """.trimIndent())).isEqualTo(validOutput)
+        }
+
+        @Test
+        fun `rejects unknown Arazzo Vault properties`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                        - orders.arazzo.yaml
+                runOptions:
+                  arazzo:
+                    vault:
+                      type: hashicorp
+                      url: https://vault.example.test
+                      unknownOption: true
+            """.trimIndent())).isEqualTo(invalidOutput(detail(
+                keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/vault/$ref",
+                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoVaultConfig",
+                instanceLocation = "/systemUnderTest/service/runOptions/arazzo/vault",
+                error = "must be valid to one and only one schema, but 0 are valid",
+                details = listOf(detail(
+                    keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/vault/$ref/oneOf/0/$ref",
+                    absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoHashicorpVaultConfig",
+                    instanceLocation = "/systemUnderTest/service/runOptions/arazzo/vault",
+                    error = "property 'unknownOption' is not defined in the schema and the schema does not allow additional properties",
+                )),
+            )))
+        }
+
+        @Test
+        fun `rejects unknown Arazzo security properties`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                        - orders.arazzo.yaml
+                runOptions:
+                  arazzo:
+                    security:
+                      token: {}
+            """.trimIndent())).isEqualTo(invalidOutput(detail(
+                keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref",
+                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoSecurityConfig",
+                instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security",
+                error = "property 'token' is not defined in the schema and the schema does not allow additional properties",
+            )))
+        }
+
+        @Test
+        fun `rejects an Arazzo credential source without a variant`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem: {}
+                      specs:
+                        - orders.arazzo.yaml
+                runOptions:
+                  arazzo:
+                    security:
+                      bearer: {}
+            """.trimIndent())).isEqualTo(invalidOutput(detail(
+                keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref/properties/bearer/$ref",
+                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoCredentialSource",
+                instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security/bearer",
+                error = "must be valid to one and only one schema, but 0 are valid",
+                details = listOf(
+                    detail(
+                        keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref/properties/bearer/$ref/oneOf/0/$ref",
+                        absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoEnvironmentCredentialSource",
+                        instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security/bearer",
+                        error = "required property 'env' not found",
+                    ),
+                    detail(
+                        keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref/properties/bearer/$ref/oneOf/1/$ref",
+                        absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoVaultCredentialSource",
+                        instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security/bearer",
+                        error = "required property 'vault' not found",
+                    ),
+                ),
+            )))
+        }
+
+        @Test
         fun `rejects an adapter hook outside the closed adapter shape`() {
             assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
             version: 3
@@ -1374,6 +1540,7 @@ class ConfigSchemaValidationTest {
         absoluteKeywordLocation: String,
         instanceLocation: String,
         error: String,
+        details: List<ConfigValidationOutput> = emptyList(),
     ) = ConfigValidationOutput(
         valid = false,
         error = error,
@@ -1381,6 +1548,7 @@ class ConfigSchemaValidationTest {
         instanceLocation = instanceLocation,
         absoluteKeywordLocation = absoluteKeywordLocation,
         metadata = schemaMetadata(keywordLocation, absoluteKeywordLocation),
+        details = details,
     )
 
     private fun schemaMetadata(keywordLocation: String, absoluteKeywordLocation: String): ConfigValidationMetadata {

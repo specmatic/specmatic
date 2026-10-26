@@ -60,6 +60,8 @@ import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiRunOptions
+import io.specmatic.core.config.v3.components.runOptions.ArazzoMockConfig
+import io.specmatic.core.config.v3.components.runOptions.ArazzoTestConfig
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
@@ -211,6 +213,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             is AsyncApiRunOptions -> runOptions
             is GraphQLSdlRunOptions -> runOptions
             is ProtobufRunOptions -> runOptions
+            is ArazzoTestConfig -> runOptions
             else -> null
         }?.toSpecmaticSpecConfig(specId)
     }
@@ -222,6 +225,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             is AsyncApiRunOptions -> runOptions
             is GraphQLSdlRunOptions -> runOptions
             is ProtobufRunOptions -> runOptions
+            is ArazzoMockConfig -> runOptions
             else -> null
         }?.toSpecmaticSpecConfig(specId)
     }

@@ -1104,6 +1104,11 @@
           "$ref": "#/definitions/ComponentProtobufRunOptions",
           "title": "Protobuf run options",
           "description": "Directly typed Protobuf component options."
+        },
+        "arazzo": {
+          "$ref": "#/definitions/ComponentArazzoRunOptions",
+          "title": "Arazzo run options",
+          "description": "Directly typed Arazzo component options."
         }
       }
     },
@@ -1331,6 +1336,50 @@
         }
       ]
     },
+    "ComponentArazzoRunOptions": {
+      "title": "Direct Arazzo component options",
+      "description": "Direct component Arazzo options. Choose the test or mock branch and include its type discriminator.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects the Arazzo test or mock option branch."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "test"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ArazzoTestRunOptions"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mock"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ArazzoMockRunOptions"
+          }
+        }
+      ]
+    },
     "RefOrTestRunOptions": {
       "title": "Test run options or reference",
       "description": "Use inline test run options or a reference to a reusable option set.",
@@ -1450,6 +1499,11 @@
           "$ref": "#/definitions/ProtobufTestRunOptions",
           "title": "Protobuf test options",
           "description": "Protobuf options for testing the system under test."
+        },
+        "arazzo": {
+          "$ref": "#/definitions/ArazzoTestRunOptions",
+          "title": "Arazzo test options",
+          "description": "Arazzo options for testing the system(s) under test."
         }
       }
     },
@@ -1483,6 +1537,11 @@
           "$ref": "#/definitions/ProtobufMockRunOptions",
           "title": "Protobuf mock options",
           "description": "Protobuf options for mocking a dependency."
+        },
+        "arazzo": {
+          "$ref": "#/definitions/ArazzoMockRunOptions",
+          "title": "Arazzo mock options",
+          "description": "Arazzo options for mocking a the workflow."
         }
       }
     },
@@ -2284,6 +2343,393 @@
           "$ref": "#/definitions/OpenApiRunOptionSpecification",
           "title": "OpenAPI run-option override",
           "description": "Per-specification OpenAPI run-option values."
+        }
+      }
+    },
+    "ArazzoRunOptions": {
+      "title": "Common Arazzo run options",
+      "description": "Arazzo run-option properties shared by test and mock modes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "test",
+            "mock"
+          ],
+          "title": "Run mode",
+          "description": "Selects whether these options apply to Arazzo testing or mocking."
+        },
+        "vault": {
+          "$ref": "#/definitions/ArazzoVaultConfig",
+          "title": "Vault configuration",
+          "description": "Vault configuration used to resolve Arazzo credentials."
+        },
+        "security": {
+          "$ref": "#/definitions/ArazzoSecurityConfig",
+          "title": "Security configuration",
+          "description": "Security credentials shared across the Arazzo workflow."
+        },
+        "baseUrls": {
+          "type": "object",
+          "title": "Source-description base URLs",
+          "description": "Base URLs keyed by Arazzo source-description name.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "specs": {
+          "type": "array",
+          "title": "Workflow overrides",
+          "description": "Optional per-specification Arazzo run-option overrides. A matching entry replaces these service-level options and uses the Arazzo workflow's V3 specification ID.",
+          "items": {
+            "$ref": "#/definitions/ArazzoRunOptionSpecificationEntry",
+            "description": "One Arazzo workflow override."
+          }
+        }
+      }
+    },
+    "ArazzoTestRunOptions": {
+      "title": "Arazzo test run options",
+      "description": "Arazzo options for the system under test, including Vault, security, and source-description base URLs.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "test",
+          "title": "Run mode",
+          "description": "Test branch discriminator for directly typed Arazzo options."
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ArazzoRunOptions"
+        }
+      ]
+    },
+    "ArazzoMockRunOptions": {
+      "title": "Arazzo mock run options",
+      "description": "Arazzo options for a mocked dependency, including Vault, security, and source-description base URLs.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "mock",
+          "title": "Run mode",
+          "description": "Mock branch discriminator for directly typed Arazzo options."
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ArazzoRunOptions"
+        }
+      ]
+    },
+    "ArazzoRunOptionSpecificationEntry": {
+      "title": "Arazzo run-option specification entry",
+      "description": "Wrapper containing one Arazzo per-specification run-option override.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/ArazzoRunOptionSpecification",
+          "title": "Arazzo run-option override",
+          "description": "Per-specification Arazzo run-option values."
+        }
+      }
+    },
+    "ArazzoRunOptionSpecification": {
+      "title": "Arazzo run-option specification override",
+      "description": "Arazzo run-option values for one specification.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Specification ID",
+          "description": "Specification identifier this override targets.",
+          "examples": [ "orders-workflow" ]
+        },
+        "vault": {
+          "$ref": "#/definitions/ArazzoVaultConfig",
+          "title": "Vault configuration",
+          "description": "Vault configuration used to resolve Arazzo credentials."
+        },
+        "security": {
+          "$ref": "#/definitions/ArazzoSecurityConfig",
+          "title": "Security configuration",
+          "description": "Security credentials shared across the Arazzo workflow."
+        },
+        "baseUrls": {
+          "type": "object",
+          "title": "Source-description base URLs",
+          "description": "Base URLs keyed by Arazzo source-description name.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ArazzoVaultConfig": {
+      "title": "Arazzo Vault configuration",
+      "description": "Vault provider settings for resolving Arazzo credentials.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ArazzoHashicorpVaultConfig",
+          "description": "HashiCorp Vault settings."
+        }
+      ]
+    },
+    "ArazzoHashicorpVaultConfig": {
+      "title": "HashiCorp Vault configuration",
+      "description": "Connection and token settings for HashiCorp Vault.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "url"
+      ],
+      "properties": {
+        "type": {
+          "const": "hashicorp",
+          "title": "Vault type",
+          "description": "Vault provider discriminator."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "title": "Vault URL",
+          "description": "Base URL of the HashiCorp Vault server."
+        },
+        "version": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ],
+          "title": "KV version",
+          "description": "KV engine version. When omitted, the version is discovered from Vault."
+        },
+        "mount": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "KV mount",
+          "description": "KV engine mount path. Required when a KV version is configured."
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Vault namespace",
+          "description": "Optional HashiCorp Vault namespace."
+        },
+        "tokenKey": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "default": "VAULT_TOKEN",
+          "title": "Vault token environment variable",
+          "description": "Name of the environment variable containing the Vault token."
+        },
+        "environment": {
+          "type": "object",
+          "title": "Vault environment",
+          "description": "Environment variables used by the Vault client. Defaults to the process environment.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "version"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "mount"
+            ],
+            "properties": {
+              "mount": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ArazzoSecurityConfig": {
+      "title": "Arazzo security configuration",
+      "description": "Security credentials shared across an Arazzo workflow.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "oauth2": {
+          "$ref": "#/definitions/ArazzoOAuth2Config",
+          "title": "OAuth2 settings",
+          "description": "OAuth2 client-credentials settings."
+        },
+        "bearer": {
+          "$ref": "#/definitions/ArazzoCredentialSource",
+          "title": "Bearer token source",
+          "description": "Source of an existing bearer token."
+        },
+        "basic": {
+          "$ref": "#/definitions/ArazzoBasicAuthConfig",
+          "title": "HTTP Basic settings",
+          "description": "Username and password sources for HTTP Basic authentication."
+        },
+        "apiKey": {
+          "$ref": "#/definitions/ArazzoCredentialSource",
+          "title": "API key source",
+          "description": "Source of an API key."
+        }
+      }
+    },
+    "ArazzoOAuth2Config": {
+      "title": "OAuth2 configuration",
+      "description": "Client-credentials grant settings for OAuth2 and OpenID Connect schemes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokenUrl": {
+          "type": "string",
+          "title": "Token URL",
+          "description": "Optional token endpoint override."
+        },
+        "clientId": {
+          "default": { "env": "OAUTH_CLIENT_ID" },
+          "title": "Client ID source",
+          "description": "Source of the OAuth2 client identifier.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ArazzoCredentialSource"
+            }
+          ]
+        },
+        "clientSecret": {
+          "default": { "env": "OAUTH_CLIENT_SECRET" },
+          "title": "Client secret source",
+          "description": "Source of the OAuth2 client secret.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ArazzoCredentialSource"
+            }
+          ]
+        },
+        "clientAuthentication": {
+          "type": "string",
+          "enum": [
+            "client_secret_basic",
+            "client_secret_post"
+          ],
+          "default": "client_secret_basic",
+          "title": "Client authentication method",
+          "description": "Authentication method used at the token endpoint."
+        }
+      }
+    },
+    "ArazzoBasicAuthConfig": {
+      "title": "HTTP Basic configuration",
+      "description": "Credential sources used for HTTP Basic authentication.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "$ref": "#/definitions/ArazzoCredentialSource",
+          "title": "Username source",
+          "description": "Source of the HTTP Basic username."
+        },
+        "password": {
+          "$ref": "#/definitions/ArazzoCredentialSource",
+          "title": "Password source",
+          "description": "Source of the HTTP Basic password."
+        }
+      }
+    },
+    "ArazzoCredentialSource": {
+      "title": "Arazzo credential source",
+      "description": "A credential supplied by an environment variable or HashiCorp Vault.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ArazzoEnvironmentCredentialSource",
+          "description": "An environment variable name."
+        },
+        {
+          "$ref": "#/definitions/ArazzoVaultCredentialSource",
+          "description": "A Vault secret key and optional field."
+        }
+      ]
+    },
+    "ArazzoEnvironmentCredentialSource": {
+      "title": "Environment credential source",
+      "description": "Name of an environment variable containing a credential.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "env"
+      ],
+      "properties": {
+        "env": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Environment variable",
+          "description": "Name of the environment variable containing the credential."
+        }
+      }
+    },
+    "ArazzoVaultCredentialSource": {
+      "title": "Vault credential source",
+      "description": "Vault secret key and optional top-level field containing a credential.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vault"
+      ],
+      "properties": {
+        "vault": {
+          "$ref": "#/definitions/ArazzoVaultCredentialSourceValue",
+          "title": "Vault secret reference",
+          "description": "Vault secret key and optional field."
+        }
+      }
+    },
+    "ArazzoVaultCredentialSourceValue": {
+      "title": "Vault secret reference",
+      "description": "Secret key and optional top-level field in the stored Vault secret.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "secretKey"
+      ],
+      "properties": {
+        "secretKey": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Secret key",
+          "description": "Vault secret key."
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Secret field",
+          "description": "Optional top-level field in the stored secret."
         }
       }
     },

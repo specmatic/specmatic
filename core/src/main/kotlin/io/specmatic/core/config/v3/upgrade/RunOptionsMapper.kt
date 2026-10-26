@@ -46,6 +46,7 @@ data class RunOptionsMapper(
             SpecType.GRAPHQL -> mergeGeneric(specPath, specIdsByPath, specType, input = input)
             SpecType.ASYNCAPI -> mergeGeneric(specPath, specIdsByPath, specType, input = input)
             SpecType.PROTOBUF -> mergeGeneric(specPath, specIdsByPath, specType, input = input)
+            SpecType.ARAZZO -> this
         }
     }
 
@@ -76,6 +77,7 @@ data class RunOptionsMapper(
             SpecType.GRAPHQL -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
             SpecType.ASYNCAPI -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
             SpecType.PROTOBUF -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
+            SpecType.ARAZZO -> this
         }
     }
 
