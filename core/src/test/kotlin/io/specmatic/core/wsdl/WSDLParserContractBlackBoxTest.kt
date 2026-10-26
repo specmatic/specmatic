@@ -106,8 +106,8 @@ class WSDLParserContractBlackBoxTest {
 
         assertThat(generatedBodies).isNotEmpty()
         assertThat(generatedBodies).allSatisfy { body ->
-            val customerCount = countOccurrences(body, "<Choice-scalar-repeating:CustomerNumber>")
-            val loginCount = countOccurrences(body, "<Choice-scalar-repeating:LoginId>")
+            val customerCount = countOccurrences(body, "<tns:CustomerNumber>")
+            val loginCount = countOccurrences(body, "<tns:LoginId>")
             assertThat(customerCount + loginCount).isBetween(1, 2)
         }
     }

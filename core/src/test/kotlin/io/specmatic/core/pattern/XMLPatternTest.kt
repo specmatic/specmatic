@@ -2088,16 +2088,99 @@ internal class XMLPatternTest {
         assertThat(type.matches(parsedValue(xml), Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
-    @Test
-    fun `will load a stub value with unexpected xmlns value defined`() {
-        val type = XMLPattern("<account><id>(number)</id></account>")
-        val value = toXMLNode("""<account xmlns:ns0="https://hello-world.com"><id>10</id></account>""")
+    @Nested
+    inner class ElementNamespaceValidation {
+        private val requestNamespace = "http://example.com/rq"
 
-        val matchResult = type.matches(value, Resolver())
+        @Test
+        fun `qualified element matches when default namespace URI is correct`() {
+            val type = XMLPattern("""<Req xmlns="$requestNamespace">(string)</Req>""")
+            val value = toXMLNode("""<Req xmlns="$requestNamespace">payload</Req>""")
 
-        println(matchResult.reportString())
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+        }
 
-        assertThat(matchResult).isInstanceOf(Result.Success::class.java)
+        @Test
+        fun `qualified element matches when prefixed namespace URI is correct`() {
+            val type = XMLPattern("""<tns:Req xmlns:tns="$requestNamespace">(string)</tns:Req>""")
+            val value = toXMLNode("""<ns0:Req xmlns:ns0="$requestNamespace">payload</ns0:Req>""")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `qualified element matches when namespace is set via plusNamespaceUri`() {
+            val type = XMLPattern("<Req>(string)</Req>").plusNamespaceUri(requestNamespace)
+            val value = toXMLNode("""<Req xmlns="$requestNamespace">payload</Req>""")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `qualified element fails when namespace is missing`() {
+            val type = XMLPattern("""<Req xmlns="$requestNamespace">(string)</Req>""")
+            val value = toXMLNode("<Req>payload</Req>")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `qualified element fails when namespace URI is wrong`() {
+            val type = XMLPattern("""<Req xmlns="$requestNamespace">(string)</Req>""")
+            val value = toXMLNode("""<Req xmlns="http://example.com/WRONG">payload</Req>""")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `qualified element fails when prefix maps to the wrong namespace URI`() {
+            val type = XMLPattern("""<tns:Req xmlns:tns="$requestNamespace">(string)</tns:Req>""")
+            val value = toXMLNode("""<tns:Req xmlns:tns="http://example.com/WRONG">payload</tns:Req>""")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `unqualified element matches without an element namespace`() {
+            val type = XMLPattern("<account><id>(number)</id></account>")
+            val value = toXMLNode("<account><id>10</id></account>")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `unqualified element still matches when unused xmlns prefix declarations are present`() {
+            val type = XMLPattern("<account><id>(number)</id></account>")
+            val value = toXMLNode("""<account xmlns:ns0="https://hello-world.com"><id>10</id></account>""")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `unqualified element fails when a default xmlns puts the element in a namespace`() {
+            val type = XMLPattern("<account><id>(number)</id></account>")
+            val value = toXMLNode("""<account xmlns="$requestNamespace"><id>10</id></account>""")
+
+            assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `generated qualified element keeps the expected namespace and matches the pattern`() {
+            val type = XMLPattern("""<Req xmlns="$requestNamespace">(string)</Req>""")
+            val generated = type.generate(Resolver()) as XMLNode
+
+            assertThat(generated.elementNamespaceUriOrNull()).isEqualTo(requestNamespace)
+            assertThat(type.matches(generated, Resolver())).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `generated unqualified element has no element namespace and matches the pattern`() {
+            val type = XMLPattern("<account><id>(number)</id></account>")
+            val generated = type.generate(Resolver()) as XMLNode
+
+            assertThat(generated.elementNamespaceUriOrNull()).isNull()
+            assertThat(type.matches(generated, Resolver())).isInstanceOf(Result.Success::class.java)
+        }
     }
 
     @Test
@@ -2196,7 +2279,20 @@ internal class XMLPatternTest {
 
     @Test
     fun `soap header children match in pattern order for soap 1_2 envelope namespace`() {
-        val type = soapEnvelopePatternWithHeader()
+        val type = XMLPattern(
+            """
+            <env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:h="http://headers" xmlns:tns="http://body">
+                <env:Header>
+                    <h:TraceId>(string)</h:TraceId>
+                    <h:ClientId>(string)</h:ClientId>
+                </env:Header>
+                <env:Body>
+                    <tns:Request>(string)</tns:Request>
+                </env:Body>
+            </env:Envelope>
+            """.trimIndent(),
+            isSOAP = true
+        )
         val value = toXMLNode(
             """
             <env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:h="http://headers" xmlns:tns="http://body">

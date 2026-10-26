@@ -7,13 +7,13 @@
       "SOAPAction": "\"/choice-complex/complexChoice\"",
       "Content-Type": "text/xml"
     },
-    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>"
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest xmlns=\"http://choice-complex\"><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>"
   },
   "http-response": {
     "status": 200,
     "headers": {
       "Content-Type": "text/xml"
     },
-    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><ComplexChoiceResponse><CustomerFound><CustomerId>C-123</CustomerId></CustomerFound></ComplexChoiceResponse></soapenv:Body></soapenv:Envelope>"
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:tns=\"http://choice-complex\"><soapenv:Body><tns:ComplexChoiceResponse xmlns=\"http://choice-complex\"><CustomerFound><CustomerId>C-123</CustomerId></CustomerFound></tns:ComplexChoiceResponse></soapenv:Body></soapenv:Envelope>"
   }
 }

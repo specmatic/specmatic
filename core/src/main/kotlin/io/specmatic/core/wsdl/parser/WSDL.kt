@@ -481,19 +481,21 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun getQualification(element: XMLNode, wsdlTypeReference: String): NamespaceQualification {
-        val namespace = element.resolveNamespace(wsdlTypeReference)
-
-        val schema: XMLNode = if(namespace.isBlank())
-            element.schema ?:
+        // Element form/qualification uses the element's declaring schema, not the schema of a
+        // type= reference (which may be a different targetNamespace after xs:import).
+        val declaringSchema = element.schema ?: run {
+            val namespace = element.resolveNamespace(wsdlTypeReference)
+            if (namespace.isBlank())
                 throw ContractException("No type reference to indicate the schema, and the element node ${element.oneLineDescription} did not have a schema attached")
-        else
-            this.findSchema(namespace, element.schema)
+            else
+                this.findSchema(namespace, element.schema)
+        }
 
-        val schemaElementFormDefault = schema.attributes["elementFormDefault"]?.toStringLiteral()
+        val schemaElementFormDefault = declaringSchema.attributes["elementFormDefault"]?.toStringLiteral()
         val elementForm = element.attributes["form"]?.toStringLiteral()
 
         return when(elementForm ?: schemaElementFormDefault) {
-            "qualified" -> QualifiedNamespace(element, schema, wsdlTypeReference, this)
+            "qualified" -> QualifiedNamespace(element, declaringSchema, wsdlTypeReference, this)
             else -> UnqualifiedNamespace(element.getAttributeValue("name"))
         }
     }

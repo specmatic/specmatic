@@ -14,6 +14,6 @@
     "headers": {
       "Content-Type": "text/xml"
     },
-    "body": "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"><SOAP-ENV:Body><Id><id>123</id></Id></SOAP-ENV:Body></SOAP-ENV:Envelope>"
+    "body": "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\"><SOAP-ENV:Body><ns0:Id xmlns:ns0=\"http://www.example.com/orders\"><id>123</id></ns0:Id></SOAP-ENV:Body></SOAP-ENV:Envelope>"
   }
 }

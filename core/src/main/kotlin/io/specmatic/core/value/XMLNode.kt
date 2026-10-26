@@ -214,11 +214,15 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
     fun fullyQualifiedName(wsdl: WSDL): FullyQualifiedName {
         val localName = getAttributeValue("name")
 
-        val qualification: String = this.attributes["form"]?.toStringLiteral() ?: (this.schema?.attributes?.get("elementFormDefault")?.toStringLiteral()) ?: "unqualified"
+        val qualification: String = this.attributes["form"]?.toStringLiteral()
+            ?: (this.schema?.attributes?.get("elementFormDefault")?.toStringLiteral())
+            ?: "unqualified"
 
         return if(qualification == "qualified") {
             val namespace = schema?.getAttributeValue("targetNamespace", "Could not find targetNamespace attribute in schema node $oneLineDescription") ?: throw ContractException("Could not find schema for qualified node $oneLineDescription")
-            val prefix = wsdl.prefixToNamespace.asSequence().filter { it.value == namespace }.first().key.removePrefix("xmlns:")
+            // Use the same prefix mapping as QualifiedNamespace / envelope xmlns generation so
+            // generated nodes resolve to the namespace URI the pattern expects.
+            val prefix = wsdl.mapNamespaceToPrefix(namespace)
 
             FullyQualifiedName(prefix, namespace, localName)
         } else {

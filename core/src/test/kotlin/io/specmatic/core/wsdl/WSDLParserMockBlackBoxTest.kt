@@ -108,7 +108,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-scalar",
                     headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest xmlns=\"http://choice-scalar\"><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
         }
@@ -131,7 +131,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-scalar",
                     headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest xmlns=\"http://choice-scalar\"><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
 
@@ -140,7 +140,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-scalar",
                     headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest xmlns=\"http://choice-scalar\"><PrimaryName>PrimaryName</PrimaryName><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
 
@@ -159,7 +159,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-scalar",
                     headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest xmlns=\"http://choice-scalar\"><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
         }
@@ -177,7 +177,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-complex",
                     headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest xmlns=\"http://choice-complex\"><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
         }
@@ -200,7 +200,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-complex",
                     headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest xmlns=\"http://choice-complex\"><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
 
@@ -209,7 +209,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-complex",
                     headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest xmlns=\"http://choice-complex\"><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
 
@@ -228,7 +228,7 @@ class WSDLParserMockBlackBoxTest {
                     method = "POST",
                     path = "/choice-complex",
                     headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest xmlns=\"http://choice-complex\"><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
         }
@@ -283,7 +283,7 @@ class WSDLParserMockBlackBoxTest {
             method = "POST",
             path = "/choice-scalar-repeating",
             headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating/repeatingScalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Repeatingscalar:RepeatingScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceRequest xmlns=\"http://choice-scalar-repeating\"><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Repeatingscalar:RepeatingScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
         val response = HttpStub(feature, port = testPort()).use { stub ->
@@ -301,7 +301,7 @@ class WSDLParserMockBlackBoxTest {
             method = "POST",
             path = "/choice-complex-repeating",
             headers = mapOf("SOAPAction" to "\"/choice-complex-repeating/repeatingComplexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingcomplex=\"http://choice-complex-repeating\"><soapenv:Body><Repeatingcomplex:RepeatingComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Repeatingcomplex:CustomerByPermId><PermId>CP-123</PermId></Repeatingcomplex:CustomerByPermId><Repeatingcomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Repeatingcomplex:CustomerByLogin></Repeatingcomplex:RepeatingComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingcomplex=\"http://choice-complex-repeating\"><soapenv:Body><Repeatingcomplex:RepeatingComplexChoiceRequest xmlns=\"http://choice-complex-repeating\"><PrimaryName>PrimaryName</PrimaryName><Repeatingcomplex:CustomerByPermId><PermId>CP-123</PermId></Repeatingcomplex:CustomerByPermId><Repeatingcomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Repeatingcomplex:CustomerByLogin></Repeatingcomplex:RepeatingComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
         val response = HttpStub(feature, port = testPort()).use { stub ->
@@ -319,7 +319,7 @@ class WSDLParserMockBlackBoxTest {
             method = "POST",
             path = "/choice-scalar-repeating-unbounded",
             headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating-unbounded/repeatingScalarChoiceUnbounded\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating-unbounded\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceUnboundedRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId><CustomerNumber>C-456</CustomerNumber></Repeatingscalar:RepeatingScalarChoiceUnboundedRequest></soapenv:Body></soapenv:Envelope>")
+            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating-unbounded\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceUnboundedRequest xmlns=\"http://choice-scalar-repeating-unbounded\"><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId><CustomerNumber>C-456</CustomerNumber></Repeatingscalar:RepeatingScalarChoiceUnboundedRequest></soapenv:Body></soapenv:Envelope>")
         )
 
         val response = HttpStub(feature, port = testPort()).use { stub ->

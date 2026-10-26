@@ -7,13 +7,13 @@
       "SOAPAction": "\"/choice-scalar/scalarChoice\"",
       "Content-Type": "text/xml"
     },
-    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>"
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest xmlns=\"http://choice-scalar\"><PrimaryName>PrimaryName</PrimaryName><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>"
   },
   "http-response": {
     "status": 200,
     "headers": {
       "Content-Type": "text/xml"
     },
-    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><ScalarChoiceResponse><StatusMessage>READY</StatusMessage></ScalarChoiceResponse></soapenv:Body></soapenv:Envelope>"
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:tns=\"http://choice-scalar\"><soapenv:Body><tns:ScalarChoiceResponse xmlns=\"http://choice-scalar\"><StatusMessage>READY</StatusMessage></tns:ScalarChoiceResponse></soapenv:Body></soapenv:Envelope>"
   }
 }

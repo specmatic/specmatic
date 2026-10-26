@@ -14,7 +14,7 @@
                 </xsd:sequence>
             </xsd:complexType>
 
-            <xsd:element name="ProcessMessage" type="tns:ProcessMessage"/>
+            <xsd:element name="ProcessMessage" type="tns:ProcessMessage" form="qualified"/>
 
             <xsd:complexType name="MessageResult">
                 <xsd:sequence>
@@ -22,7 +22,7 @@
                 </xsd:sequence>
             </xsd:complexType>
 
-            <xsd:element name="MessageResult" type="tns:MessageResult"/>
+            <xsd:element name="MessageResult" type="tns:MessageResult" form="qualified"/>
         </xsd:schema>
     </types>
 

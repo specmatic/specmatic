@@ -44,7 +44,7 @@ class WSDLWiringCharacterizationTest {
         assertThat(rootPattern).isInstanceOf(XMLPattern::class.java)
         rootPattern as XMLPattern
         assertThat(rootPattern.pattern.nodes.filterIsInstance<XMLPattern>().map { it.pattern.realName })
-            .contains("Choice-ref:SPName")
+            .contains("tns:SPName")
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
         assertThat(choiceGroup.choices).hasSize(2)
         assertThat(choiceGroup.choices).allSatisfy { choice ->
@@ -132,11 +132,11 @@ class WSDLWiringCharacterizationTest {
         assertThat(variants).hasSize(3)
         assertThat(generatedBodies).anySatisfy {
             assertThat(it).contains("PrimaryName>") 
-            assertThat(countOccurrences(it, "<Choice-scalar-repeating:CustomerNumber>")).isEqualTo(1)
+            assertThat(countOccurrences(it, "<tns:CustomerNumber>")).isEqualTo(1)
             assertThat(it).doesNotContain("LoginId>")
         }
         assertThat(generatedBodies).anySatisfy {
-            assertThat(countOccurrences(it, "<Choice-scalar-repeating:LoginId>")).isEqualTo(1)
+            assertThat(countOccurrences(it, "<tns:LoginId>")).isEqualTo(1)
             assertThat(it).doesNotContain("CustomerNumber>")
         }
         assertThat(generatedBodies).anySatisfy {
@@ -286,7 +286,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("SessionTokenType", emptyMap(), emptySet())
         val requestBody = soapBody(soapElement, wsdl, "SessionToken", "SessionTokenType", typeInfo)
 
-        assertThat(typeInfo.nodes).containsExactly(toXMLNode("<Wiring:SessionToken>(string)</Wiring:SessionToken>"))
+        assertThat(typeInfo.nodes).containsExactly(toXMLNode("<tns:SessionToken>(string)</tns:SessionToken>"))
         assertThat(requestBody).contains("SessionToken")
     }
 
@@ -375,11 +375,12 @@ class WSDLWiringCharacterizationTest {
 
         assertThat(rootNode.name).isEqualTo("TradePriceRequest")
         assertThat(rootNode.attributes[TYPE_ATTRIBUTE_NAME]?.toStringLiteral()).isEqualTo("TradePriceRequestType")
+        // Stockquote keeps TradePriceRequest unqualified (no elementFormDefault=qualified).
         val tradePriceRequestPattern = concreteRoot(
             typeInfo.types.getValue("TradePriceRequestType") as XMLPattern,
             "TradePriceRequest",
             "TradePriceRequest",
-            "http://example.com/stockquote.xsd",
+            null,
         )
         assertThat(tradePriceRequestPattern.matches(
             toXMLNode("<TradePriceRequest><tickerSymbol/></TradePriceRequest>"),
@@ -1461,7 +1462,7 @@ class WSDLWiringCharacterizationTest {
         </definitions>
         """.trimIndent()
 
-    private fun concreteRoot(pattern: XMLPattern, name: String, realName: String, namespace: String): XMLPattern =
+    private fun concreteRoot(pattern: XMLPattern, name: String, realName: String, namespace: String?): XMLPattern =
         pattern.copy(pattern = pattern.pattern.copy(name = name, realName = realName, namespaceUri = namespace))
 
     private fun wildcardWsdl(namespace: String, anyNamespaceAttribute: String = "namespace=\"##other\""): String =

@@ -21,6 +21,8 @@ const val SOAP_FAULT = "fault"
 private const val SOAP_ENVELOPE = "Envelope"
 private const val SOAP_HEADER = "Header"
 private const val SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
+private const val SOAP_12_ENVELOPE_NAMESPACE = "http://www.w3.org/2003/05/soap-envelope"
+private val SOAP_ENVELOPE_NAMESPACES = setOf(SOAP_ENVELOPE_NAMESPACE, SOAP_12_ENVELOPE_NAMESPACE)
 
 private sealed class WSDLTypeSelection {
     data class Use(val pattern: Pattern) : WSDLTypeSelection()
@@ -581,11 +583,33 @@ data class XMLPattern(
     }
 
     private fun matchNamespaces(sampleData: XMLNode): Result {
-        return PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(
-            Success(),
-            "Removed namespace validation but we should put it back"
+        val expectedNamespace = pattern.namespaceUri.resolvedElementNamespace()
+        val actualNamespace = sampleData.elementNamespaceUriOrNull().resolvedElementNamespace()
+
+        if (expectedNamespace == actualNamespace)
+            return Success()
+
+        // SOAP 1.1 and 1.2 share Envelope/Header/Body local names with different namespace URIs.
+        // Payload element namespaces are still compared strictly above.
+        if (areInterchangeableSOAPEnvelopeNamespaces(expectedNamespace, actualNamespace))
+            return Success()
+
+        return Failure(
+            "In node named ${pattern.name}, expected namespace ${expectedNamespace.orLocal()} but found ${actualNamespace.orLocal()}"
         )
     }
+
+    private fun areInterchangeableSOAPEnvelopeNamespaces(expectedNamespace: String?, actualNamespace: String?): Boolean {
+        if (!isSOAPEnvelopeStructureName(pattern.name))
+            return false
+
+        return expectedNamespace in SOAP_ENVELOPE_NAMESPACES && actualNamespace in SOAP_ENVELOPE_NAMESPACES
+    }
+
+    private fun isSOAPEnvelopeStructureName(localName: String): Boolean =
+        localName.equals(SOAP_ENVELOPE, ignoreCase = true) ||
+                localName.equals(SOAP_HEADER, ignoreCase = true) ||
+                localName.equals(SOAP_BODY, ignoreCase = true)
 
     private fun matchAttributes(sampleData: XMLNode, resolver: Resolver): Result {
         val patternAttributesWithoutXmlns = pattern.attributes.filterNot {
@@ -1801,6 +1825,8 @@ private fun XMLTypeData.usesBlockedDerivationToReach(
     return directMethodIsBlocked || basePattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver)
 }
 
-private fun <T> PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(value: T, s: String): T {
-    return value
-}
+private fun String?.resolvedElementNamespace(): String? =
+    this?.takeIf { it.isNotBlank() }
+
+private fun String?.orLocal(): String =
+    this ?: "##local"

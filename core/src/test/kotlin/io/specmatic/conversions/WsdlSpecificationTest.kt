@@ -170,7 +170,7 @@ internal class WsdlSpecificationTest {
             .toList()
 
         assertThat(generatedBodies).anySatisfy { body ->
-            assertThat(body).contains("xsi:type=\"model:OnlineOrder\"")
+            assertThat(body).containsPattern("""xsi:type="[A-Za-z0-9_-]+:OnlineOrder"""")
             assertThat(body).contains(":channel>")
         }
     }

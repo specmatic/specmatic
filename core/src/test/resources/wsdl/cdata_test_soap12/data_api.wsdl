@@ -14,7 +14,7 @@
                 </xsd:sequence>
             </xsd:complexType>
 
-            <xsd:element name="StoreData" type="tns:StoreData"/>
+            <xsd:element name="StoreData" type="tns:StoreData" form="qualified"/>
 
             <xsd:complexType name="DataResponse">
                 <xsd:sequence>
@@ -22,7 +22,7 @@
                 </xsd:sequence>
             </xsd:complexType>
 
-            <xsd:element name="DataResponse" type="tns:DataResponse"/>
+            <xsd:element name="DataResponse" type="tns:DataResponse" form="qualified"/>
         </xsd:schema>
     </types>
 

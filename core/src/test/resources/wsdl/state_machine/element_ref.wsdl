@@ -14,7 +14,7 @@
                 </xsd:sequence>
             </xsd:complexType>
 
-            <xsd:element name="CreateProduct" type="Elementref:CreateProduct"/>
+            <xsd:element name="CreateProduct" type="Elementref:CreateProduct" form="qualified"/>
 
             <xsd:complexType name="Id">
                 <xsd:sequence>
@@ -22,7 +22,7 @@
                 </xsd:sequence>
             </xsd:complexType>
 
-            <xsd:element name="Id" type="Elementref:Id"/>
+            <xsd:element name="Id" type="Elementref:Id" form="qualified"/>
         </xsd:schema>
     </types>
 

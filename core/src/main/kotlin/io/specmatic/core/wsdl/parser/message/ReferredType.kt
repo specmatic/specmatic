@@ -20,7 +20,7 @@ data class ReferredType(val wsdlTypeReference: String, val element: XMLNode, val
                   throw ContractException("Simple type $type in restriction not recognized")
 
               SimpleElement(wsdlTypeReference, element, wsdl, simpleTypeNode = typeNode)
-          } ?: ComplexElement(wsdlTypeReference, element, wsdl)
+          } ?: ComplexElement(wsdlTypeReference, element, wsdl, namespaceQualification)
       }
 
     override fun deriveSpecmaticTypes(

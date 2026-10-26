@@ -16,7 +16,7 @@
             </xsd:complexType>
 
             <!-- Define the CreateProduct element -->
-            <xsd:element name="CreateProduct" type="tns:CreateProduct"/>
+            <xsd:element name="CreateProduct" type="tns:CreateProduct" form="qualified"/>
 
             <!-- Define the Id complex type for response -->
             <xsd:complexType name="Id">
@@ -26,7 +26,7 @@
             </xsd:complexType>
 
             <!-- Define the Id element -->
-            <xsd:element name="Id" type="tns:Id"/>
+            <xsd:element name="Id" type="tns:Id" form="qualified"/>
         </xsd:schema>
     </types>
 
