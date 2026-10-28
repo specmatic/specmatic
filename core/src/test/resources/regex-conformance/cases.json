@@ -1,0 +1,2137 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "lookahead-positive",
+      "category": "lookaround-positive-lookahead",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b)b$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": true}, {"value": "ac", "matches": false}]
+    },
+    {
+      "id": "lookahead-negative",
+      "category": "lookaround-negative-lookahead",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?!b)c$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "ac", "matches": true}, {"value": "ab", "matches": false}]
+    },
+    {
+      "id": "lookahead-contradiction",
+      "category": "lookaround-negative-lookahead",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?!b)b$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": false}, {"value": "a", "matches": false}]
+    },
+    {
+      "id": "lookahead-does-not-search-ahead-body",
+      "category": "lookaround-position",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b)ab$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [{"value": "aab", "matches": false}]
+    },
+    {
+      "id": "lookbehind-positive",
+      "category": "lookaround-positive-lookbehind",
+      "dialect": "ECMAScript",
+      "pattern": "(?<=ab)c",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "abc", "matches": true}, {"value": "c", "matches": false}, {"value": "zabcx", "matches": true}]
+    },
+    {
+      "id": "lookbehind-negative",
+      "category": "lookaround-negative-lookbehind",
+      "dialect": "ECMAScript",
+      "pattern": "(?<!ab)c",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "c", "matches": true}, {"value": "abc", "matches": false}, {"value": "zabcx", "matches": false}]
+    },
+    {
+      "id": "nested-lookaround-deferred",
+      "category": "lookaround-unsupported-nesting",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b(?<=ab))b$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": true}, {"value": "ac", "matches": false}],
+      "reason": "Nested lookarounds need recursive assertion compilation; intentionally outside this initial scope."
+    },
+    {
+      "id": "repeated-lookaround-deferred",
+      "category": "lookaround-unsupported-repetition",
+      "dialect": "ECMAScript",
+      "pattern": "^(?:(?!ab)[ab])*$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "aa", "matches": true}, {"value": "ab", "matches": false}],
+      "reason": "Assertions inside repeated groups need occurrence-aware marker semantics."
+    },
+    {
+      "id": "top-level-alternative-lookaround-branches",
+      "category": "lookaround-composition",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?!b)b$|^ab$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "long-selective-lookahead",
+      "category": "lookaround-selective-constraint",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a{40}b)[ab]{41}$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab", "matches": true}, {"value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "matches": false}]
+    },
+    {
+      "id": "variable-length-lookbehind",
+      "category": "lookaround-variable-length-lookbehind",
+      "dialect": "ECMAScript",
+      "pattern": "(?<=a+)b",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": true}, {"value": "aaab", "matches": true}, {"value": "b", "matches": false}]
+    },
+    {
+      "id": "bounded-positive-lookbehind-language",
+      "category": "lookaround-exhaustive-short-language",
+      "dialect": "ECMAScript",
+      "pattern": "(?<=a)b",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "", "matches": false}, {"value": "a", "matches": false}, {"value": "b", "matches": false}, {"value": "aa", "matches": false}, {"value": "ab", "matches": true}, {"value": "ba", "matches": false}, {"value": "bb", "matches": false}, {"value": "aaa", "matches": false}, {"value": "aab", "matches": true}, {"value": "aba", "matches": true}, {"value": "abb", "matches": true}, {"value": "baa", "matches": false}, {"value": "bab", "matches": true}, {"value": "bba", "matches": false}, {"value": "bbb", "matches": false}]
+    },
+    {
+      "id": "independent-multiple-lookaheads",
+      "category": "lookaround-composition",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=.*[A-Z])(?=.*[0-9])[A-Za-z0-9]{8}$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "Abc12345", "matches": true}, {"value": "abc12345", "matches": false}, {"value": "Abcdefgh", "matches": false}]
+    },
+    {
+      "id": "client-password-independent-lookaheads",
+      "category": "lookaround-composition",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z0-9]).*$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "Abc1!def", "matches": true}, {"value": "abcdef1!", "matches": false}, {"value": "ABCDEF1!", "matches": false}, {"value": "Abcdefgh!", "matches": false}, {"value": "Abc12345", "matches": false}]
+    },
+    {
+      "id": "negative-lookahead-excludes-admin",
+      "category": "lookaround-negative-lookahead",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.*admin)[a-z]+$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "reader", "matches": true}, {"value": "admin", "matches": false}, {"value": "administrator", "matches": false}]
+    },
+    {
+      "id": "mixed-lookahead-lookbehind",
+      "category": "lookaround-composition",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b)(?<=a)b$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": true}, {"value": "ac", "matches": false}]
+    },
+    {
+      "id": "positive-and-negative-lookahead",
+      "category": "lookaround-composition",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)(?!b)a$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "a", "matches": true}, {"value": "b", "matches": false}]
+    },
+    {
+      "id": "ecmascript-literals-that-are-dk-operators",
+      "category": "lookaround-escaping",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=~&!#@\"<>)~&!#@\"<>$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "~&!#@\"<>", "matches": true}, {"value": "~&!#@\"<", "matches": false}],
+      "reason": "The raw double quote is a dk.brics string operator; defer rather than adding an independent quoting rewrite."
+    },
+    {
+      "id": "ecmascript-identity-escape-in-lookaround",
+      "category": "lookaround-escapes",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\q)\\q$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [{"value": "q", "matches": true}, {"value": "Q", "matches": false}]
+    },
+    {
+      "id": "lookbehind-line-terminator-context",
+      "category": "lookaround-search-context",
+      "dialect": "ECMAScript",
+      "pattern": "(?<=\\n)c$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\nc",
+          "matches": true
+        },
+        {
+          "value": "c",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "assertion-body-alternation-and-quantifier",
+      "category": "lookaround-body-composition",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b{1,2}|c)b$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": true}, {"value": "ac", "matches": false}]
+    },
+    {
+      "id": "lazy-quantifiers-in-assertion-and-main-expression",
+      "category": "lookaround-body-quantifiers",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b+?)b+?$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "abb",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "empty-positive-lookahead",
+      "category": "lookaround-empty-body",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=)a$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "aa", "matches": true}, {"value": "a", "matches": false}]
+    },
+    {
+      "id": "empty-negative-lookahead",
+      "category": "lookaround-empty-body",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?!)a$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [{"value": "aa", "matches": false}]
+    },
+    {
+      "id": "ecmascript-whitespace-in-negative-assertion",
+      "category": "lookaround-ecmascript-whitespace",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.*\\s).+$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "word", "matches": true}, {"value": "\u00a0", "matches": false}, {"value": "\u0085", "matches": true}],
+      "deferredReason": "Shared cleanup narrows whitespace to ASCII, so the negative assertion can admit non-ASCII whitespace; dot also excludes NEL. Shared cleanup corrections are deferred."
+    },
+    {
+      "id": "negative-whitespace-assertion-excludes-nbsp",
+      "category": "lookaround-ecmascript-whitespace",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\s)\\u00A0$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00a0",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "positive-whitespace-lookahead-conflicts-with-negated-class",
+      "category": "lookaround-negated-class",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\u00A0)[^\\s]$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00a0",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "negative-dot-assertion-excludes-nel",
+      "category": "lookaround-ecmascript-dot",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.)\\u0085$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u0085",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "negative-whitespace-ascii",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\s)[\\s]$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": []
+    },
+    {
+      "id": "negative-whitespace-empty",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\s) $",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [{"value": " ", "matches": false}]
+    },
+    {
+      "id": "negative-dot-empty",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.)a$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [{"value": "a", "matches": false}]
+    },
+    {
+      "id": "negative-dot-control",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.)\\n$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\n",
+          "matches": true
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "negative-variable-lookbehind",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "(?<!a+)b",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "b", "matches": true}, {"value": "ab", "matches": false}]
+    },
+    {
+      "id": "assertion-in-group",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(a(?=b)b)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": true}]
+    },
+    {
+      "id": "quantified-assertion",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)?a$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "body-anchor",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a$)a$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "a", "matches": true}],
+      "reason": "Assertion-body anchors need absolute input-position constraints; search normalization cannot be reused."
+    },
+    {
+      "id": "word-boundary",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)\\ba$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ],
+      "deferredReason": "Existing regular-content cleanup/dk.brics treats a word-boundary escape as the letter b. Boundary handling is deferred to a follow-up PR."
+    },
+    {
+      "id": "backreference",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=(a))\\1$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ],
+      "reason": "Backreferences are outside scope; capture-insensitive generation requires them to be absent."
+    },
+    {
+      "id": "inline-flags",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "(?i)(?=a)a",
+      "syntaxValid": false,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "reason": "Flag scopes require explicit flag-aware generation; this implementation is flagless."
+    },
+    {
+      "id": "non-ascii-literal",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\u00e9)\u00e9$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "\u00e9", "matches": true}]
+    },
+    {
+      "id": "hex-escape",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\x61)a$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "empty-class",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)[]$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "reason": "Empty classes need a targeted mapping to the empty language; dk.brics does not parse this ECMAScript form."
+    },
+    {
+      "id": "brace-literal",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a{,2})a{,2}$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a{,2}",
+          "matches": true
+        }
+      ],
+      "deferredReason": "Existing lower-bound rewriting changes ECMAScript literal {,n} text into a quantifier. Shared brace cleanup is deferred to a follow-up PR."
+    },
+    {
+      "id": "ascii-complement-shorthands",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\D)(?=\\w)(?!\\W)(?!\\s)(?=\\S).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "1", "matches": true}, {"value": "a", "matches": false}]
+    },
+    {
+      "id": "negative-body-alternatives",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!a(b|c)+)[abc]{3}$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "aaa", "matches": true}, {"value": "abc", "matches": false}]
+    },
+    {
+      "id": "marker-spanning-lookahead",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=bc)b(?=c)c$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "abc", "matches": true}]
+    },
+    {
+      "id": "marker-spanning-lookbehind",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?<=a)b(?<=ab)c$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "abc", "matches": true}]
+    },
+    {
+      "id": "negative-across-marker",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?!bc)b(?=c)c$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [{"value": "abc", "matches": false}]
+    },
+    {
+      "id": "negative-lookbehind-empty",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?<!a)b$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [{"value": "ab", "matches": false}]
+    },
+    {
+      "id": "ordinary-groups",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=(?:ab|ac)+)(ab|ac){1,2}$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "abac", "matches": true}]
+    },
+    {
+      "id": "positive-control-escape",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\t)\\t$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\t",
+          "matches": true
+        },
+        {
+          "value": "t",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "negative-control-escape",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\t).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\t",
+          "matches": false
+        },
+        {
+          "value": "t",
+          "matches": true
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "negative-behind-control-escape",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "(?<!\\t)a",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "\ta",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "ordinary-class-shorthands",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\\w ]{2}$)[\\d_][^\\d]$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "reason": "The assertion-body end anchor requires input-position semantics, independently of the otherwise usable class shorthands."
+    },
+    {
+      "id": "class-shorthands",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\\w ]{2})[\\d_][^\\d]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "1a", "matches": true}, {"value": "_ ", "matches": true}]
+    },
+    {
+      "id": "complement-class-alone",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\\D])[\\D]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "a", "matches": true}, {"value": "1", "matches": false}]
+    },
+    {
+      "id": "mixed-complement-class",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?![a\\D]).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "deferredReason": "Existing shorthand expansion changes complement-class membership, including the forbidden language of negative assertions. Shared class cleanup is deferred to a follow-up PR."
+    },
+    {
+      "id": "negated-complement-class",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)[^\\D]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "deferredReason": "Existing shorthand expansion changes complement-class membership, including the forbidden language of negative assertions. Shared class cleanup is deferred to a follow-up PR."
+    },
+    {
+      "id": "shorthand-range-endpoint",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?![a-\\d]).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "deferredReason": "Existing shorthand expansion changes character-range semantics. Shared class cleanup is deferred to a follow-up PR."
+    },
+    {
+      "id": "class-leading-trailing-hyphens",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[-\\d])(?=[\\-\\d])(?![^-\\d])[\\d-]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "-", "matches": true}, {"value": "1", "matches": true}]
+    },
+    {
+      "id": "nested-ordinary-groups",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=(?:a(b|c))+)(?:ab|ac)+)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "abac", "matches": true}]
+    },
+    {
+      "id": "optional-ordinary-body",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=(?:ab)?c)(?:ab)?c$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "c", "matches": true}, {"value": "abc", "matches": true}]
+    },
+    {
+      "id": "optional-assertion-container",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?:(?=a)a)?$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "reason": "Optional assertion containers need semantics for branches where the marker is absent."
+    },
+    {
+      "id": "alternative-assertion-container",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?:(?=a)a|b)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": []
+    },
+    {
+      "id": "unicode-source-ascii-witness",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[a\u00e9])[a\u00e9]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "a", "matches": true}, {"value": "\u00e9", "matches": true}]
+    },
+    {
+      "id": "unicode-negative-body",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\u00e9)[a\u00e9]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "a", "matches": true}, {"value": "\u00e9", "matches": false}]
+    },
+    {
+      "id": "unicode-hex-source-ascii-witness",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[a\\u00e9])[a\\u00e9]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": true
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "hex-escaped-metacharacter",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\x2e)\\u002e$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": ".",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "control-escape-in-class",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\\t])[\\t]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\t",
+          "matches": true
+        },
+        {
+          "value": "t",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "lazy-optional-empty",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a??)a??$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "escaped-assertion-text",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)a\\(\\?=b\\)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "a(?=b)", "matches": true}]
+    },
+    {
+      "id": "class-assertion-text",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)a[(?=)]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "a(", "matches": true}]
+    },
+    {
+      "id": "class-backspace",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\\b])[\\b]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\b",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "null-escape",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\0)\\0$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u0000",
+          "matches": true
+        },
+        {
+          "value": "0",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "letter-control-escape",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\cA)\\cA$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u0001",
+          "matches": true
+        },
+        {
+          "value": "A",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "jvm-quoted-literal",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)\\Qa\\E$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "deferredReason": "Existing cleanup applies JVM Q...E quoting, which differs from flagless ECMAScript identity escapes. Shared quoting behavior is deferred to a follow-up PR."
+    },
+    {
+      "id": "named-group",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)(?<name>a)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "legacy-octal",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)a\\01$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "deferredReason": "Existing cleanup/dk.brics does not resolve backreference or octal escapes. Capture and numeric-escape semantics are deferred to a follow-up PR."
+    },
+    {
+      "id": "escaped-brace-literal",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\{,2\\})\\{,2\\}$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "{,2}", "matches": true}]
+    },
+    {
+      "id": "exact-once-container",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=a)a){1}?$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "negative-escaped-control-empty",
+      "category": "minimal-scope",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\t)\\t$",
+      "syntaxValid": true,
+      "generation": "NO_WITNESS_IN_GENERATION_DOMAIN",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\t",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup does not decode the encoded literals used here; dk.brics therefore compiles a different language. Literal decoding is deferred to a follow-up PR."
+    },
+    {
+      "id": "positional-positive-lookahead",
+      "category": "position-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b)..$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "abb", "matches": true}, {"value": "acb", "matches": false}]
+    },
+    {
+      "id": "positional-negative-lookahead",
+      "category": "position-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?!b)..$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "acb", "matches": true}, {"value": "abb", "matches": false}]
+    },
+    {
+      "id": "literal-newline-lookbehind",
+      "category": "position-regression",
+      "dialect": "ECMAScript",
+      "pattern": "(?<=\n)c$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "\nc", "matches": true}, {"value": "c", "matches": false}]
+    },
+    {
+      "id": "literal-newline-negative-dot",
+      "category": "position-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.)\n$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [{"value": "\n", "matches": true}]
+    },
+    {
+      "id": "flagless-identity-p",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\p)\\p$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "p",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-identity-P",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\P)\\P$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "P",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-identity-k",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\k)\\k$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "k",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-identity-E",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\E)\\E$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "E",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-identity-u",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\u)\\u$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "u",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-identity-x",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\x)\\x$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "x",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-identity-8",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\8)\\8$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "8",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-identity-9",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\\9)\\9$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "9",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-class-B",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\\B])[\\B]$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "B",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "flagless-negative-identity-p",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\p)[pa]$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "p",
+          "matches": false
+        },
+        {
+          "value": "a",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "class-identity-8-with-captures",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)(a)()()()()()()()[\\8]$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a8",
+          "matches": true
+        },
+        {
+          "value": "aa",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "exact-once-lookahead-{1}",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b){1}b$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "exact-once-lookahead-{1,1}",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?=b){1,1}b$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "exact-once-negative-lookahead",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?!c){1}b$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "exact-once-lookbehind-invalid",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^a(?<=a){1}b$",
+      "syntaxValid": false,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [],
+      "reason": "ECMAScript does not permit quantified lookbehind; marker substitution must not hide this invalid syntax."
+    },
+    {
+      "id": "decimal-8-with-captures",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=a)(a)()()()()()()()\\8$",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "a8",
+          "matches": false
+        }
+      ],
+      "reason": "Backreferences are outside scope; capture-insensitive generation requires them to be absent."
+    },
+    {
+      "id": "negative-mixed-complement-underscore",
+      "category": "eligibility-regression",
+      "dialect": "ECMAScript",
+      "pattern": "^(?![\\D_]).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "_",
+          "matches": false
+        },
+        {
+          "value": "1",
+          "matches": true
+        }
+      ],
+      "deferredReason": "Existing shorthand expansion changes complement-class membership, including the forbidden language of negative assertions. Shared class cleanup is deferred to a follow-up PR."
+    },
+    {
+      "id": "deferred-negative-complement-underscore-witness",
+      "category": "inherited-cleanup",
+      "dialect": "ECMAScript",
+      "pattern": "^(?![\\D_])_$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "_",
+          "matches": false
+        }
+      ],
+      "deferredReason": "Existing cleanup narrows [\\D_] to [^0-9_], so the compiled negative assertion admits an invalid underscore witness. Shared class cleanup is deferred to a follow-up PR."
+    },
+    {
+      "id": "lazy-negative-lookahead",
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!a+?)[ab]+?$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "baa",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "named-assertion-body",
+      "pattern": "^(?=(?<body>ab))(?<value>ab)$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "aa",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "named-assertion-container",
+      "pattern": "^(?<outer>a(?=b)b)$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "negative-named-assertion-body",
+      "pattern": "^(?!(?<bad>a))[ab]$",
+      "candidates": [
+        {
+          "value": "b",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "id": "named-backreference-deferred",
+      "pattern": "^(?=(?<name>a))\\k<name>$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ],
+      "reason": "Named backreference semantics are outside scope; erasing capture names requires references absent."
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "positive-quantified-lookahead",
+      "pattern": "^(?=ab){2,10}ab$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "abab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "negative-quantified-lookahead",
+      "pattern": "^(?!ab)+[ab]{2}$",
+      "candidates": [
+        {
+          "value": "aa",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "zero-minimum-lookahead",
+      "pattern": "^a(?=b){0,2}c$",
+      "candidates": [
+        {
+          "value": "ac",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "zero-minimum-negative-lookahead",
+      "pattern": "^a(?!c)*c$",
+      "candidates": [
+        {
+          "value": "ac",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "omitted-and-required-lookaheads",
+      "pattern": "^a(?=z)*b(?=c)c$",
+      "candidates": [
+        {
+          "value": "abc",
+          "matches": true
+        },
+        {
+          "value": "abb",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "group-alternative-context",
+      "pattern": "^x(a(?=b)b|c)y$",
+      "candidates": [
+        {
+          "value": "xaby",
+          "matches": true
+        },
+        {
+          "value": "xcy",
+          "matches": true
+        },
+        {
+          "value": "xy",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "named-group-alternatives",
+      "pattern": "^(?<value>a(?=b)b|c)$",
+      "candidates": [
+        {
+          "value": "ab",
+          "matches": true
+        },
+        {
+          "value": "c",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "independent-group-alternatives",
+      "pattern": "^((?=a)a|b)((?=c)c|d)$",
+      "candidates": [
+        {
+          "value": "ac",
+          "matches": true
+        },
+        {
+          "value": "ad",
+          "matches": true
+        },
+        {
+          "value": "bc",
+          "matches": true
+        },
+        {
+          "value": "bd",
+          "matches": true
+        },
+        {
+          "value": "ab",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "branch-and-surrounding-assertion",
+      "pattern": "^a((?=b)b|c)(?<=ab)d$",
+      "candidates": [
+        {
+          "value": "abd",
+          "matches": true
+        },
+        {
+          "value": "acd",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "alternative-independent-search",
+      "pattern": "^a(?!b)b$|ab",
+      "candidates": [
+        {
+          "value": "xabx",
+          "matches": true
+        },
+        {
+          "value": "ac",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "bounded-lookaround",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "id": "empty-alternative-branch",
+      "pattern": "^(?=a)a$|^$",
+      "candidates": [
+        {
+          "value": "",
+          "matches": true
+        },
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "underscore-in-name",
+      "pattern": "^(?=a)(?<user_id>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "underscore-prefix-name",
+      "pattern": "^(?=a)(?<_id>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "dollar-prefix-name",
+      "pattern": "^(?=a)(?<$id>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "id": "unicode-capture-name",
+      "pattern": "^(?=a)(?<\u00e9>a)$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        },
+        {
+          "value": "b",
+          "matches": false
+        }
+      ],
+      "reason": "Valid ECMAScript capture name; the existing JVM runtime matcher rejects this identifier spelling."
+    },
+    {
+      "category": "capture-name-regression",
+      "dialect": "ECMAScript",
+      "syntaxValid": true,
+      "generation": "UNSUPPORTED",
+      "source": "custom",
+      "id": "underscore-name-backreference-deferred",
+      "pattern": "^(?=(?<_id>a))\\k<_id>$",
+      "candidates": [
+        {
+          "value": "a",
+          "matches": true
+        }
+      ],
+      "reason": "Backreferences remain outside scope, including references to names outside the JVM identifier subset."
+    },
+    {
+      "id": "unicode-chinese-behind",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^\u4e2d(?<=\u4e2d)\u6587$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u4e2d\u6587",
+          "matches": true
+        },
+        {
+          "value": "\u0416\u6587",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "unicode-cyrillic-negative",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\u4e2d)[\u4e2d\u0416]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u0416",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "supplementary-literal",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\ud83d\ude00)\ud83d\ude00$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\ud83d\ude00",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-dot-marker-safety",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(a(?=x)x|..)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ax",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "x",
+          "matches": false
+        },
+        {
+          "value": "a",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-negative-dot-safety",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(a(?!x)x|..)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "ax",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "x",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "unicode-context-search",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "(?<=\u4e2d)\u00e9",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u4e2d\u00e9",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        },
+        {
+          "value": "x\u4e2d\u00e9x",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "conditional-cross-branch-behind",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=\u00e9)\u00e9|\u4e2d)((?<=\u00e9)[ab]|\u0416)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00e9a",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u0416",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d\u0416",
+          "matches": true
+        },
+        {
+          "value": "\u4e2da",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-empty-branch",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=\u00e9)\u00e9|)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-infeasible-branch",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?!)\u00e9|\u4e2d)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "conditional-twelve-independent-groups",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)((?=\u00e9)\u00e9|\u4e2d)$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          "matches": true
+        },
+        {
+          "value": "\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d",
+          "matches": true
+        },
+        {
+          "value": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "supplementary-two-utf16-units",
+      "category": "unicode-conditional-markers",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=..)..$",
+      "syntaxValid": true,
+      "generation": "SKIPPED_JVM_DIALECT",
+      "source": "custom",
+      "reason": "Flagless ECMAScript counts UTF-16 units; JVM dot counts a supplementary code point as one character.",
+      "candidates": [
+        {
+          "value": "\ud83d\ude00",
+          "matches": true
+        },
+        {
+          "value": "\u00e9",
+          "matches": false
+        }
+      ]
+    },
+    {
+      "id": "literal-nbsp-negative-whitespace-cleanup",
+      "category": "lookaround-ecmascript-whitespace",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!\\s).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "deferredReason": "Shared cleanup narrows whitespace to ASCII, so the compiled negative assertion incorrectly admits NBSP.",
+      "candidates": [{"value": "\u00a0", "matches": false}]
+    },
+    {
+      "id": "literal-nbsp-negated-whitespace-class-cleanup",
+      "category": "lookaround-negated-class",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[^\\s]).$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "deferredReason": "Shared cleanup narrows whitespace to ASCII, so its complement incorrectly admits NBSP.",
+      "candidates": [{"value": "\u00a0", "matches": false}]
+    },
+    {
+      "id": "literal-nel-negative-dot-cleanup",
+      "category": "lookaround-ecmascript-dot",
+      "dialect": "ECMAScript",
+      "pattern": "^(?!.)[^a]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "deferredReason": "Shared dot cleanup excludes NEL, so the compiled negative assertion incorrectly admits it.",
+      "candidates": [{"value": "\u0085", "matches": false}]
+    },
+    {
+      "id": "unicode-literal-nbsp",
+      "category": "unicode-domain-boundary",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=\u00a0)\u00a0$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "candidates": [
+        {
+          "value": "\u00a0",
+          "matches": true
+        }
+      ]
+    },
+    {
+      "id": "private-use-range-spans-allocated-marker",
+      "category": "unicode-domain-boundary",
+      "dialect": "ECMAScript",
+      "pattern": "^(?=[\ue000-\ue002])[\ue000-\ue002]$",
+      "syntaxValid": true,
+      "generation": "SUPPORTED",
+      "source": "custom",
+      "reason": "U+E001 is allocated as an internal marker and omitted from generation; the literal range endpoints remain available.",
+      "candidates": [
+        {
+          "value": "\ue000",
+          "matches": true
+        },
+        {
+          "value": "\ue001",
+          "matches": true
+        },
+        {
+          "value": "\ue002",
+          "matches": true
+        }
+      ]
+    }
+  ]
+}
