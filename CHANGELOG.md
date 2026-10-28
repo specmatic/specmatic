@@ -55,6 +55,8 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Fixed
 
+- WSDL loading follows local XSD includes, including nested, repeated and cyclic references and namespace-free schemas adopting their includer’s namespace. Invalid includes report their source and cause.
+
 - WSDL loading retains declarations from multiple XSD documents sharing a target namespace, preserves their source schema context, and reports conflicting declarations with source locations.
 
 - WSDL payload elements with inline `simpleType` restrictions now load correctly, using existing supported constraints when generating and validating SOAP requests and responses.

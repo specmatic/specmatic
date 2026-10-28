@@ -69,7 +69,12 @@ private fun definitionsFrom(rootDefinitionXML: XMLNode, parentWSDL: File): List<
     return listOf(DefinitionDocument(rootDefinitionXML, parentWSDL)).plus(importedDefinitionXMLs)
 }
 
-private data class SchemaDocument(val schema: XMLNode, val source: String)
+private data class SchemaDocumentIdentity(val source: String, val namespace: String)
+
+private data class SchemaDocument(val schema: XMLNode, val source: String) {
+    val identity: SchemaDocumentIdentity
+        get() = SchemaDocumentIdentity(source, schema.attributes["targetNamespace"]?.toStringLiteral().orEmpty())
+}
 
 fun getSchemaNodesFromDefinition(definition: XMLNode, parentFile: File): List<XMLNode> =
     schemaDocumentsFromDefinition(definition, parentFile).map { it.schema }
@@ -78,29 +83,62 @@ private fun schemaDocumentsFromDefinition(definition: XMLNode, parentFile: File)
     val schemas = definition.findFirstChildByName("types")?.findChildrenByName("schema").orEmpty()
     return schemas.flatMapIndexed { index, schema ->
         listOf(SchemaDocument(schema, "${parentFile.canonicalPath}#schema-${index + 1}")) +
-            importedSchemaDocuments(schema, parentFile, definition, emptySet())
+            referencedSchemaDocuments(schema, parentFile, definition, emptySet())
     }
 }
 
 fun loadSchemaImports(schema: XMLNode, parentFile: File, definition: XMLNode): List<XMLNode> =
-    importedSchemaDocuments(schema, parentFile, definition, emptySet()).map { it.schema }
+    referencedSchemaDocuments(schema.copy(childNodes = schema.findChildrenByName("import")), parentFile, definition, emptySet()).map { it.schema }
 
-private fun importedSchemaDocuments(
+private fun referencedSchemaDocuments(
     schema: XMLNode,
     parentFile: File,
     definition: XMLNode,
-    importingFiles: Set<String>
+    activeDocuments: Set<SchemaDocumentIdentity>
 ): List<SchemaDocument> =
-    schema.findChildrenByName("import").filter { it.attributes.containsKey("schemaLocation") }.flatMap { importNode ->
-        val filename = importNode.getAttributeValue("schemaLocation")
-        val schemaFile = File(filename).let { if (it.isAbsolute) it else parentFile.absoluteFile.parentFile.resolve(it) }
-        val source = schemaFile.canonicalPath
-        if (source in importingFiles) emptyList() else {
-            val importedSchema = toXMLNode(schemaFile.readText(), definition.namespaces)
-            listOf(SchemaDocument(importedSchema, source)) +
-                importedSchemaDocuments(importedSchema, schemaFile, definition, importingFiles + source)
+    schema.childNodes.filterIsInstance<XMLNode>()
+        .filter { it.name == "include" || (it.name == "import" && it.attributes.containsKey("schemaLocation")) }
+        .flatMap { reference -> loadSchemaReference(reference, schema, parentFile, definition, activeDocuments) }
+
+private fun loadSchemaReference(
+    reference: XMLNode,
+    includingSchema: XMLNode,
+    parentFile: File,
+    definition: XMLNode,
+    activeDocuments: Set<SchemaDocumentIdentity>
+): List<SchemaDocument> {
+    if (reference.name == "include" && reference.attributes["schemaLocation"]?.toStringLiteral().isNullOrBlank())
+        throw ContractException("Invalid include in ${parentFile.canonicalPath}: schemaLocation must not be missing or blank")
+    val filename = reference.getAttributeValue("schemaLocation")
+    val schemaFile = File(filename).let { if (it.isAbsolute) it else parentFile.absoluteFile.parentFile.resolve(it) }
+    val source = schemaFile.canonicalPath
+    return try {
+        val parsedSchema = toXMLNode(schemaFile.readText(), definition.namespaces)
+        val effectiveSchema = when (reference.name) {
+            "include" -> includedSchemaNamespace(parsedSchema, includingSchema, source)
+            else -> parsedSchema
         }
+        val document = SchemaDocument(effectiveSchema, source)
+        if (document.identity in activeDocuments) emptyList() else
+            listOf(document) + referencedSchemaDocuments(effectiveSchema, schemaFile, definition, activeDocuments + document.identity)
+    } catch (e: Exception) {
+        if (reference.name == "include")
+            throw ContractException("Could not include $source from ${parentFile.canonicalPath}: ${e.message}", exceptionCause = e)
+        throw e
     }
+}
+
+private fun includedSchemaNamespace(included: XMLNode, including: XMLNode, source: String): XMLNode {
+    val includingNamespace = including.attributes["targetNamespace"]
+    val declaredNamespace = included.attributes["targetNamespace"]?.toStringLiteral()
+    return when {
+        declaredNamespace != null && declaredNamespace != includingNamespace?.toStringLiteral().orEmpty() ->
+            throw ContractException("Cannot include $source: targetNamespace $declaredNamespace differs from including namespace ${includingNamespace?.toStringLiteral().orEmpty()}")
+        declaredNamespace == null && includingNamespace != null ->
+            included.copy(attributes = included.attributes + mapOf("targetNamespace" to includingNamespace))
+        else -> included
+    }
+}
 
 private data class SchemaDeclaration(val symbolSpace: String, val name: String, val source: String)
 
@@ -121,7 +159,7 @@ private fun checkSchemaDeclarations(documents: List<SchemaDocument>, namespace: 
 }
 
 private fun collectSchemas(documents: List<SchemaDocument>): Map<String, XMLNode> =
-    documents.distinctBy { it.source }.filter { it.schema.attributes.containsKey("targetNamespace") }
+    documents.distinctBy { it.identity }.filter { it.schema.attributes.containsKey("targetNamespace") }
         .groupBy { it.schema.getAttributeValue("targetNamespace") }
         .mapValues { (namespace, documentsInNamespace) ->
             checkSchemaDeclarations(documentsInNamespace, namespace)
