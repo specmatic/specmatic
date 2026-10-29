@@ -4149,6 +4149,56 @@ paths:
     }
 
     @Test
+    fun `description-only change stays backward compatible for oneOf lastSeen with minProperties 1`() {
+        val oldSpec = """
+openapi: 3.0.3
+info:
+  title: Pet Shelter API
+  version: 1.0.0
+paths:
+  /pets/search:
+    post:
+      description: Search for pets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lastSeen:
+                  oneOf:
+                    - type: string
+                    - type: object
+                      additionalProperties: false
+                      minProperties: 1
+                      properties:
+                        "${'$'}gte":
+                          type: string
+      responses:
+        '202':
+          description: Search accepted
+""".trimIndent()
+
+        val newSpec = oldSpec.replace("Search accepted", "Search accepted.")
+
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "pet-shelter.yaml").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "pet-shelter.yaml").toFeature()
+
+        val generatedBodies = olderContract.scenarios.flatMap { scenario ->
+            scenario.withoutExamples().generateBackwardCompatibilityScenarios()
+        }.map { variation ->
+            variation.generateHttpRequest().body.toStringLiteral()
+        }
+
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
+
+        assertThat(result.success())
+            .withFailMessage("generated request bodies: $generatedBodies\n${result.report()}")
+            .isTrue
+    }
+
+    @Test
     fun `request body array string remains backward compatible when unchanged and examples are absent`() {
         val oldSpec = """
 openapi: 3.1.0
