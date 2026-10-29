@@ -217,6 +217,14 @@ class YamlToPatternTests {
     fun all_of_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
 
     @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("allOfOneOfScenarios")
+    fun all_of_with_one_of_schema_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
+        val (patterns, resolver) = parseAndExtractCompositePatterns(openApiVersion, composite)
+        composite.schemas.forEach { (name, case) -> case.validate(patterns.getValue(name)) }
+        composite.validate(patterns, resolver)
+    }
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("anyOfScenarios")
     fun any_of_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
 
@@ -1018,6 +1026,26 @@ class YamlToPatternTests {
         fun allOfScenarios(): Stream<Arguments> {
             return (
                 listOf(
+                    multiVersionCase("allOf required property may be declared in a separate member", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                        schema {
+                            put("allOf", listOf(
+                                mapOf(
+                                    "type" to "object",
+                                    "required" to listOf("id")
+                                ),
+                                mapOf(
+                                    "type" to "object",
+                                    "properties" to mapOf("id" to mapOf("type" to "string"))
+                                )
+                            ))
+                        }
+                        validate { pattern ->
+                            val objectPattern = pattern as JSONObjectPattern
+                            assertThat(objectPattern.pattern.keys).containsExactly("id")
+                            assertSuccess(pattern.match(mapOf("id" to "payment-1")))
+                            assertFailure(pattern.match(emptyMap<String, Any>()))
+                        }
+                    },
                     multiVersionCase("allOf merge objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("allOf", listOf(
@@ -1063,7 +1091,7 @@ class YamlToPatternTests {
                 ) + listOf(false, true).flatMap { memberRequired ->
                     listOf(false, true).map { mainRequired ->
                         multiVersionCase(
-                            "allOf main schema ${if (mainRequired) "required" else "optional"} property overrides ${if (memberRequired) "required" else "optional"} member property",
+                            "allOf property is required when any schema requires it (main: $mainRequired, member: $memberRequired)",
                             OpenApiVersion.OAS30,
                             OpenApiVersion.OAS31,
                         ) {
@@ -1079,13 +1107,96 @@ class YamlToPatternTests {
                             }
                             validate { pattern ->
                                 val objectPattern = pattern as JSONObjectPattern
-                                val key = if (mainRequired) "common" else "common?"
+                                val key = if (mainRequired || memberRequired) "common" else "common?"
                                 assertThat(objectPattern.pattern).containsOnlyKeys(key)
                             }
                         }
                     }
                 }
             ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun allOfOneOfScenarios(): Stream<Arguments> {
+            val allOfRequiredFieldsCase = multiVersionCompositeCase("allOf required fields apply to oneOf option properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                schema("PaymentRequirements") {
+                    schema {
+                        put("type", "object")
+                        put("required", listOf("id"))
+                    }
+                }
+                schema("CardPayment") {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "id" to mapOf("type" to "string"),
+                            "cardNumber" to mapOf("type" to "string")
+                        ))
+                    }
+                }
+                schema("BankPayment") {
+                    schema {
+                        put("type", "object")
+                        put("properties", mapOf(
+                            "id" to mapOf("type" to "string"),
+                            "accountNumber" to mapOf("type" to "string")
+                        ))
+                    }
+                }
+                schema("Payment") {
+                    schema {
+                        put("allOf", listOf(
+                            mapOf($$"$ref" to "#/components/schemas/PaymentRequirements"),
+                            mapOf("oneOf" to listOf(
+                                mapOf($$"$ref" to "#/components/schemas/CardPayment"),
+                                mapOf($$"$ref" to "#/components/schemas/BankPayment")
+                            ))
+                        ))
+                    }
+                }
+                validate { patterns, resolver ->
+                    val paymentPattern = patterns.getValue("Payment")
+                    assertSuccess(paymentPattern.match(mapOf("id" to "payment-1", "cardNumber" to "4111"), resolver))
+                    assertSuccess(paymentPattern.match(mapOf("id" to "payment-2", "accountNumber" to "acct-2"), resolver))
+                    assertFailure(paymentPattern.match(mapOf("cardNumber" to "4111"), resolver))
+                    assertFailure(paymentPattern.match(mapOf("accountNumber" to "acct-2"), resolver))
+                }
+            }
+
+            val branchSpecificRequiredFieldsCase = multiVersionCompositeCase("oneOf branch requirements apply to inherited allOf properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                schema("Payment") {
+                    schema {
+                        put("allOf", listOf(
+                            mapOf(
+                                "type" to "object",
+                                "properties" to mapOf("id" to mapOf("type" to "string"))
+                            ),
+                            mapOf("oneOf" to listOf(
+                                mapOf(
+                                    "type" to "object",
+                                    "required" to listOf("kind", "id"),
+                                    "properties" to mapOf("kind" to mapOf("type" to "string", "enum" to listOf("card")))
+                                ),
+                                mapOf(
+                                    "type" to "object",
+                                    "required" to listOf("kind"),
+                                    "properties" to mapOf("kind" to mapOf("type" to "string", "enum" to listOf("bank")))
+                                )
+                            ))
+                        ))
+                    }
+                }
+
+                validate { patterns, resolver ->
+                    val paymentPattern = patterns.getValue("Payment")
+                    assertFailure(paymentPattern.match(mapOf("kind" to "card"), resolver))
+                    assertSuccess(paymentPattern.match(mapOf("kind" to "bank"), resolver))
+                    assertSuccess(paymentPattern.match(mapOf("kind" to "card", "id" to "123"), resolver))
+                    assertSuccess(paymentPattern.match(mapOf("kind" to "bank", "id" to "123"), resolver))
+                }
+            }
+
+            return (allOfRequiredFieldsCase + branchSpecificRequiredFieldsCase).stream()
         }
 
         @JvmStatic
@@ -1130,6 +1241,89 @@ class YamlToPatternTests {
         @JvmStatic
         fun discriminatorScenarios(): Stream<Arguments> {
             return listOf(
+                multiVersionCompositeCase(name = "required type remains required when narrowed by allOf enum", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("PetDetails") {
+                        schema {
+                            put("type", "object")
+                            put("required", listOf("weightKg", "type"))
+                            put("properties", mapOf("weightKg" to mapOf("type" to "number"), "type" to mapOf("type" to "string")))
+                        }
+                    }
+                    schema("Dog") {
+                        schema {
+                            put("allOf", listOf(
+                                mapOf($$"$ref" to "#/components/schemas/PetDetails"),
+                                mapOf(
+                                    "type" to "object",
+                                    "properties" to mapOf("type" to mapOf("type" to "string", "enum" to listOf("Dog")))
+                                )
+                            ))
+                        }
+                    }
+                    schema("Pet") {
+                        schema {
+                            put("oneOf", listOf(mapOf($$"$ref" to "#/components/schemas/Dog")))
+                            put("discriminator", mapOf(
+                                "propertyName" to "type",
+                                "mapping" to mapOf("Dog" to "#/components/schemas/Dog")
+                            ))
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val dogPattern = resolvedHop(patterns.getValue("Dog"), resolver) as JSONObjectPattern
+                        assertThat(dogPattern.pattern).containsOnlyKeys("weightKg", "type").doesNotContainKey("type?")
+                        assertSuccess(dogPattern.match(mapOf("weightKg" to 18.5, "type" to "Dog"), resolver))
+                        assertFailure(dogPattern.match(mapOf("weightKg" to 18.5), resolver))
+                        assertFailure(dogPattern.match(mapOf("weightKg" to 18.5, "type" to "Cat"), resolver))
+
+                        val petPattern = patterns.getValue("Pet")
+                        assertSuccess(petPattern.match(mapOf("weightKg" to 18.5, "type" to "Dog"), resolver))
+                        assertFailure(petPattern.match(mapOf("weightKg" to 18.5), resolver))
+                    }
+                },
+                multiVersionCompositeCase(name = "discriminator allOf branch requirements apply to inherited properties", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("PetDetails") {
+                        schema {
+                            put("type", "object")
+                            put("required", listOf("petType"))
+                            put("properties", mapOf("petType" to mapOf("type" to "string"), "id" to mapOf("type" to "string")))
+                        }
+                    }
+                    schema("DogRequirements") {
+                        schema {
+                            put("type", "object")
+                            put("required", listOf("id"))
+                        }
+                    }
+                    schema("Dog") {
+                        schema {
+                            put("allOf", listOf(
+                                mapOf($$"$ref" to "#/components/schemas/PetDetails"),
+                                mapOf($$"$ref" to "#/components/schemas/DogRequirements")
+                            ))
+                        }
+                    }
+                    schema("Pet") {
+                        schema {
+                            put("allOf", listOf(mapOf($$"$ref" to "#/components/schemas/PetDetails")))
+                            put("discriminator", mapOf(
+                                "propertyName" to "petType",
+                                "mapping" to mapOf("dog" to "#/components/schemas/Dog")
+                            ))
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val dogPattern = resolvedHop(patterns.getValue("Dog"), resolver) as JSONObjectPattern
+                        assertThat(dogPattern.pattern.keys).containsExactlyInAnyOrder("petType", "id")
+                        assertSuccess(dogPattern.match(mapOf("petType" to "dog", "id" to "dog-1"), resolver))
+                        assertFailure(dogPattern.match(mapOf("petType" to "dog"), resolver))
+
+                        val petPattern = patterns.getValue("Pet")
+                        assertSuccess(petPattern.match(mapOf("petType" to "dog", "id" to "dog-1"), resolver))
+                        assertFailure(petPattern.match(mapOf("petType" to "dog"), resolver))
+                        assertFailure(petPattern.match(mapOf("petType" to "cat", "id" to "cat-1"), resolver))
+                    }
+                },
                 multiVersionCompositeCase(name = "discriminator allOf with mappings", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema("BasePet") {
                         schema {

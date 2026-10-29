@@ -2924,21 +2924,26 @@ class OpenApiSpecification(
 
         val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true, collectorContext = collectorContext)
         val explodedDiscriminators = allDiscriminators.explode()
-        val topLevelRequired = schema.required.orEmpty()
+        val allOfRequiredFields = deepListOfAllOfs.flatMap { it.schema.required.orEmpty() }.distinct()
+        val allOfPropertyNames = deepListOfAllOfs.flatMap { it.schema.properties.orEmpty().keys }.toSet()
 
         val schemaProperties = explodedDiscriminators.map { discriminator ->
             val schemasFromDiscriminator = discriminator.schemas
-            (deepListOfAllOfs + schemasFromDiscriminator).map { (schemaToProcess, schemaPatternName, schemaCollectorContext) ->
-                val requiredFields = topLevelRequired.plus(schemaToProcess.required.orEmpty())
+            val schemasToProcess = deepListOfAllOfs + schemasFromDiscriminator
+            val propertyNamesInComposition = allOfPropertyNames + schemasFromDiscriminator.flatMap { it.schema.properties.orEmpty().keys }
+            val requiredFieldsInComposition = (allOfRequiredFields + schemasFromDiscriminator.flatMap { it.schema.required.orEmpty() }).distinct()
+
+            schemasToProcess.map { (schemaToProcess, schemaPatternName, schemaCollectorContext) ->
                 SchemaProperty(
                     extensions = schemaToProcess.extensions.orEmpty(),
                     properties = toSchemaProperties(
                         schema = schemaToProcess,
-                        requiredFields = requiredFields.distinct(),
+                        requiredFields = requiredFieldsInComposition,
                         patternName = schemaPatternName ?: patternName,
                         typeStack = typeStack,
                         discriminatorDetails = discriminator,
                         collectorContext = schemaCollectorContext,
+                        requiredFieldPropertyNames = propertyNamesInComposition,
                     )
                 )
             }.fold(SchemaProperty(extensions = schema.extensions.orEmpty(), properties = emptyMap())) { propertiesAcc, propertiesEntry ->
@@ -2955,21 +2960,28 @@ class OpenApiSpecification(
             schemaToProcess.oneOf.mapIndexed { index, schema ->
                 val indexContext = schemaCollectorContext.at("oneOf").at(index)
                 val resolvedRef = resolveSchemaIfRef(schema, schemaPatternName ?: patternName, indexContext)
-                val requiredFields = resolvedRef.resolvedSchema.required.orEmpty().plus(topLevelRequired)
-                resolvedRef.componentName to SchemaProperty(
+                val propertyNamesInComposition = allOfPropertyNames + resolvedRef.resolvedSchema.properties.orEmpty().keys
+                val requiredFieldsInComposition = (allOfRequiredFields + resolvedRef.resolvedSchema.required.orEmpty()).distinct()
+
+                Triple(resolvedRef.componentName, SchemaProperty(
                     resolvedRef.resolvedSchema.extensions.orEmpty(), toSchemaProperties(
                         schema = resolvedRef.resolvedSchema,
-                        requiredFields = requiredFields,
+                        requiredFields = requiredFieldsInComposition,
                         patternName = resolvedRef.componentName,
                         typeStack = typeStack,
                         collectorContext = resolvedRef.collectorContext,
+                        requiredFieldPropertyNames = propertyNamesInComposition,
                     )
-                )
-            }.flatMap { (componentName, schemaProperty) ->
+                ), requiredFieldsInComposition.toSet())
+            }.flatMap { (componentName, schemaProperty, requiredFields) ->
                 schemaProperties.map {
                     componentName to SchemaProperty(
                         extensions = it.extensions.plus(schemaProperty.extensions),
                         properties = combine(it.properties, schemaProperty.properties)
+                            .mapKeys { (name, _) ->
+                                val propertyName = withoutOptionality(name)
+                                if (propertyName in requiredFields) propertyName else name
+                            }
                     )
                 }
             }
@@ -3528,12 +3540,12 @@ class OpenApiSpecification(
         patternName: String,
         typeStack: List<String>,
         discriminatorDetails: DiscriminatorDetails = DiscriminatorDetails(),
-        collectorContext: CollectorContext
+        collectorContext: CollectorContext,
+        requiredFieldPropertyNames: Set<String> = schema.properties.orEmpty().keys
     ): Map<String, Pattern> {
         val propertiesContext = collectorContext.at("properties")
-        val properties = schema.properties.orEmpty()
         val fixedRequiredFields = requiredFields.map { field ->
-            collectorContext.at("required").check<String?>(value = field, isValid = { properties.contains(field) })
+            collectorContext.at("required").check<String?>(value = field, isValid = { requiredFieldPropertyNames.contains(field) })
             .message { "Required property \"$field\" is not defined in properties, ignoring this requirement" }
             .orUse { null }
             .build(isWarning = true)
