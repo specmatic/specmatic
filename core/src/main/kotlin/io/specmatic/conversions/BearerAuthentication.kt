@@ -1,10 +1,12 @@
 package io.specmatic.conversions
 
 sealed interface BearerAuthentication {
-    data object HttpBearer : BearerAuthentication
+    val schemeName: String?
+
+    data class HttpBearer(override val schemeName: String? = null) : BearerAuthentication
 
     data class OAuth2(
-        val schemeName: String,
+        override val schemeName: String,
         val reference: String? = null,
         val description: String? = null,
         val flows: OpenApiOAuthFlows? = null,
@@ -13,7 +15,7 @@ sealed interface BearerAuthentication {
     ) : BearerAuthentication
 
     data class OpenIdConnect(
-        val schemeName: String,
+        override val schemeName: String,
         val reference: String? = null,
         val description: String? = null,
         val openIdConnectUrl: String? = null,

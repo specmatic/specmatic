@@ -245,7 +245,7 @@ class OpenApiJitSecurityMetadataTest {
             assertThat(feature.scenarios.single { it.path == "/or" }.httpRequestPattern.securitySchemes)
                 .containsExactly(
                     oauth2Bearer(requiredScopes = listOf("orders:read")),
-                    APIKeyInQueryParamSecurityScheme("api_key", null),
+                    APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "ApiKey"),
                 )
 
             assertThat(feature.scenarios.single { it.path == "/and" }.httpRequestPattern.securitySchemes)
@@ -253,7 +253,7 @@ class OpenApiJitSecurityMetadataTest {
                     CompositeSecurityScheme(
                         listOf(
                             oauth2Bearer(requiredScopes = listOf("orders:write")),
-                            APIKeyInQueryParamSecurityScheme("api_key", null),
+                            APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "ApiKey"),
                         )
                     )
                 )
@@ -309,7 +309,9 @@ class OpenApiJitSecurityMetadataTest {
                     description = "OIDC scheme description",
                     extensions = mapOf("x-provider" to "auth.example.com"),
                 ),
-                BearerSecurityScheme(),
+                BearerSecurityScheme(
+                    authentication = BearerAuthentication.HttpBearer(schemeName = "Bearer"),
+                ),
             )
         }
     }
@@ -366,13 +368,17 @@ class OpenApiJitSecurityMetadataTest {
             ).toFeature()
 
             assertThat(feature.scenarios.single { it.path == "/bearer" }.httpRequestPattern.securitySchemes)
-                .containsExactly(BearerSecurityScheme())
+                .containsExactly(
+                    BearerSecurityScheme(
+                        authentication = BearerAuthentication.HttpBearer(schemeName = "HttpBearer"),
+                    ),
+                )
             assertThat(feature.scenarios.single { it.path == "/basic" }.httpRequestPattern.securitySchemes)
-                .containsExactly(BasicAuthSecurityScheme())
+                .containsExactly(BasicAuthSecurityScheme(schemeName = "HttpBasic"))
             assertThat(feature.scenarios.single { it.path == "/header-key" }.httpRequestPattern.securitySchemes)
-                .containsExactly(APIKeyInHeaderSecurityScheme("X-API-Key", null))
+                .containsExactly(APIKeyInHeaderSecurityScheme("X-API-Key", null, schemeName = "HeaderKey"))
             assertThat(feature.scenarios.single { it.path == "/query-key" }.httpRequestPattern.securitySchemes)
-                .containsExactly(APIKeyInQueryParamSecurityScheme("api_key", null))
+                .containsExactly(APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "QueryKey"))
         }
     }
 

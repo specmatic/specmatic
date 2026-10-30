@@ -1865,7 +1865,7 @@ class OpenApiSpecification(
     private fun OpenAPISecurityScheme.withRequiredScopes(scopes: List<String>): OpenAPISecurityScheme {
         if (this !is BearerSecurityScheme) return this
         val updatedAuthentication = when (val authentication = this.authentication) {
-            BearerAuthentication.HttpBearer -> authentication
+            is BearerAuthentication.HttpBearer -> authentication
             is BearerAuthentication.OAuth2 -> authentication.copy(requiredScopes = scopes.toList())
             is BearerAuthentication.OpenIdConnect -> authentication.copy(requiredScopes = scopes.toList())
         }
@@ -2744,8 +2744,17 @@ class OpenApiSpecification(
 
         if (securityScheme.type == SecurityScheme.Type.APIKEY) {
             val apiKey = getSecurityTokenForApiKeyScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-            if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(securityScheme.name, apiKey)
-            if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(securityScheme.name, apiKey)
+            if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(
+                apiKey = apiKey,
+                name = securityScheme.name,
+                schemeName = schemeName,
+            )
+
+            if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(
+                apiKey = apiKey,
+                name = securityScheme.name,
+                schemeName = schemeName,
+            )
         }
 
         if (securityScheme.type == SecurityScheme.Type.HTTP && normalizedScheme == BASIC_SECURITY_SCHEME) {
@@ -2764,7 +2773,10 @@ class OpenApiSpecification(
         schemeName: String,
     ): BearerSecurityScheme {
         val token = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-        return BearerSecurityScheme(token)
+        return BearerSecurityScheme(
+            configuredToken = token,
+            authentication = BearerAuthentication.HttpBearer(schemeName),
+        )
     }
 
     private fun OAuthFlow.toOpenApiMetadata() = OpenApiOAuthFlow(
@@ -2780,7 +2792,7 @@ class OpenApiSpecification(
         schemeName: String,
     ): BasicAuthSecurityScheme {
         val token = getSecurityTokenForBasicAuthScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-        return BasicAuthSecurityScheme(token)
+        return BasicAuthSecurityScheme(token = token, schemeName = schemeName)
     }
 
     private fun toFormFields(mediaType: MediaType, collectorContext: CollectorContext): Map<String, Pattern> {

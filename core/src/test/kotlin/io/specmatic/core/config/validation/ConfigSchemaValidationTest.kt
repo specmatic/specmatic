@@ -260,8 +260,8 @@ class ConfigSchemaValidationTest {
         }
 
         @Test
-        fun `accepts Arazzo workflow options on services and reusable run-option components`() {
-            assertThat(schema(SpecmaticConfigVersion.VERSION_3, $$"""
+        fun `accepts complete Arazzo security and Vault profiles with bindings`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
             version: 3
             components:
               runOptions:
@@ -269,40 +269,96 @@ class ConfigSchemaValidationTest {
                   arazzo:
                     type: test
                     vault:
-                      type: hashicorp
-                      url: http://localhost:8200
-                      tokenKey: VAULT_AUTH_TOKEN
-                      environment:
-                        VAULT_AUTH_TOKEN: token
+                      profiles:
+                        shared:
+                          type: hashicorp
+                          url: https://vault.example.test
+                          version: 2
+                          mount: secret
+                          namespace: payments
+                          tokenKey: VAULT_AUTH_TOKEN
+                          environment:
+                            VAULT_AUTH_TOKEN: token
+                      bindings:
+                        - use: shared
+                        - when:
+                            source: PaymentsAPI
+                          use: shared
+                        - when:
+                            workflow: paymentWorkflow
+                            step: getPayment
+                          use: shared
                     security:
-                      oauth2:
-                        clientId:
-                          env: OAUTH_CLIENT_ID
-                        clientSecret:
-                          vault:
-                            secretKey: oauth/client
-                            field: client_secret
-                        clientAuthentication: client_secret_post
-                      bearer:
-                        env: API_TOKEN
-                      basic:
-                        username:
-                          env: BASIC_USERNAME
-                        password:
-                          vault:
-                            secretKey: api/basic
-                      apiKey:
-                        vault:
-                          secretKey: api/key
-                          field: value
+                      profiles:
+                        full:
+                          oauth2:
+                            grantType: password
+                            tokenUrl: https://identity.example.test/token
+                            clientId:
+                              env: OAUTH_CLIENT_ID
+                            clientSecret:
+                              vault:
+                                secretKey: oauth/client
+                                field: client_secret
+                            clientAuthentication: client_secret_post
+                            username:
+                              vault:
+                                secretKey: oauth/user
+                                field: username
+                            password:
+                              env: API_PASSWORD
+                          bearer:
+                            env: API_TOKEN
+                          basic:
+                            username:
+                              env: BASIC_USERNAME
+                            password:
+                              vault:
+                                secretKey: api/basic
+                          apiKey:
+                            vault:
+                              secretKey: api/key
+                              field: value
+                          mtls:
+                            keyStore:
+                              file: certs/client.jks
+                              alias: order-client
+                              password: client-key-pass
+                            keyStorePassword: store-pass
+                            mtlsEnabled: true
+                      bindings:
+                        - use: full
+                        - when:
+                            source: PaymentsAPI
+                          use: full
+                        - when:
+                            workflow: paymentWorkflow
+                            step: getPayment
+                            scheme: OAuth
+                            scopes: [payments:read]
+                          use: full
+                        - when:
+                            scheme: Basic
+                          use: full
                     baseUrls:
                       orders: https://orders.example.test
+                    specs:
+                      - spec:
+                          id: ordersWorkflow
+                          vault:
+                            profiles:
+                              regional:
+                                extends: shared
+                                namespace: eu
+                          security:
+                            bindings:
+                              - use: full
                 sharedWorkflowMock:
                   arazzo:
                     type: mock
                     security:
-                      bearer:
-                        env: MOCK_API_TOKEN
+                      bindings:
+                        - use: none
             systemUnderTest:
               service:
                 definitions:
@@ -314,7 +370,9 @@ class ConfigSchemaValidationTest {
                 runOptions:
                   arazzo:
                     security:
-                      oauth2: {}
+                      profiles:
+                        serviceDefaults:
+                          extends: shared
                     baseUrls:
                       payments: https://payments.example.test
             dependencies:
@@ -327,12 +385,12 @@ class ConfigSchemaValidationTest {
                           specs:
                             - payments.arazzo.yaml
                     runOptions:
-                      $ref: '#/components/runOptions/sharedWorkflowMock'
+                      ${'$'}ref: '#/components/runOptions/sharedWorkflowMock'
             """.trimIndent())).isEqualTo(validOutput)
         }
 
         @Test
-        fun `rejects unknown Arazzo Vault properties`() {
+        fun `accepts incomplete Arazzo profile bases and optional inheritance`() {
             assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
             version: 3
             systemUnderTest:
@@ -346,83 +404,356 @@ class ConfigSchemaValidationTest {
                 runOptions:
                   arazzo:
                     vault:
-                      type: hashicorp
-                      url: https://vault.example.test
-                      unknownOption: true
-            """.trimIndent())).isEqualTo(invalidOutput(detail(
-                keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/vault/$ref",
-                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoVaultConfig",
-                instanceLocation = "/systemUnderTest/service/runOptions/arazzo/vault",
-                error = "must be valid to one and only one schema, but 0 are valid",
-                details = listOf(detail(
-                    keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/vault/$ref/oneOf/0/$ref",
-                    absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoHashicorpVaultConfig",
-                    instanceLocation = "/systemUnderTest/service/runOptions/arazzo/vault",
-                    error = "property 'unknownOption' is not defined in the schema and the schema does not allow additional properties",
-                )),
-            )))
+                      profiles:
+                        defaults:
+                          environment:
+                            VAULT_TOKEN: token
+                        payments:
+                          extends: defaults
+                          type: hashicorp
+                          url: https://vault.example.test
+                    security:
+                      profiles:
+                        defaults:
+                          oauth2:
+                            clientId:
+                              env: OAUTH_CLIENT_ID
+                          basic:
+                            username:
+                              env: BASIC_USERNAME
+                          mtls:
+                            mtlsEnabled: true
+                            keyStore:
+                              file: certs/client.jks
+                        payments:
+                          extends: defaults
+                          oauth2:
+                            grantType: client_credentials
+                          basic:
+                            password:
+                              env: BASIC_PASSWORD
+                          mtls:
+                            keyStore:
+                              password: key-pass
+            """.trimIndent())).isEqualTo(validOutput)
         }
 
         @Test
-        fun `rejects unknown Arazzo security properties`() {
-            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+        fun `rejects explicit null Arazzo profile values and binding selectors`() {
+            val errors = schema(SpecmaticConfigVersion.VERSION_3, """
             version: 3
             systemUnderTest:
               service:
-                definitions:
-                  - definition:
-                      source:
-                        filesystem: {}
-                      specs:
-                        - orders.arazzo.yaml
+                definitions: []
+                runOptions:
+                  arazzo:
+                    vault:
+                      profiles:
+                        base:
+                          type: hashicorp
+                          url: https://vault.example.test
+                          namespace: payments
+                          tokenKey: CUSTOM_VAULT_TOKEN
+                        child:
+                          extends: base
+                          namespace: null
+                        nullProfile: null
+                      bindings:
+                        - when: null
+                          use: child
+                        - when:
+                            workflow: AccountWorkflow
+                            step: ReadAccount
+                            source: null
+                          use: child
+                        - null
+                    security:
+                      profiles:
+                        base:
+                          oauth2:
+                            grantType: client_credentials
+                            tokenUrl: https://identity.example.test/token
+                            clientId:
+                              env: BASE_CLIENT_ID
+                            clientSecret:
+                              env: BASE_CLIENT_SECRET
+                            clientAuthentication: client_secret_post
+                          bearer:
+                            env: BASE_BEARER
+                        child:
+                          extends: base
+                          oauth2:
+                            tokenUrl: null
+                            clientSecret: null
+                          bearer: null
+                          mtls:
+                            keyStore:
+                              file: null
+                      bindings:
+                        - when:
+                            workflow: AccountWorkflow
+                            step: ReadAccount
+                            scheme: OAuth
+                            scopes: null
+                          use: child
+                        - when:
+                            workflow: AccountWorkflow
+                            step: ReadAccount
+                            scheme: OAuth
+                            scopes: [payments:read, null]
+                          use: child
+            """.trimIndent())
+
+            assertThat(errors.map { it.instanceLocation })
+                .contains(
+                    "/systemUnderTest/service/runOptions/arazzo/vault/profiles/child/namespace",
+                    "/systemUnderTest/service/runOptions/arazzo/vault/profiles/nullProfile",
+                    "/systemUnderTest/service/runOptions/arazzo/vault/bindings/0/when",
+                    "/systemUnderTest/service/runOptions/arazzo/vault/bindings/1/when/source",
+                    "/systemUnderTest/service/runOptions/arazzo/vault/bindings/2",
+                    "/systemUnderTest/service/runOptions/arazzo/security/profiles/child/oauth2/tokenUrl",
+                    "/systemUnderTest/service/runOptions/arazzo/security/profiles/child/oauth2/clientSecret",
+                    "/systemUnderTest/service/runOptions/arazzo/security/profiles/child/bearer",
+                    "/systemUnderTest/service/runOptions/arazzo/security/profiles/child/mtls/keyStore/file",
+                    "/systemUnderTest/service/runOptions/arazzo/security/bindings/0/when/scopes",
+                    "/systemUnderTest/service/runOptions/arazzo/security/bindings/1/when/scopes/1",
+                )
+        }
+
+        @Test
+        fun `allows profiles and bindings to be specified independently`() {
+            val profileOnly = """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions: []
+                    runOptions:
+                      arazzo:
+                        security:
+                          profiles:
+                            base:
+                              bearer:
+                                env: API_TOKEN
+                        vault:
+                          profiles:
+                            base:
+                              environment:
+                                VAULT_TOKEN: token
+            """.trimIndent()
+            val bindingsOnly = """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions: []
+                    runOptions:
+                      arazzo:
+                        security:
+                          bindings:
+                            - use: none
+                        vault:
+                          bindings:
+                            - when:
+                                source: PaymentsAPI
+                              use: shared
+            """.trimIndent()
+
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, profileOnly)).isEqualTo(validOutput)
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, bindingsOnly)).isEqualTo(validOutput)
+        }
+
+        @Test
+        fun `rejects operation selectors in Arazzo profile bindings`() {
+            val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions: []
                 runOptions:
                   arazzo:
                     security:
-                      token: {}
-            """.trimIndent())).isEqualTo(invalidOutput(detail(
-                keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref",
-                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoSecurityConfig",
-                instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security",
-                error = "property 'token' is not defined in the schema and the schema does not allow additional properties",
-            )))
+                      bindings:
+                        - when:
+                            operation: getPayment
+                          use: security
+                    vault:
+                      bindings:
+                        - when:
+                            operation: getPayment
+                          use: vault
+            """.trimIndent())
+
+            assertThat(errors.map { it.instanceLocation })
+                .contains(
+                    "/systemUnderTest/service/runOptions/arazzo/security/bindings/0/when",
+                    "/systemUnderTest/service/runOptions/arazzo/vault/bindings/0/when",
+                )
+        }
+
+        @Test
+        fun `rejects empty and incomplete profile binding contexts`() {
+            val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions: []
+                runOptions:
+                  arazzo:
+                    security:
+                      bindings:
+                        - when: {}
+                          use: security
+                        - when:
+                            source: null
+                          use: nullSource
+                        - when:
+                            workflow: paymentWorkflow
+                          use: incompleteStep
+                        - when:
+                            scopes: [payments:read]
+                          use: missingScheme
+                    vault:
+                      bindings:
+                        - when:
+                            step: getPayment
+                          use: incompleteStep
+            """.trimIndent())
+
+            assertThat(errors.map { it.instanceLocation }.distinct())
+                .containsExactlyInAnyOrder(
+                    "/systemUnderTest/service/runOptions/arazzo/security/bindings/0/when",
+                    "/systemUnderTest/service/runOptions/arazzo/security/bindings/1/when/source",
+                    "/systemUnderTest/service/runOptions/arazzo/security/bindings/2/when",
+                    "/systemUnderTest/service/runOptions/arazzo/security/bindings/3/when",
+                    "/systemUnderTest/service/runOptions/arazzo/vault/bindings/0/when",
+                )
+        }
+
+        @Test
+        fun `rejects legacy flat Arazzo security and Vault configuration`() {
+            val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions: []
+                runOptions:
+                  arazzo:
+                    vault:
+                      type: hashicorp
+                      url: https://vault.example.test
+                    security:
+                      bearer:
+                        env: API_TOKEN
+            """.trimIndent())
+
+            assertThat(errors.map { it.instanceLocation })
+                .contains("/systemUnderTest/service/runOptions/arazzo/vault", "/systemUnderTest/service/runOptions/arazzo/security")
+        }
+
+        @Test
+        fun `rejects unknown Arazzo profile properties and incompatible key store forms`() {
+            val unknownProperty = schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions: []
+                runOptions:
+                  arazzo:
+                    security:
+                      profiles:
+                        invalid:
+                          unsupported: true
+                    vault:
+                      profiles:
+                        invalid:
+                          unsupported: true
+            """.trimIndent())
+            val incompatibleKeyStore = schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions: []
+                runOptions:
+                  arazzo:
+                    security:
+                      profiles:
+                        invalid:
+                          mtls:
+                            keyStore:
+                              file: client.jks
+                              directory: certs
+            """.trimIndent())
+
+            assertThat(unknownProperty).isNotEmpty
+            assertThat(unknownProperty.map { it.instanceLocation })
+                .contains(
+                    "/systemUnderTest/service/runOptions/arazzo/security/profiles/invalid",
+                    "/systemUnderTest/service/runOptions/arazzo/vault/profiles/invalid",
+                )
+            assertThat(incompatibleKeyStore).isNotEmpty
+        }
+
+        @Test
+        fun `rejects client credentials profiles with password grant fields or no client authentication`() {
+            val invalidProfiles = listOf(
+                """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions: []
+                    runOptions:
+                      arazzo:
+                        security:
+                          profiles:
+                            invalid:
+                              oauth2:
+                                grantType: client_credentials
+                                clientAuthentication: none
+                """.trimIndent(),
+                """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions: []
+                    runOptions:
+                      arazzo:
+                        security:
+                          profiles:
+                            invalid:
+                              oauth2:
+                                grantType: client_credentials
+                                username:
+                                  env: API_USERNAME
+                """.trimIndent(),
+            )
+
+            invalidProfiles.forEach { config ->
+                val errors = schema(SpecmaticConfigVersion.VERSION_3, config)
+                assertThat(errors).isNotEmpty
+                assertThat(errors.map { it.instanceLocation }).anySatisfy { location ->
+                    assertThat(location)
+                        .startsWith("/systemUnderTest/service/runOptions/arazzo/security/profiles/invalid/oauth2")
+                }
+            }
         }
 
         @Test
         fun `rejects an Arazzo credential source without a variant`() {
-            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+            val errors = schema(SpecmaticConfigVersion.VERSION_3, """
             version: 3
             systemUnderTest:
               service:
-                definitions:
-                  - definition:
-                      source:
-                        filesystem: {}
-                      specs:
-                        - orders.arazzo.yaml
+                definitions: []
                 runOptions:
                   arazzo:
                     security:
-                      bearer: {}
-            """.trimIndent())).isEqualTo(invalidOutput(detail(
-                keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref/properties/bearer/$ref",
-                absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoCredentialSource",
-                instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security/bearer",
-                error = "must be valid to one and only one schema, but 0 are valid",
-                details = listOf(
-                    detail(
-                        keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref/properties/bearer/$ref/oneOf/0/$ref",
-                        absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoEnvironmentCredentialSource",
-                        instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security/bearer",
-                        error = "required property 'env' not found",
-                    ),
-                    detail(
-                        keywordLocation = $$"/properties/systemUnderTest/$ref/properties/service/$ref/allOf/0/else/$ref/properties/runOptions/$ref/allOf/0/else/$ref/properties/arazzo/$ref/allOf/0/$ref/properties/security/$ref/properties/bearer/$ref/oneOf/1/$ref",
-                        absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/ArazzoVaultCredentialSource",
-                        instanceLocation = "/systemUnderTest/service/runOptions/arazzo/security/bearer",
-                        error = "required property 'vault' not found",
-                    ),
-                ),
-            )))
+                      profiles:
+                        invalid:
+                          bearer: {}
+            """.trimIndent())
+
+            assertThat(errors).isNotEmpty
+            assertThat(errors.flatMap { it.flattened() }.map { it.instanceLocation })
+                .contains("/systemUnderTest/service/runOptions/arazzo/security/profiles/invalid/bearer")
         }
 
         @Test
@@ -1528,6 +1859,9 @@ class ConfigSchemaValidationTest {
 
     private fun invalidOutput(vararg details: ConfigValidationOutput) = details.toList()
     private fun schema(version: SpecmaticConfigVersion, json: String) = validator.validate(version, objectMapper.readTree(json))
+    private fun ConfigValidationOutput.flattened(): List<ConfigValidationOutput> =
+        listOf(this) + details.flatMap { it.flattened() }
+
     private fun detail(testCase: InvalidSchemaCase) = detail(
         error = testCase.error,
         keywordLocation = testCase.keywordLocation,

@@ -2,7 +2,9 @@ package io.specmatic.core.config
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonMerge
 import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationConfig
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
@@ -65,20 +67,19 @@ sealed interface KeyStoreConfiguration {
 
     companion object {
         class KeyStoreConfigurationDeserializer : JsonDeserializer<KeyStoreConfiguration>() {
+            override fun supportsUpdate(config: DeserializationConfig): Boolean = true
+
             override fun deserialize(p: JsonParser, ctxt: DeserializationContext): KeyStoreConfiguration? {
                 val node = p.codec.readTree<ObjectNode>(p)
                 val fileNode = node.get("file")
                 val dirNode = node.get("directory")
-                val password = node.get("password")?.asText()
-                val alias = node.get("alias")?.asText()
+                val password = node.get("password")?.takeUnless { it.isNull }?.asText()
+                val alias = node.get("alias")?.takeUnless { it.isNull }?.asText()
 
                 val hasFile = fileNode != null && !fileNode.isNull
                 val hasDirectory = dirNode != null && !dirNode.isNull
                 if (!hasFile && !hasDirectory) {
-                    ctxt.reportInputMismatch<KeyStoreConfiguration>(
-                        KeyStoreConfiguration::class.java,
-                        "Invalid keystore configuration: expected either 'file' or 'directory' to be set"
-                    )
+                    return PartialConfig(password = password, alias = alias)
                 }
 
                 if (hasFile && hasDirectory) {
@@ -90,11 +91,16 @@ sealed interface KeyStoreConfiguration {
                     else -> DirectoryBasedConfig(directory = dirNode.asText(), password = password, alias = alias)
                 }
             }
+
+            override fun deserialize(p: JsonParser, ctxt: DeserializationContext, intoValue: KeyStoreConfiguration): KeyStoreConfiguration {
+                return intoValue.overrideWith(deserialize(p, ctxt))
+            }
         }
     }
 }
 
 data class HttpsConfiguration(
+    @field:JsonMerge
     val keyStore: KeyStoreConfiguration? = null,
     val keyStorePassword: String? = null,
     val mtlsEnabled: Boolean? = null

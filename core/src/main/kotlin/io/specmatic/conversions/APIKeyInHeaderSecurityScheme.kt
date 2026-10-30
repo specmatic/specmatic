@@ -5,7 +5,11 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
 
 
-data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
+data class APIKeyInHeaderSecurityScheme(
+    val name: String,
+    private val apiKey: String?,
+    override val schemeName: String? = null,
+) : OpenAPISecurityScheme {
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         val entry = httpRequest.headers.getCaseInsensitive(name) ?: return Result.Success()
         return Result.Failure(

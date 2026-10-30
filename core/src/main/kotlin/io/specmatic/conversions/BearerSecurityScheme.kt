@@ -7,8 +7,10 @@ import org.apache.http.HttpHeaders.AUTHORIZATION
 
 data class BearerSecurityScheme(
     private val configuredToken: String? = null,
-    val authentication: BearerAuthentication = BearerAuthentication.HttpBearer,
+    val authentication: BearerAuthentication = BearerAuthentication.HttpBearer(),
 ) : OpenAPISecurityScheme {
+    override val schemeName: String? get() = authentication.schemeName
+
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         val entry = httpRequest.headers.getCaseInsensitive(AUTHORIZATION) ?: return Result.Success()
         return Result.Failure(

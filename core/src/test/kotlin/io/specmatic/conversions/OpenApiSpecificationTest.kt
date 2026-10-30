@@ -12000,26 +12000,19 @@ paths:
             OpenApiSpecification.fromFile(oasFile.canonicalPath).toFeature()
         }
         val (secure, partial, overlap, insecure) = feature.scenarios
+        val bearer = BearerSecurityScheme(
+            configuredToken = "API-SECRET",
+            authentication = BearerAuthentication.HttpBearer(schemeName = "bearerAuth"),
+        )
+        val apiKey = APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234", schemeName = "apiKeyQuery")
 
-        assertThat(secure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            CompositeSecurityScheme(listOf(
-                BearerSecurityScheme(configuredToken = "API-SECRET"),
-                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
-            ))
-        ))
+        assertThat(secure.httpRequestPattern.securitySchemes)
+            .isEqualTo(listOf(CompositeSecurityScheme(listOf(bearer, apiKey))))
 
-        assertThat(overlap.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            CompositeSecurityScheme(listOf(
-                BearerSecurityScheme(configuredToken = "API-SECRET"),
-                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
-            )),
-            BearerSecurityScheme(configuredToken = "API-SECRET"),
-        ))
+        assertThat(overlap.httpRequestPattern.securitySchemes)
+            .isEqualTo(listOf(CompositeSecurityScheme(listOf(bearer, apiKey)), bearer))
 
-        assertThat(partial.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            BearerSecurityScheme(configuredToken = "API-SECRET"),
-            APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
-        ))
+        assertThat(partial.httpRequestPattern.securitySchemes).isEqualTo(listOf(bearer, apiKey))
 
         assertThat(insecure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
             NoSecurityScheme()

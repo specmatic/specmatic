@@ -2362,13 +2362,13 @@
         },
         "vault": {
           "$ref": "#/definitions/ArazzoVaultConfig",
-          "title": "Vault configuration",
-          "description": "Vault configuration used to resolve Arazzo credentials."
+          "title": "Vault profiles and bindings",
+          "description": "Named Vault profiles and the contexts in which each profile is used."
         },
         "security": {
           "$ref": "#/definitions/ArazzoSecurityConfig",
-          "title": "Security configuration",
-          "description": "Security credentials shared across the Arazzo workflow."
+          "title": "Security profiles and bindings",
+          "description": "Named security profiles and the contexts in which each profile is used."
         },
         "baseUrls": {
           "type": "object",
@@ -2453,13 +2453,13 @@
         },
         "vault": {
           "$ref": "#/definitions/ArazzoVaultConfig",
-          "title": "Vault configuration",
-          "description": "Vault configuration used to resolve Arazzo credentials."
+          "title": "Vault profiles and bindings",
+          "description": "Named Vault profiles and the contexts in which each profile is used."
         },
         "security": {
           "$ref": "#/definitions/ArazzoSecurityConfig",
-          "title": "Security configuration",
-          "description": "Security credentials shared across the Arazzo workflow."
+          "title": "Security profiles and bindings",
+          "description": "Named security profiles and the contexts in which each profile is used."
         },
         "baseUrls": {
           "type": "object",
@@ -2472,26 +2472,50 @@
       }
     },
     "ArazzoVaultConfig": {
-      "title": "Arazzo Vault configuration",
-      "description": "Vault provider settings for resolving Arazzo credentials.",
-      "oneOf": [
-        {
-          "$ref": "#/definitions/ArazzoHashicorpVaultConfig",
-          "description": "HashiCorp Vault settings."
-        }
-      ]
-    },
-    "ArazzoHashicorpVaultConfig": {
-      "title": "HashiCorp Vault configuration",
-      "description": "Connection and token settings for HashiCorp Vault.",
+      "title": "Arazzo Vault profile section",
+      "description": "Named Vault profiles and optional bindings that select them.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "url"
-      ],
       "properties": {
+        "profiles": {
+          "type": "object",
+          "title": "Vault profiles",
+          "description": "Vault profile definitions, which may extend other profiles.",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "not": { "const": "none" }
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/ArazzoVaultProfile"
+          }
+        },
+        "bindings": {
+          "type": "array",
+          "title": "Vault profile bindings",
+          "description": "Optional context rules selecting a Vault profile.",
+          "items": {
+            "$ref": "#/definitions/ArazzoVaultProfileBinding"
+          }
+        }
+      }
+    },
+    "ArazzoVaultProfile": {
+      "title": "Arazzo Vault profile",
+      "description": "A possibly partial Vault profile. Missing values may be inherited from its parent profile.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extends": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Parent profile",
+          "description": "Name of the Vault profile whose values are inherited."
+        },
         "type": {
+          "type": "string",
           "const": "hashicorp",
           "title": "Vault type",
           "description": "Vault provider discriminator."
@@ -2516,7 +2540,7 @@
           "minLength": 1,
           "pattern": "\\S",
           "title": "KV mount",
-          "description": "KV engine mount path. Required when a KV version is configured."
+          "description": "KV engine mount path."
         },
         "namespace": {
           "type": "string",
@@ -2541,42 +2565,55 @@
             "type": "string"
           }
         }
-      },
-      "allOf": [
-        {
-          "if": {
-            "required": [
-              "version"
-            ],
-            "properties": {
-              "version": {
-                "type": "integer"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "mount"
-            ],
-            "properties": {
-              "mount": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      ]
+      }
     },
     "ArazzoSecurityConfig": {
-      "title": "Arazzo security configuration",
-      "description": "Security credentials shared across an Arazzo workflow.",
+      "title": "Arazzo security profile section",
+      "description": "Named security profiles and optional bindings that select them.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "profiles": {
+          "type": "object",
+          "title": "Security profiles",
+          "description": "Security profile definitions, which may extend other profiles.",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "not": { "const": "none" }
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/ArazzoSecurityProfile"
+          }
+        },
+        "bindings": {
+          "type": "array",
+          "title": "Security profile bindings",
+          "description": "Optional context rules selecting a security profile.",
+          "items": {
+            "$ref": "#/definitions/ArazzoSecurityProfileBinding"
+          }
+        }
+      }
+    },
+    "ArazzoSecurityProfile": {
+      "title": "Arazzo security profile",
+      "description": "A possibly partial security profile. Missing values may be inherited from its parent profile.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extends": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Parent profile",
+          "description": "Name of the security profile whose values are inherited."
+        },
         "oauth2": {
-          "$ref": "#/definitions/ArazzoOAuth2Config",
+          "$ref": "#/definitions/ArazzoOAuth2Profile",
           "title": "OAuth2 settings",
-          "description": "OAuth2 client-credentials settings."
+          "description": "OAuth2 settings, including settings shared with OpenID Connect."
         },
         "bearer": {
           "$ref": "#/definitions/ArazzoCredentialSource",
@@ -2584,7 +2621,7 @@
           "description": "Source of an existing bearer token."
         },
         "basic": {
-          "$ref": "#/definitions/ArazzoBasicAuthConfig",
+          "$ref": "#/definitions/ArazzoBasicAuthProfile",
           "title": "HTTP Basic settings",
           "description": "Username and password sources for HTTP Basic authentication."
         },
@@ -2592,15 +2629,28 @@
           "$ref": "#/definitions/ArazzoCredentialSource",
           "title": "API key source",
           "description": "Source of an API key."
+        },
+        "mtls": {
+          "title": "mTLS client certificate configuration",
+          "description": "Client certificate used for Arazzo HTTPS API requests.",
+          "$ref": "#/definitions/ArazzoMtlsProfile"
         }
       }
     },
-    "ArazzoOAuth2Config": {
-      "title": "OAuth2 configuration",
-      "description": "Client-credentials grant settings for OAuth2 and OpenID Connect schemes.",
+    "ArazzoOAuth2Profile": {
+      "title": "Arazzo OAuth2 profile",
+      "description": "Possibly partial OAuth2 settings for OAuth2 and OpenID Connect schemes.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "grantType": {
+          "enum": [
+            "client_credentials",
+            "password"
+          ],
+          "title": "OAuth2 grant type",
+          "description": "Token grant used for protected workflow steps."
+        },
         "tokenUrl": {
           "type": "string",
           "title": "Token URL",
@@ -2630,23 +2680,53 @@
           "type": "string",
           "enum": [
             "client_secret_basic",
-            "client_secret_post"
+            "client_secret_post",
+            "none"
           ],
           "default": "client_secret_basic",
           "title": "Client authentication method",
           "description": "Authentication method used at the token endpoint."
+        },
+        "username": {
+          "$ref": "#/definitions/ArazzoCredentialSource",
+          "title": "Resource owner username source",
+          "description": "Credential source used by the password grant."
+        },
+        "password": {
+          "$ref": "#/definitions/ArazzoCredentialSource",
+          "title": "Resource owner password source",
+          "description": "Credential source used by the password grant."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [ "grantType" ],
+            "properties": {
+              "grantType": { "const": "client_credentials" }
+            }
+          },
+          "then": {
+            "properties": {
+              "clientAuthentication": {
+                "enum": [ "client_secret_basic", "client_secret_post" ]
+              }
+            },
+            "not": {
+              "anyOf": [
+                { "required": [ "username" ] },
+                { "required": [ "password" ] }
+              ]
+            }
+          }
+        }
+      ]
     },
-    "ArazzoBasicAuthConfig": {
-      "title": "HTTP Basic configuration",
-      "description": "Credential sources used for HTTP Basic authentication.",
+    "ArazzoBasicAuthProfile": {
+      "title": "HTTP Basic profile",
+      "description": "Possibly partial credential sources used for HTTP Basic authentication.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "username",
-        "password"
-      ],
       "properties": {
         "username": {
           "$ref": "#/definitions/ArazzoCredentialSource",
@@ -2659,6 +2739,219 @@
           "description": "Source of the HTTP Basic password."
         }
       }
+    },
+    "ArazzoMtlsProfile": {
+      "title": "mTLS profile",
+      "description": "Possibly partial certificate settings for an Arazzo security profile.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "keyStore": {
+          "$ref": "#/definitions/ArazzoKeyStoreProfile",
+          "title": "Key store",
+          "description": "Key-store values, which may be completed by inheritance."
+        },
+        "keyStorePassword": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "mtlsEnabled": {
+          "type": "boolean",
+          "title": "Enable mutual TLS",
+          "description": "Enable mutual TLS for this certificate configuration."
+        }
+      }
+    },
+    "ArazzoKeyStoreProfile": {
+      "title": "mTLS key-store profile values",
+      "description": "Possibly partial key-store values, which may be completed by inheritance.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "title": "Key-store file",
+          "description": "Path to the key-store file."
+        },
+        "directory": {
+          "type": "string",
+          "title": "Key-store directory",
+          "description": "Path to the directory containing key-store files."
+        },
+        "password": {
+          "type": "string",
+          "title": "Key-store password",
+          "description": "Password used to open the key store."
+        },
+        "alias": {
+          "type": "string",
+          "title": "Key-store alias",
+          "description": "Optional key alias to use from the key store."
+        }
+      },
+      "not": {
+        "allOf": [
+          { "required": [ "file" ] },
+          { "required": [ "directory" ] }
+        ]
+      }
+    },
+    "ArazzoSecurityProfileBinding": {
+      "title": "Security profile binding",
+      "description": "Selects a security profile for an optional request context.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "use" ],
+      "properties": {
+        "when": {
+          "$ref": "#/definitions/ArazzoSecurityBindingContext"
+        },
+        "use": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Profile name",
+          "description": "Security profile to use, or 'none' to disable security for the matching context."
+        }
+      }
+    },
+    "ArazzoSecurityBindingContext": {
+      "title": "Security binding context",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Source description"
+        },
+        "workflow": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Workflow"
+        },
+        "step": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Step"
+        },
+        "scheme": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Security scheme"
+        },
+        "scopes": {
+          "type": "array",
+          "title": "OAuth scopes",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "anyOf": [
+            { "required": [ "source" ] },
+            { "required": [ "workflow", "step" ] },
+            { "required": [ "scheme" ] }
+          ]
+        },
+        {
+          "if": { "required": [ "workflow" ] },
+          "then": { "required": [ "step" ] }
+        },
+        {
+          "if": { "required": [ "step" ] },
+          "then": { "required": [ "workflow" ] }
+        },
+        {
+          "not": {
+            "allOf": [
+              { "required": [ "source" ] },
+              { "required": [ "workflow" ] }
+            ]
+          }
+        },
+        {
+          "if": { "required": [ "scopes" ] },
+          "then": { "required": [ "scheme" ] }
+        }
+      ]
+    },
+    "ArazzoVaultProfileBinding": {
+      "title": "Vault profile binding",
+      "description": "Selects a Vault profile for an optional request context.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "use" ],
+      "properties": {
+        "when": {
+          "$ref": "#/definitions/ArazzoVaultBindingContext"
+        },
+        "use": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Profile name",
+          "description": "Vault profile to use, or 'none' to disable Vault for the matching context."
+        }
+      }
+    },
+    "ArazzoVaultBindingContext": {
+      "title": "Vault binding context",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Source description"
+        },
+        "workflow": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Workflow"
+        },
+        "step": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Step"
+        }
+      },
+      "allOf": [
+        {
+          "anyOf": [
+            { "required": [ "source" ] },
+            { "required": [ "workflow", "step" ] }
+          ]
+        },
+        {
+          "if": { "required": [ "workflow" ] },
+          "then": { "required": [ "step" ] }
+        },
+        {
+          "if": { "required": [ "step" ] },
+          "then": { "required": [ "workflow" ] }
+        },
+        {
+          "not": {
+            "allOf": [
+              { "required": [ "source" ] },
+              { "required": [ "workflow" ] }
+            ]
+          }
+        }
+      ]
     },
     "ArazzoCredentialSource": {
       "title": "Arazzo credential source",
