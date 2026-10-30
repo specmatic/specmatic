@@ -35,7 +35,7 @@ dependencies {
     implementation("io.zenwave360:json-schema-ref-parser-jvm:0.9.12")
     implementation("com.networknt:json-schema-validator:2.0.1")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.12.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
