@@ -4,6 +4,8 @@ import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.config.validation.ConfigValidationSeverity
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiMockConfig
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiTestConfig
+import io.specmatic.core.config.v3.components.runOptions.ArazzoMockConfig
+import io.specmatic.core.config.v3.components.runOptions.ArazzoTestConfig
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlMockConfig
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
@@ -32,6 +34,54 @@ import java.io.File
 import java.util.stream.Stream
 
 class ProtocolConfigValidatorTest {
+    @Test
+    fun `invokes the SPI for Arazzo test config`(@TempDir tempDir: File) {
+        val validator = RecordingValidator()
+        val specification = tempDir.resolve("workflow.arazzo.yaml").apply { writeText("arazzo: 1.0.0") }
+
+        ArazzoTestConfig().validateForSpecFile(
+            specFile = specification,
+            definition = SpecificationDefinition.StringValue(specification.path),
+            validationContext = context(tempDir, validator),
+        )
+
+        assertThat(validator.applicableCalls.single()).isEqualTo(
+            ApplicableCall(
+                specification = specification,
+                source = ApplicableSource.GLOBAL,
+                runOptionType = RunOptionType.TEST,
+                valueType = ArazzoTestConfig::class,
+                runOptionsType = ArazzoTestConfig::class,
+                location = "/dependencies/runOptions/arazzo",
+                runOptionsLocation = "/dependencies/runOptions/arazzo",
+            ),
+        )
+    }
+
+    @Test
+    fun `invokes the SPI for Arazzo mock config`(@TempDir tempDir: File) {
+        val validator = RecordingValidator()
+        val specification = tempDir.resolve("workflow.arazzo.yaml").apply { writeText("arazzo: 1.0.0") }
+
+        ArazzoMockConfig().validateForSpecFile(
+            specFile = specification,
+            definition = SpecificationDefinition.StringValue(specification.path),
+            validationContext = context(tempDir, validator),
+        )
+
+        assertThat(validator.applicableCalls.single()).isEqualTo(
+            ApplicableCall(
+                specification = specification,
+                source = ApplicableSource.GLOBAL,
+                runOptionType = RunOptionType.MOCK,
+                valueType = ArazzoMockConfig::class,
+                runOptionsType = ArazzoMockConfig::class,
+                location = "/dependencies/runOptions/arazzo",
+                runOptionsLocation = "/dependencies/runOptions/arazzo",
+            ),
+        )
+    }
+
     @Test
     fun `invokes the SPI for AsyncAPI test config`(@TempDir tempDir: File) {
         val validator = RecordingValidator()

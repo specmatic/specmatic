@@ -1352,6 +1352,116 @@ class SpecmaticConfigV3ImplTest {
         }
     }
 
+    @Nested
+    inner class ArazzoRunOptions {
+        @Test
+        fun `resolves Arazzo run options by workflow specification id with replacement semantics`() {
+            val workflowFile = tempDir.resolve("orders.arazzo.yaml").apply { writeText("arazzo: 1.0.0") }
+            val config = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${tempDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: orders-workflow
+                            path: orders.arazzo.yaml
+                runOptions:
+                  arazzo:
+                    vault:
+                      type: hashicorp
+                    security:
+                      bearer:
+                        env: API_TOKEN
+                    baseUrls:
+                      orderApi: https://global-orders.example.test
+                      paymentApi: https://global-payments.example.test
+                    specs:
+                      - spec:
+                          id: orders-workflow
+                          baseUrls:
+                            orderApi: https://workflow-orders.example.test
+            """.trimIndent())
+
+            assertThat(config.testConfigFor(workflowFile, SpecType.ARAZZO)?.resolvedConfig()).isEqualTo(
+                mapOf<String, Any>(
+                    "baseUrls" to mapOf("orderApi" to "https://workflow-orders.example.test"),
+                ),
+            )
+        }
+
+        @Test
+        fun `resolves reusable Arazzo run options for the workflow file`() {
+            val workflowFile = tempDir.resolve("orders.arazzo.yaml").apply { writeText("arazzo: 1.0.0") }
+            val config = v3Config($$"""
+            version: 3
+            components:
+              runOptions:
+                workflow:
+                  arazzo:
+                    type: test
+                    baseUrls:
+                      orderApi: https://orders.example.test
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: $${tempDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: orders-workflow
+                            path: orders.arazzo.yaml
+                runOptions:
+                  $ref: '#/components/runOptions/workflow'
+            """.trimIndent())
+
+            assertThat(config.testConfigFor(workflowFile, SpecType.ARAZZO)?.resolvedConfig()).isEqualTo(
+                mapOf<String, Any>("baseUrls" to mapOf("orderApi" to "https://orders.example.test")),
+            )
+        }
+
+        @Test
+        fun `resolves Arazzo run options for mocked workflow specifications`() {
+            val workflowFile = tempDir.resolve("orders.arazzo.yaml").apply { writeText("arazzo: 1.0.0") }
+            val config = v3Config("""
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ${tempDir.canonicalPath}
+                          specs:
+                            - spec:
+                                id: orders-workflow
+                                path: orders.arazzo.yaml
+                    runOptions:
+                      arazzo:
+                        type: mock
+                        baseUrls:
+                          orderApi: https://orders.example.test
+                        specs:
+                          - spec:
+                              id: orders-workflow
+                              security:
+                                bearer:
+                                  env: API_TOKEN
+            """.trimIndent())
+
+            assertThat(config.stubConfigFor(workflowFile, SpecType.ARAZZO)?.resolvedConfig()).isEqualTo(
+                mapOf<String, Any>("security" to mapOf("bearer" to mapOf("env" to "API_TOKEN"))),
+            )
+        }
+    }
+
     @Test
     fun `getStubDictionary should fallback to dependency level dictionary when service dictionary is absent for matched spec`() {
         val config = tempDir.resolve("specmatic.yaml").apply {
