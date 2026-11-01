@@ -8,6 +8,8 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.value.StringValue
 
 interface OpenAPISecurityScheme {
+    val schemeName: String? get() = null
+
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result
     fun removeParam(httpRequest: HttpRequest): HttpRequest
     fun addTo(httpRequest: HttpRequest, resolver: Resolver = Resolver()): HttpRequest

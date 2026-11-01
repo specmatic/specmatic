@@ -668,9 +668,15 @@ Background:
         """.trimIndent()
 
         fun feature(environmentVariables: Map<String, String> = emptyMap()): Feature {
-            environmentVariables.forEach { System.setProperty(it.key, it.value) }
-
-            return OpenApiSpecification.fromYAML(openapiSpecificationWithGETAPIHavingBasicAuth, "").toFeature()
+            val previousValues = environmentVariables.mapValues { (name, _) -> System.getProperty(name) }
+            return try {
+                environmentVariables.forEach { (name, value) -> System.setProperty(name, value) }
+                OpenApiSpecification.fromYAML(openapiSpecificationWithGETAPIHavingBasicAuth, "").toFeature()
+            } finally {
+                previousValues.forEach { (name, value) ->
+                    if (value == null) System.clearProperty(name) else System.setProperty(name, value)
+                }
+            }
         }
 
         private val credentials = "charlie123:pqrxyz"

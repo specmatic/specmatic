@@ -5,6 +5,7 @@ buildSrc/.gradle/
 target/*
 .DS_Store
 .gradle/*
+buildSrc/.gradle/
 **/build/*
 gen/*
 *.class
