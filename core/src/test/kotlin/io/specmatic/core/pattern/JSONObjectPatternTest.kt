@@ -418,6 +418,39 @@ internal class JSONObjectPatternTest {
                     else -> throw Exception("Unknown result $result")
                 }
             }
+
+            @ParameterizedTest
+            @CsvSource(
+                value = [
+                    """min | 2 | {"id": 10} | This is an object with at least 2 properties in the new specification, but an object with 1 properties in the old specification""",
+                    """max | 2 | {"id": 10, "name": "Jill", "address": "Baker street"} | This is an object with at most 2 properties in the new specification, but an object with 3 properties in the old specification"""
+                ],
+                delimiter = '|',
+                ignoreLeadingAndTrailingWhitespace = true
+            )
+            fun `property count constraint failures should use resolver mismatch messages`(
+                bound: String,
+                limit: Int,
+                json: String,
+                expectedMessage: String
+            ) {
+                val pattern = when (bound) {
+                    "min" -> basePattern.copy(minProperties = limit)
+                    "max" -> basePattern.copy(maxProperties = limit)
+                    else -> throw IllegalArgumentException("Unknown bound $bound")
+                }
+
+                val resolver = Resolver(mismatchMessages = NewAndOldSpecificationRequestMismatches)
+                val result = pattern.matches(parsedJSONObject(json), resolver) as Result.Failure
+                assertThat(result.toMatchFailureDetailList()).isEqualTo(
+                    listOf(
+                        MatchFailureDetails(
+                            errorMessages = listOf(expectedMessage),
+                            ruleViolationReport = RuleViolationReport.from(StandardRuleViolation.CONSTRAINT_VIOLATION)
+                        )
+                    )
+                )
+            }
         }
 
         @Nested
@@ -636,7 +669,7 @@ internal class JSONObjectPatternTest {
                         additionalProperties = additionalProperties
                     )
 
-                    assertThat(newer.encompasses(older, Resolver(), Resolver()).isSuccess())
+                    assertThat(older.encompasses(newer, Resolver(), Resolver()).isSuccess())
                         .isEqualTo(compatible)
                 }
 
@@ -907,7 +940,7 @@ internal class JSONObjectPatternTest {
                     minProperties = new
                 )
 
-                val result = newer.encompasses(older, Resolver(), Resolver())
+                val result = older.encompasses(newer, Resolver(), Resolver())
 
                 when(compatible) {
                     true -> assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -946,7 +979,7 @@ internal class JSONObjectPatternTest {
                     maxProperties = new
                 )
 
-                val result = newer.encompasses(older, Resolver(), Resolver())
+                val result = older.encompasses(newer, Resolver(), Resolver())
 
                 when(compatible) {
                     true -> assertThat(result).isInstanceOf(Result.Success::class.java)

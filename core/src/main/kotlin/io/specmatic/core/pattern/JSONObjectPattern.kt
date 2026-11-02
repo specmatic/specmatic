@@ -282,7 +282,12 @@ data class JSONObjectPattern(
             }
 
             is JSONObjectPattern -> {
-                val propertyLimitResults: List<Result.Failure> = olderPropertyLimitsEncompassNewer(this, otherPattern)
+                val propertyLimitResults: List<Result.Failure> = olderPropertyLimitsEncompassNewer(
+                    older = this,
+                    newer = otherPattern,
+                    mismatchMessages = thisResolverWithNullType.mismatchMessages
+                )
+
                 val patternResult = mapEncompassesMap(
                     pattern,
                     otherPattern.pattern,
@@ -302,26 +307,36 @@ data class JSONObjectPattern(
                     otherResolverWithNullType,
                     typeStack
                 )
-                return Result.fromResults(listOf(patternResult, additionalPropertiesResult))
+
+                Result.fromResults(listOf(patternResult, additionalPropertiesResult))
             }
 
             else -> Result.Failure("Expected json type, got ${otherPattern.typeName}")
         }
     }
 
-    private fun olderPropertyLimitsEncompassNewer(
-        newer: JSONObjectPattern,
-        older: JSONObjectPattern
-    ): List<Result.Failure> {
+    private fun olderPropertyLimitsEncompassNewer(newer: JSONObjectPattern, older: JSONObjectPattern, mismatchMessages: MismatchMessages): List<Result.Failure> {
         val minPropertiesResult =
             if (older.minProperties != null && newer.minProperties != null && older.minProperties > newer.minProperties)
-                Result.Failure("Expected at least ${older.minProperties} properties, got ${newer.minProperties}")
+                Result.Failure(
+                    message = mismatchMessages.mismatchMessage(
+                        expected = "an object with at least ${older.minProperties} properties",
+                        actual = "an object with at least ${newer.minProperties} properties"
+                    ),
+                    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                )
             else
                 Result.Success()
 
         val maxPropertiesResult =
             if (older.maxProperties != null && newer.maxProperties != null && older.maxProperties < newer.maxProperties)
-                Result.Failure("Expected at most ${older.maxProperties} properties, got ${newer.maxProperties}")
+                Result.Failure(
+                    message = mismatchMessages.mismatchMessage(
+                        expected = "an object with at most ${older.maxProperties} properties",
+                        actual = "an object with at most ${newer.maxProperties} properties"
+                    ),
+                    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                )
             else
                 Result.Success()
 
@@ -361,22 +376,25 @@ data class JSONObjectPattern(
         val resolverWithNullType = withNullPattern(resolver)
         if (sampleData !is JSONObjectValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
 
-        val minCountErrors: List<Result.Failure> = if (sampleData.jsonObject.keys.size < (minProperties ?: 0))
+        val propertyCount = sampleData.jsonObject.size
+        val minCountErrors: List<Result.Failure> = if (propertyCount < (minProperties ?: 0))
             listOf(
-                Result.Failure(
-                    message = "Expected at least $minProperties properties, got ${sampleData.jsonObject.keys.size}",
-                    ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                constraintMismatchResult(
+                    mismatchMessages = resolver.mismatchMessages,
+                    actual = "an object with $propertyCount properties",
+                    expected = "an object with at least $minProperties properties",
                 )
             )
         else
             emptyList()
 
         val maxCountErrors: List<Result.Failure> =
-            if (sampleData.jsonObject.keys.size > (maxProperties ?: Int.MAX_VALUE))
+            if (propertyCount > (maxProperties ?: Int.MAX_VALUE))
                 listOf(
-                    Result.Failure(
-                        message = "Expected at most $maxProperties properties, got ${sampleData.jsonObject.keys.size}",
-                        ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
+                    constraintMismatchResult(
+                        mismatchMessages = resolver.mismatchMessages,
+                        actual = "an object with $propertyCount properties",
+                        expected = "an object with at most $maxProperties properties",
                     )
                 )
             else
