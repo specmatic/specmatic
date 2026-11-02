@@ -1,9 +1,11 @@
 package io.specmatic.core
 
+import io.ktor.http.ContentType
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.toFailure
+import io.specmatic.core.utilities.ResponseMediaTypeMatcher
 import java.io.File
 import java.util.Collections
 import java.util.IdentityHashMap
@@ -13,6 +15,7 @@ class OpenApiBackwardCompatibilityChecker(
     private val newFeature: Feature,
     private val repoDir: String? = null,
 ) {
+    private val responseMediaTypeMatcher = ResponseMediaTypeMatcher()
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
     private val oldChangeTrackingScenariosByPathAndMethod = oldFeature.scenariosForChangeTracking()
         .groupBy { it.openApiPath to it.method }
@@ -134,7 +137,7 @@ class OpenApiBackwardCompatibilityChecker(
         val newScenariosByStatusAndResContentType = newScenarios.groupBy { it.status to it.responseContentType }
 
         return oldScenarios.flatMap { oldScenario ->
-            val identifierMatches = newScenariosByStatusAndResContentType.findExactOrSingle(oldScenario.status, oldScenario.responseContentType)
+            val identifierMatches = findResponseCandidates(oldScenario, newScenariosByStatusAndResContentType)
             if (identifierMatches.isEmpty()) {
                 val result = Result.Failure("This API exists in the old contract but not in the new contract")
                     .copy(sourceLocation = locateRemovedResponse(oldScenario))
@@ -148,6 +151,36 @@ class OpenApiBackwardCompatibilityChecker(
     private fun dedupeNewScenariosByIdentity(requestResults: List<OpenApiBackwardCompatibilityCheckRecord>): List<Scenario> {
         val seenScenarios = Collections.newSetFromMap(IdentityHashMap<Scenario, Boolean>())
         return requestResults.asSequence().map { it.scenario }.filter(seenScenarios::add).toList()
+    }
+
+    private fun findResponseCandidates(
+        oldScenario: Scenario,
+        scenariosByStatusAndContentType: Map<Pair<Int, String?>, List<Scenario>>,
+    ): List<Scenario> {
+        val sameStatus = scenariosByStatusAndContentType.filterKeys { it.first == oldScenario.status }
+        val exactMatch = sameStatus[oldScenario.status to oldScenario.responseContentType]
+        if (!exactMatch.isNullOrEmpty()) return exactMatch
+
+        val parseCT: (String) -> ContentType? = { runCatching { ContentType.parse(it) }.getOrNull() }
+        val previousType = oldScenario.responseContentType
+            ?.let(parseCT)
+            ?: return scenariosByStatusAndContentType.findExactOrSingle(
+                first = oldScenario.status,
+                second = oldScenario.responseContentType
+            )
+
+        val comparable = sameStatus.filterKeys { (_, contentType) ->
+            val rawContentType = contentType ?: return@filterKeys false
+            val contentType = parseCT(rawContentType) ?: return@filterKeys false
+            responseMediaTypeMatcher.canCompareSchemas(previousType, contentType)
+        }.values.flatten()
+
+        return comparable.ifEmpty {
+            scenariosByStatusAndContentType.findExactOrSingle(
+                first = oldScenario.status,
+                second = oldScenario.responseContentType
+            )
+        }
     }
 
     private fun checkResponseEncompasses(oldScenario: Scenario, newScenario: Scenario, changeStatusFor: (Scenario) -> ChangeStatus): OpenApiBackwardCompatibilityCheckRecord {
@@ -200,8 +233,12 @@ class OpenApiBackwardCompatibilityChecker(
         val exact = this[first to second]?.filter(valueFilter)
         if (!exact.isNullOrEmpty()) return exact
 
-        val fallBackEntries = entries.asSequence().filter { it.key.first == first }.flatMap { it.value.asSequence() }
-        return fallBackEntries.singleOrNull(valueFilter)?.let(::listOf).orEmpty()
+        val matchingGroups = entries.asSequence()
+            .filter { it.key.first == first }
+            .map { it.value.filter(valueFilter) }
+            .filter { it.isNotEmpty() }
+
+        return matchingGroups.singleOrNull().orEmpty()
     }
 
     private fun locateRemovedOperation(scenario: Scenario): SourceLocation? {
