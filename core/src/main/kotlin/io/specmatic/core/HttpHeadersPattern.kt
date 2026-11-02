@@ -6,6 +6,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.matchers.TemplateResolver
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.isOptional
+import io.specmatic.core.utilities.ResponseMediaTypeMatcher
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
@@ -355,6 +356,7 @@ data class HttpHeadersPattern(
         val otherRequiredKeys = other.pattern.keys.filter { !isOptional(it) }
 
         val missingHeaderResult: Result = checkAllMissingHeaders(myRequiredKeys, otherRequiredKeys, thisResolver, parameterPointers)
+        val contentTypeResult = encompassesContentType(other, thisResolver)
 
         val otherWithoutOptionality = other.pattern.mapKeys { withoutOptionality(it.key) }
         val thisWithoutOptionality = pattern.filterKeys { withoutOptionality(it) in otherWithoutOptionality }
@@ -369,9 +371,28 @@ data class HttpHeadersPattern(
                 ).breadCrumb(headerName, otherResolver.locate(other.parameterPointers[headerName]))
             }
 
-        val results = listOf(missingHeaderResult).plus(valueResults)
-
+        val results = listOf(missingHeaderResult, contentTypeResult).plus(valueResults)
         return Result.fromResults(results).breadCrumb(BreadCrumb.HEADER.value)
+    }
+
+
+    private fun encompassesContentType(other: HttpHeadersPattern, resolver: Resolver): Result {
+        val previous = contentType ?: return Result.Success()
+        val current = other.contentType ?: return Result.Success()
+        val compatible = runCatching {
+            ResponseMediaTypeMatcher().canCompareSchemas(
+                current = ContentType.parse(current),
+                previous = ContentType.parse(previous),
+            )
+        }.getOrDefault(false)
+
+        if (compatible) return Result.Success()
+        return Result.Failure(
+            breadCrumb = CONTENT_TYPE,
+            failureReason = FailureReason.ContentTypeMismatch,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH,
+            message = resolver.mismatchMessages.mismatchMessage(previous, current)
+        )
     }
 
     private fun checkAllMissingHeaders(
