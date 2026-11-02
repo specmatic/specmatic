@@ -2642,6 +2642,54 @@ paths:
     }
 
     @Test
+    fun `backward compatibility should pass with min and max properties sspecified for an object schema`() {
+        val oldSpec = """
+        openapi: 3.0.3
+        info:
+          title: Pet Shelter
+          version: 1.0.0
+        paths:
+          /pets/search:
+            post:
+              summary: Search pets
+              description: Search pets using optional filters
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        lastSeen:
+                          oneOf:
+                            - type: string
+                            - type: object
+                              minProperties: 1
+                              maxProperties: 2
+                              properties:
+                                before:
+                                  type: string
+                                after:
+                                  type: string
+              responses:
+                '202':
+                  description: Search accepted
+        """.trimIndent()
+
+        val newSpec = oldSpec.replace(
+            "description: Search pets using optional filters",
+            "description: Search pets using optional filters."
+        )
+
+        assertThat(newSpec).isNotEqualTo(oldSpec)
+        val oldContract = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newContract = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
+
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+    }
+
+    @Test
     fun `backward compatibility check going null number string to number string`() {
         val oldContract = OpenApiSpecification.fromYAML(
             """

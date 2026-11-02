@@ -494,8 +494,9 @@ data class JSONObjectPattern(
         allOrNothingCombinationIn(
             pattern.minus("..."),
             Row(),
-            null,
-            null, returnValues { pattern: Map<String, Pattern> -> newBasedOn(pattern, withNullPattern(resolver)) }
+            minProperties,
+            maxProperties,
+            returnValues { pattern: Map<String, Pattern> -> newBasedOn(pattern, withNullPattern(resolver)) }
         ).map { it.value }.map { toJSONObjectPattern(it, typeAlias) }
 
     override fun negativeBasedOn(

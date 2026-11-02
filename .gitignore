@@ -1,5 +1,6 @@
 .idea/*
 dependency-reduced-pom.xml
+buildSrc/.gradle/
 *.iml
 target/*
 .DS_Store
