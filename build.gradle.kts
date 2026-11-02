@@ -7,6 +7,10 @@ plugins {
 }
 
 allprojects {
+    configurations.configureEach {
+        resolutionStrategy.force("com.google.guava:guava:33.7.2-jre")
+    }
+
     repositories {
         mavenLocal()
         mavenCentral()
