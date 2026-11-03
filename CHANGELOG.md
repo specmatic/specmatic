@@ -32,6 +32,10 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Added
+
+- WSDL contracts preserve and enforce `minOccurs` and `maxOccurs` for elements, wildcards, sequences, choices, and XSD 1.0 `all` groups, including named group references and zero occurrences. Invalid bounds fail during loading with source context. Generated SOAP cases include occurrence boundaries, and compatibility checks retain numeric ranges and group structure.
+
 ### Changed
 
 - Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Sonatype announced that, from October 1, 2026, publishing artifacts with a commercial nature requires Maven Central Publisher Pro regardless of publishing volume ([policy details](https://central.sonatype.org/news/20260908_publisher_tiers_commercial_use/)). Add the Specmatic releases repository to your build:

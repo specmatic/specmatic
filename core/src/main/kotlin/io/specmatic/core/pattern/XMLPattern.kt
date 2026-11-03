@@ -467,6 +467,15 @@ data class XMLPattern(
 
         val sampleChildNodes = childNodesForMatching(sampleData)
 
+        if (pattern.nodes.any { it is XMLChildGenerationPattern && it !is XMLPattern }) {
+            val candidates = xmlSequenceCandidates(pattern.nodes, sampleChildNodes, resolver)
+            val complete = candidates.firstOrNull { it.result.isSuccess() && it.remainder.isEmpty() }
+            if (complete != null) return complete.result
+            val closest = candidates.first()
+            return if (!closest.result.isSuccess()) closest.result
+                else closest.provisionalError?.result ?: (closest.remainder.first() as XMLValue).matchFailure()
+        }
+
         val results = pattern.nodes.scanIndexed(
             ConsumeResult<XMLValue, Value>(
                 Success(),
@@ -1159,7 +1168,19 @@ data class XMLPattern(
         resolver: Resolver,
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
-        return newBasedOn(row, resolver).map { HasValue(it.value) }
+        if (!pattern.isConcrete()) {
+            return resolver.withCyclePrevention(cyclePreventionPattern(), returnNullOnCycle = canBeOmittedAfterCycle()) { childResolver ->
+                dereferenceType(childResolver).negativeBasedOn(row, childResolver, config)
+            } ?: emptySequence()
+        }
+        val occurrenceNegatives = pattern.nodes.asSequence().flatMapIndexed { index, child ->
+            resolver.withCyclePrevention(child, returnNullOnCycle = child is XMLPattern && child.canBeOmittedAfterCycle()) { childResolver ->
+                child.negativeBasedOn(row, childResolver, config).map { negative ->
+                    negative.ifValue<Pattern> { copy(pattern = pattern.copy(nodes = pattern.nodes.toMutableList().apply { this[index] = it })) }
+                }
+            } ?: emptySequence()
+        }
+        return newBasedOn(row, resolver).map { HasValue(it.value) } + occurrenceNegatives
     }
 
     private fun dereferenceType(resolver: Resolver): Pattern {
@@ -1352,6 +1373,14 @@ data class XMLPattern(
         typeStack: TypeStack
     ): Result {
         val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)
+        if (!pattern.isConcrete() || (otherResolvedPattern is XMLPattern && !otherResolvedPattern.pattern.isConcrete())) {
+            val pair = PairOfTypes(referredType, (otherResolvedPattern as? XMLPattern)?.referredType)
+            if (pair.hasNoNulls() && pair in typeStack) return Success()
+            val concrete = dereferenceType(thisResolver)
+            val otherConcrete = (otherResolvedPattern as? XMLPattern)?.dereferenceType(otherResolver) ?: otherResolvedPattern
+            return concrete.encompasses(otherConcrete, thisResolver, otherResolver, if (pair.hasNoNulls()) typeStack + pair else typeStack)
+        }
+
 
         return when (otherResolvedPattern) {
             is ExactValuePattern -> otherResolvedPattern.fitsWithin(
@@ -1361,43 +1390,15 @@ data class XMLPattern(
                 typeStack
             )
 
-            // TODO: BCC blind spot for top-level $ref XML bodies.
-            // When `application/xml` request/response bodies are `$ref`s to component schemas,
-            // toXMLPattern() returns a stub XMLPattern that only carries the `specmatic_type`
-            // attribute and has no child nodes. encompasses() then compares the two stubs:
-            // nodeNames match, attributes (both just `specmatic_type=Customer`) match, and
-            // child-node iteration is over empty lists — so any breakage *inside* the
-            // referenced component (e.g. a child property going from required to optional)
-            // goes undetected. Request matches() is unaffected because matchesXMLNode() calls
-            // dereferenceType() before deep-matching.
-            //
-            // Sketch of the fix (attempted in this PR, reverted because it needs more work):
-            //   1. In `encompasses`, before the deep compare, call
-            //      `this.dereferenceType(thisResolver)` and
-            //      `otherResolvedPattern.dereferenceType(otherResolver)`. If either changes,
-            //      recurse with the dereferenced patterns.
-            //   2. That alone yields correct *detection* but the source-location anchor lands
-            //      on the component header, not the child property. The component patterns
-            //      cached via `cacheComponentPattern` (see OpenApiSpecification.handleXmlReference
-            //      → convertAndCacheResolvedRef) are built by `toXMLPattern` but never passed
-            //      through `annotateXMLPattern`, so the cached Customer.name XMLPattern has no
-            //      `schemaPointer`. Fix: annotate at cache time using
-            //      `/components/schemas/<name>` as the base pointer (the existing JSON path
-            //      already does this — see annotateJsonObjectPattern call sites for shared
-            //      components).
-            //   3. mergeReferredPattern() in XMLPattern.kt copies `referred` and overrides
-            //      name/attributes from the referring stub — make sure it preserves the
-            //      referred pattern's `schemaPointer` and `attributePointers` (data-class copy
-            //      already does, but worth verifying after step 2).
-            //   4. Add BCC test fixtures back: ref-name-mandatory-old.yaml / -new.yaml with
-            //      response body $ref to a Customer component whose `name` toggles required.
-            //      Expected anchor: the new spec's `components.schemas.Customer.properties.name`
-            //      line (was 30:11 in the test fixture I drafted).
             is XMLPattern -> nodeNamesShouldBeEqual(otherResolvedPattern).ifSuccess {
                 attributesEncompass(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             }.ifSuccess {
                 thisOccurrenceEncompassesTheOther(this, otherResolvedPattern)
             }.ifSuccess {
+                if ((pattern.nodes + otherResolvedPattern.pattern.nodes).any { it is XMLChildGenerationPattern && it !is XMLPattern }) {
+                    return@ifSuccess XMLSequencePattern(pattern.nodes).encompasses(
+                        XMLSequencePattern(otherResolvedPattern.pattern.nodes), thisResolver, otherResolver, typeStack)
+                }
                 val others = otherResolvedPattern.pattern.nodes.map { resolvedHop(it, otherResolver) }
                 val these = adapt(
                     adaptFromList(pattern.nodes.map { resolvedHop(it, thisResolver) }, thisResolver),

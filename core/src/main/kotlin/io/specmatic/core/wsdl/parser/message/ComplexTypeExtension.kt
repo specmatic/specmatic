@@ -35,13 +35,18 @@ class ComplexTypeExtension(
         val parentComplexType = wsdl.findTypeFromAttribute(extension, "base")
         val parentTypeVariants = generateChildren(parentTypeName, parentComplexType.asComplexTypeNode(), existingTypes, typeStack, wsdl)
         val extensionChild = extension.childElementForDerivation()
+        val baseContent = modelContent(parentComplexType.asComplexTypeNode())
+        val addedContent = extensionChild?.let { modelContent(it) } ?: ModelContent.Empty
+        if ((baseContent == ModelContent.All && addedContent != ModelContent.Empty) ||
+            (baseContent != ModelContent.Empty && addedContent == ModelContent.All))
+            throw ContractException("XSD 1.0 cannot extend nonempty all content with another particle: ${extension.oneLineDescription}")
 
         return wsdlTypeInfos.flatMap { current ->
             parentTypeVariants.flatMap { parentTypeInfo ->
                 val combinedParent = current.plus(parentTypeInfo)
                 when {
                     extensionChild != null -> {
-                        val extensionVariants = generateChildren(parentTypeName, extensionChild, combinedParent.types, typeStack, wsdl)
+                        val extensionVariants = complexTypeChildNode(extensionChild, wsdl, parentTypeName).process(listOf(WSDLTypeInfo()), combinedParent.types, typeStack)
                         combineVariants(listOf(combinedParent), extensionVariants)
                     }
                     else -> listOf(combinedParent)
@@ -63,11 +68,37 @@ class ComplexTypeExtension(
             restrictionChild == null -> wsdlTypeInfos
             else -> combineVariants(
                 wsdlTypeInfos,
-                generateChildren(parentTypeName, restrictionChild, existingTypes, typeStack, wsdl)
+                complexTypeChildNode(restrictionChild, wsdl, parentTypeName).process(listOf(WSDLTypeInfo()), existingTypes, typeStack)
             )
         }
 
         return restrictedTypeInfos.withBaseTypeMetadata(restriction)
+    }
+
+    private enum class ModelContent { Empty, All, Other }
+
+    private fun modelContent(node: XMLNode, visited: Set<String> = emptySet()): ModelContent = when (node.name) {
+        "all" -> if (node.childNodes.filterIsInstance<XMLNode>().any { it.name == "element" }) ModelContent.All else ModelContent.Empty
+        "sequence", "choice" -> if (node.childNodes.filterIsInstance<XMLNode>().any { it.name != "annotation" }) ModelContent.Other else ModelContent.Empty
+        "element", "any" -> ModelContent.Other
+        "complexType", "complexContent" -> node.childNodes.filterIsInstance<XMLNode>()
+            .filter { it.name in setOf("all", "sequence", "choice", "group", "complexContent", "extension", "restriction", "element") }
+            .firstOrNull()?.let { modelContent(it, visited) } ?: ModelContent.Empty
+        "group" -> {
+            val name = node.fullyQualifiedNameFromAttribute("ref")
+            val key = "group:{${name.namespace}}${name.localName}"
+            if (key in visited) ModelContent.Other else wsdl.findGroup(name, node.schema).childNodes.filterIsInstance<XMLNode>()
+                .firstOrNull { it.name != "annotation" }?.let { modelContent(it, visited + key) } ?: ModelContent.Empty
+        }
+        "extension", "restriction" -> {
+            val own = node.childElementForDerivation()?.let { modelContent(it, visited) } ?: ModelContent.Empty
+            if (own != ModelContent.Empty || node.name == "restriction") own
+            else {
+                val key = "type:${node.fullyQualifiedNameFromAttribute("base")}"
+                if (key in visited) ModelContent.Other else modelContent(wsdl.findTypeFromAttribute(node, "base").asComplexTypeNode(), visited + key)
+            }
+        }
+        else -> ModelContent.Empty
     }
 
     private fun XMLNode.asComplexTypeNode(): XMLNode =

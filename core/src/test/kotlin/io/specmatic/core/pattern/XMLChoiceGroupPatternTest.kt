@@ -225,23 +225,23 @@ class XMLChoiceGroupPatternTest {
     }
 
     @Test
-    fun `generate includes one optional choice selected by generation decisions`() {
+    fun `generate clamps the default count to the optional choice maximum`() {
         val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 3).generateXML(
             resolver,
             FixedXMLChoiceGenerationDecisions(includeOptional = true, branchIndex = 1)
         ) as XMLNode
 
-        assertThat(generatedNodeNames(generated)).containsExactly("B")
+        assertThat(generatedNodeNames(generated)).containsExactly("B", "B", "B")
     }
 
     @Test
-    fun `generate uses minimum required occurrences for repeated choices`() {
+    fun `generate clamps the default count to the repeated choice maximum`() {
         val generated = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 4).generateXML(
             resolver,
             FixedXMLChoiceGenerationDecisions(branchIndex = 1)
         ) as XMLNode
 
-        assertThat(generatedNodeNames(generated)).containsExactly("B", "B")
+        assertThat(generatedNodeNames(generated)).containsExactly("B", "B", "B", "B")
     }
 
     @Test
@@ -580,6 +580,9 @@ private class FixedXMLChoiceGenerationDecisions(
     private val branchIndex: Int = 0
 ) : XMLGenerationDecisions {
     override fun includeOptionalXMLNode(): Boolean = includeOptional
+
+    override fun numberOfXMLNodesFor(minOccurs: Int, maxOccurs: Int?): Int =
+        if (minOccurs == 0 && !includeOptional) 0 else super.numberOfXMLNodesFor(minOccurs, maxOccurs)
 
     override fun chooseXMLChoiceBranch(choiceCount: Int): Int = branchIndex.coerceIn(0, choiceCount - 1)
 }

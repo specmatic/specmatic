@@ -4,6 +4,8 @@ import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import io.specmatic.core.pattern.XMLParticlePattern
+import io.specmatic.core.pattern.XMLSequencePattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
@@ -42,7 +44,7 @@ internal class ElementInComplexTypeTest {
 
         val expected = WSDLTypeInfo(
             nodes = listOf(toXMLNode("<node1/>"), toXMLNode("<node2/>")),
-            members = listOf(XMLPattern(toXMLNode("<node1/>")), XMLPattern(toXMLNode("<node2/>"))),
+            members = listOf(XMLPattern(toXMLNode("<node1/>")), XMLParticlePattern(XMLPattern(toXMLNode("<node2/>")))),
             types = data1Type.plus(data2Type),
             namespacePrefixes = setOf("ns0", "ns1")
         )

@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import java.math.BigInteger
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
@@ -108,13 +109,44 @@ private fun generatedNamespaceDifferentFrom(targetNamespace: String?): String {
     }
 }
 
-data class XMLOccurrenceRange(val min: Int, val max: Int?) {
-    fun encompasses(other: XMLOccurrenceRange): Boolean {
-        return min <= other.min && when {
-            max == null -> true
-            other.max == null -> false
-            else -> max >= other.max
-        }
+data class XMLOccurrenceRange(val minimum: BigInteger, val maximum: BigInteger?) {
+    constructor(min: Int, max: Int?) : this(min.toBigInteger(), max?.toBigInteger())
+
+    init {
+        if (minimum.signum() < 0 || (maximum != null && maximum < minimum))
+            throw ContractException("Invalid XML occurrence range: minOccurs=$minimum, maxOccurs=${maximum ?: "unbounded"}")
+    }
+
+    // Keep integer accessors for existing patterns whose constructor bounds are Ints.
+    val min: Int get() = minimum.intValueExact()
+    val max: Int? get() = maximum?.intValueExact()
+    val fitsIntBounds: Boolean get() = minimum <= Int.MAX_VALUE.toBigInteger() && (maximum == null || maximum <= Int.MAX_VALUE.toBigInteger())
+    val isZero: Boolean get() = maximum == BigInteger.ZERO
+    val allowsZero: Boolean get() = minimum == BigInteger.ZERO
+
+    private fun representativeBound(): BigInteger = minimum.max(5.toBigInteger()).let { maximum?.min(it) ?: it }
+
+    fun representativeCount(): Int = try {
+        representativeBound().intValueExact()
+    } catch (e: ArithmeticException) {
+        throw ContractException("Cannot materialize ${representativeBound()} XML occurrences in a JVM list", exceptionCause = e)
+    }
+
+    fun positiveCounts(): List<BigInteger> = listOfNotNull(representativeBound(), minimum, maximum).distinct()
+
+    fun negativeCounts(): List<BigInteger> = listOfNotNull((minimum - BigInteger.ONE).takeIf { minimum.signum() > 0 }, maximum?.plus(BigInteger.ONE))
+
+    fun minimumReached(count: Int): Boolean = count.toBigInteger() >= minimum
+    fun maximumReached(count: Int): Boolean = maximum?.let { count.toBigInteger() >= it } == true
+
+    fun afterOne(): XMLOccurrenceRange = XMLOccurrenceRange((minimum - BigInteger.ONE).max(BigInteger.ZERO), maximum?.minus(BigInteger.ONE))
+
+    override fun toString(): String = "$minimum..${maximum ?: "unbounded"}"
+
+    fun encompasses(other: XMLOccurrenceRange): Boolean = minimum <= other.minimum && when {
+        maximum == null -> true
+        other.maximum == null -> false
+        else -> maximum >= other.maximum
     }
 }
 
@@ -147,6 +179,8 @@ data class XMLWildcardPattern(
     val targetNamespace: String? = null,
     override val typeAlias: String? = null
 ) : Pattern, XMLChildGenerationPattern {
+    init { XMLOccurrenceRange(minOccurs, maxOccurs) }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when {
             sampleData !is XMLNode -> dataTypeMismatchResult("xml wildcard", sampleData, resolver.mismatchMessages)
@@ -226,15 +260,17 @@ data class XMLWildcardPattern(
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
-        sequenceOf(HasValue(this))
+        occurrenceRange.positiveCounts().asSequence().map { count -> HasValue(copy(minOccurs = count.intValueExact(), maxOccurs = count.intValueExact())) }
 
     override fun negativeBasedOn(
         row: Row,
         resolver: Resolver,
         config: NegativePatternConfiguration
-    ): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
+    ): Sequence<ReturnValue<Pattern>> = occurrenceRange.negativeCounts().asSequence()
+        .map { count -> HasValue(XMLParticlePattern(copy(minOccurs = 1, maxOccurs = 1), XMLOccurrenceRange(count, count))) }
 
-    override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
+    override fun newBasedOn(resolver: Resolver): Sequence<Pattern> =
+        occurrenceRange.positiveCounts().asSequence().map { count -> copy(minOccurs = count.intValueExact(), maxOccurs = count.intValueExact()) }
 
     override fun parse(value: String, resolver: Resolver): Value = toXMLNode(value)
 

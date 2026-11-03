@@ -112,7 +112,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
         typeStack: Set<String>
     ): List<WSDLTypeInfo> {
         return eliminateAnnotationsAndAttributes(complexType.childNodes.filterIsInstance<XMLNode>()).map {
-            complexTypeChildNode(it, wsdl, parentTypeName)
+            complexTypeChildNode(it, wsdl, parentTypeName, allowAllGroup = complexType.name in setOf("complexType", "group", "extension", "restriction"))
         }.fold(listOf(WSDLTypeInfo())) { wsdlTypeInfos, child ->
             val knownTypes = wsdlTypeInfos.knownTypes(existingTypes)
             child.process(wsdlTypeInfos, knownTypes, typeStack.plus(knownTypes.keys))
@@ -202,7 +202,7 @@ internal fun generateChildren(
     wsdl: WSDL
 ): List<WSDLTypeInfo> {
     return eliminateAnnotationsAndAttributes(complexType.childNodes.filterIsInstance<XMLNode>()).map {
-        complexTypeChildNode(it, wsdl, parentTypeName)
+        complexTypeChildNode(it, wsdl, parentTypeName, allowAllGroup = complexType.name in setOf("complexType", "group", "extension", "restriction"))
     }.fold(listOf(WSDLTypeInfo())) { wsdlTypeInfos, child ->
         val knownTypes = wsdlTypeInfos.knownTypes(existingTypes)
         child.process(wsdlTypeInfos, knownTypes, typeStack.plus(knownTypes.keys))
@@ -217,11 +217,12 @@ private fun List<WSDLTypeInfo>.knownTypes(existingTypes: Map<String, Pattern>): 
 private fun eliminateAnnotationsAndAttributes(childNodes: List<XMLNode>) =
     childNodes.filterNot { it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" || it.name == "anyAttribute" }
 
-fun complexTypeChildNode(child: XMLNode, wsdl: WSDL, parentTypeName: String): ComplexTypeChild {
+fun complexTypeChildNode(child: XMLNode, wsdl: WSDL, parentTypeName: String, allowAllGroup: Boolean = true): ComplexTypeChild {
     return when (child.name) {
         "element" -> ElementInComplexType(child, wsdl, parentTypeName)
         "any" -> AnyElementInComplexType(child)
         "sequence", "all" -> CollectionOfChildrenInComplexType(child, wsdl, parentTypeName)
+        "group" -> GroupReferenceInComplexType(child, wsdl, parentTypeName, allowAllGroup)
         "choice" -> ChoiceOfChildrenInComplexType(child, wsdl, parentTypeName)
         "complexContent" -> ComplexTypeExtension(child, wsdl, parentTypeName)
         "simpleContent" -> SimpleContentDerivation(child, wsdl)

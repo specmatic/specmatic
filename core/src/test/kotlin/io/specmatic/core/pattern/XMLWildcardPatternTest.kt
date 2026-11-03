@@ -117,21 +117,21 @@ internal class XMLWildcardPatternTest {
     }
 
     @Test
-    fun `optional wildcard generates one node when optional generation says yes`() {
+    fun `optional unbounded wildcard generates the default count`() {
         val wildcard = XMLWildcardPattern(AnyXMLNamespace, minOccurs = 0, maxOccurs = null)
 
         val generated = wildcard.generateXML(Resolver(), FixedXMLWildcardGenerationDecisions(true)) as XMLNode
 
-        assertThat(generated.childNodes).hasSize(1)
+        assertThat(generated.childNodes).hasSize(5)
     }
 
     @Test
-    fun `required repeated wildcard generation uses minimum occurrences`() {
+    fun `required repeated wildcard generation clamps the default count to maximum`() {
         val wildcard = XMLWildcardPattern(AnyXMLNamespace, minOccurs = 2, maxOccurs = 4)
 
         val generated = wildcard.generate(Resolver()) as XMLNode
 
-        assertThat(generated.childNodes).hasSize(2)
+        assertThat(generated.childNodes).hasSize(4)
     }
 
     @Test
@@ -351,4 +351,7 @@ internal class XMLWildcardPatternTest {
 
 private class FixedXMLWildcardGenerationDecisions(private val includeOptional: Boolean) : XMLGenerationDecisions {
     override fun includeOptionalXMLNode(): Boolean = includeOptional
+
+    override fun numberOfXMLNodesFor(minOccurs: Int, maxOccurs: Int?): Int =
+        if (minOccurs == 0 && !includeOptional) 0 else super.numberOfXMLNodesFor(minOccurs, maxOccurs)
 }
