@@ -9,6 +9,7 @@ import io.specmatic.core.value.XMLNode
 internal fun xmlMatchCandidates(pattern: Pattern, values: List<Value>, resolver: Resolver): List<ConsumeResult<Value, Value>> =
     when (pattern) {
         is XMLParticlePattern -> pattern.matchCandidates(values, resolver)
+        is XMLPattern -> pattern.matchCandidates(values, resolver)
         is XMLSequencePattern -> xmlSequenceCandidates(pattern.members, values, resolver)
         is XMLChoiceGroupPattern -> pattern.matchCandidates(values, resolver)
         is XMLWildcardPattern -> pattern.matchCandidates(values.filterIsInstance<XMLValue>(), resolver).map { it.cast("xml") }

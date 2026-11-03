@@ -84,7 +84,7 @@ private class XMLGroupInclusion(
         is XMLChoiceGroupPattern -> repetition(if (pattern.choices.isEmpty()) XMLContent.Empty else choice(pattern.choices.map { sequence(it.map(::content)) }), XMLOccurrenceRange(pattern.minOccurs, pattern.maxOccurs))
         is XMLWildcardPattern -> repetition(XMLContent.Element(pattern.copy(minOccurs = 1, maxOccurs = 1)), XMLOccurrenceRange(pattern.minOccurs, pattern.maxOccurs))
         is XMLPattern -> repetition(
-            XMLContent.Element(pattern.copy(pattern = pattern.pattern.copy(attributes = pattern.pattern.attributes - OCCURS_ATTRIBUTE_NAME))),
+            XMLContent.Element(pattern.copy(pattern = pattern.pattern.copy(attributes = pattern.pattern.attributes - OCCURS_ATTRIBUTE_NAME, occurrences = null))),
             pattern.pattern.occurrenceRange()
         )
         is ListPattern -> repetition(content(pattern.pattern), XMLOccurrenceRange(0, null))

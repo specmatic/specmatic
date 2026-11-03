@@ -43,6 +43,7 @@ internal fun validateSchemaOccurrenceRanges(schema: XMLNode, source: String) {
 }
 
 internal fun Pattern.withOccurrenceRange(range: XMLOccurrenceRange): Pattern = when {
+    this is XMLPattern -> copy(pattern = pattern.copy(occurrences = range))
     range.fitsIntBounds && this is XMLChoiceGroupPattern -> copy(minOccurs = range.min, maxOccurs = range.max)
     range.fitsIntBounds && this is XMLWildcardPattern -> copy(minOccurs = range.min, maxOccurs = range.max)
     else -> XMLParticlePattern(this, range)

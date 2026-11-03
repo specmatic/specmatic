@@ -98,6 +98,7 @@ data class XMLParticlePattern(
 
 /** Empty groups and zero-occurrence declarations contribute no nodes, regardless of their bounds. */
 internal fun Pattern.emitsNoXMLNodes(): Boolean = when (this) {
+    is XMLPattern -> pattern.occurrences?.isZero == true
     is XMLParticlePattern -> occurrences.isZero || member.emitsNoXMLNodes()
     is XMLSequencePattern -> members.all { it.emitsNoXMLNodes() }
     is XMLAllPattern -> members.all { it.emitsNoXMLNodes() }

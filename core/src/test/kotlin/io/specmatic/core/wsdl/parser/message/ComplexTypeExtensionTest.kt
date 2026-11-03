@@ -5,6 +5,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.XMLParticlePattern
+import io.specmatic.core.pattern.XMLOccurrenceRange
 import io.specmatic.core.pattern.XMLSequencePattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.WSDLTypeDerivationMethod
@@ -47,8 +48,8 @@ internal class ComplexTypeExtensionTest {
         val expected = WSDLTypeInfo(
             nodes = listOf(toXMLNode("<data1>(string)</data1>"), toXMLNode("<data2>(number)</data2>")),
             members = listOf(
-                XMLParticlePattern(XMLPattern(toXMLNode("<data1>(string)</data1>"))),
-                XMLParticlePattern(XMLSequencePattern(listOf(XMLParticlePattern(XMLPattern(toXMLNode("<data2>(number)</data2>"))))))
+                XMLPattern(toXMLNode("<data1>(string)</data1>")).withOccurrenceRange(XMLOccurrenceRange(1, 1)),
+                XMLParticlePattern(XMLSequencePattern(listOf(XMLPattern(toXMLNode("<data2>(number)</data2>")).withOccurrenceRange(XMLOccurrenceRange(1, 1)))))
             ),
             wsdlBaseTypeDerivationMethod = WSDLTypeDerivationMethod.Extension,
         )

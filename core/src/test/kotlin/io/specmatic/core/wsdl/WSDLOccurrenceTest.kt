@@ -413,6 +413,29 @@ class WSDLOccurrenceTest {
         assertThat(result.reportString()).contains("Pet", "invalid-number").doesNotContain("Expected Comment")
     }
 
+    @Test
+    fun `local element patterns preserve XMLPattern identity and occurrence ranges`() {
+        val feature = wsdlFeature("""<xsd:element name="Request"><xsd:complexType><xsd:sequence>
+            <xsd:element name="Item" type="xsd:string" minOccurs="2" maxOccurs="3"/>
+            <xsd:element ref="tns:Named" minOccurs="0" maxOccurs="2"/>
+            <xsd:element name="Code"><xsd:simpleType><xsd:restriction base="xsd:string"/></xsd:simpleType></xsd:element>
+        </xsd:sequence></xsd:complexType></xsd:element>""", additionalSchema = """<xsd:element name="Named" type="xsd:string"/>""")
+        val types = feature.scenarios.single().resolver.newPatterns.values.filterIsInstance<io.specmatic.core.pattern.XMLPattern>()
+        val payload = types.single { it.pattern.wsdlTypeName == "Request" }
+        val group = payload.pattern.nodes.single() as io.specmatic.core.pattern.XMLParticlePattern
+        val sequence = group.member as io.specmatic.core.pattern.XMLSequencePattern
+        assertThat(sequence.members).allSatisfy { assertThat(it).isInstanceOf(io.specmatic.core.pattern.XMLPattern::class.java) }
+        val elements = sequence.members.map { it as io.specmatic.core.pattern.XMLPattern }
+        assertThat(elements.map { it.pattern.occurrences }).containsExactly(
+            io.specmatic.core.pattern.XMLOccurrenceRange(2, 3),
+            io.specmatic.core.pattern.XMLOccurrenceRange(0, 2),
+            io.specmatic.core.pattern.XMLOccurrenceRange(1, 1)
+        )
+        val envelope = feature.scenarios.single().httpRequestPattern.body as io.specmatic.core.pattern.XMLPattern
+        assertThat(envelope.pattern.name).isEqualTo("Envelope")
+        assertThat(envelope.pattern.occurrences).isNull()
+    }
+
     private fun request(children: String) = HttpRequest(method = "POST", path = PATH,
         headers = mapOf("SOAPAction" to "\"$SOAP_ACTION\"", "Content-Type" to "text/xml"),
         body = StringValue(envelope("<Request>$children</Request>")))

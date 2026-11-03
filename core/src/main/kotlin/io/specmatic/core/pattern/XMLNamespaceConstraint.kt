@@ -158,7 +158,7 @@ fun NodeOccurrence.toOccurrenceRange(): XMLOccurrenceRange {
     }
 }
 
-fun XMLTypeData.occurrenceRange(): XMLOccurrenceRange = getNodeOccurrence().toOccurrenceRange()
+fun XMLTypeData.occurrenceRange(): XMLOccurrenceRange = occurrences ?: getNodeOccurrence().toOccurrenceRange()
 
 data class XMLAttributeWildcard(
     val namespaceConstraint: XMLNamespaceConstraint,

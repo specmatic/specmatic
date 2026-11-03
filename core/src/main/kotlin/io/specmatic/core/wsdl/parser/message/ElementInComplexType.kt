@@ -18,7 +18,7 @@ class ElementInComplexType(
 
         val typeInfo = soapElement.deriveSpecmaticTypes(specmaticTypeName, existingTypes, typeStack)
 
-        val rangedInfo = typeInfo.copy(members = typeInfo.effectiveMembers.map { XMLParticlePattern(it.withoutLocalOccurrence(), range) })
+        val rangedInfo = typeInfo.copy(members = typeInfo.effectiveMembers.map { it.withoutLocalOccurrence().withOccurrenceRange(range) })
         return wsdlTypeInfos.map { it.plus(rangedInfo) }
     }
 }
