@@ -3345,11 +3345,18 @@ Then status 200
     @Nested
     inner class MultiBaseUrlStubTest {
 
+        private val ports = mutableMapOf<Int, Int>()
+
+        private fun multiPortTestPort(offset: Int = 0): Int = ports.getOrPut(offset) {
+            generateSequence { ServerSocket(0).use { it.localPort } }
+                .first { it !in ports.values }
+        }
+
         private fun dynamicMultiPortConfig(configPath: String): File {
             val source = File(configPath).canonicalFile
             var contents = source.readText().replace("\r\n", "\n")
             listOf(9000, 9001, 9002, 9003).forEachIndexed { index, configuredPort ->
-                contents = contents.replace(":$configuredPort", ":${testPort(index)}")
+                contents = contents.replace(":$configuredPort", ":${multiPortTestPort(index)}")
             }
             if (!contents.contains("src/test/resources/")) {
                 contents = contents.replace(
@@ -3363,34 +3370,34 @@ Then status 200
             contents = when (source.parentFile.name) {
                 "multi_port_stub_without_examples" -> contents.replace(
                     "- src/test/resources/multi_port_stub_without_examples/product_without_category.yaml",
-                    "- baseUrl: http://localhost:${testPort(0)}\n        specs:\n          - src/test/resources/multi_port_stub_without_examples/product_without_category.yaml"
+                    "- baseUrl: http://localhost:${multiPortTestPort(0)}\n        specs:\n          - src/test/resources/multi_port_stub_without_examples/product_without_category.yaml"
                 )
                 "multi_port_stub_string_syntax" -> contents.replace(
                     "- ./product.yaml\n      - ./order.yaml",
-                    "- baseUrl: http://127.0.0.1:${testPort(0)}\n        specs:\n          - ./product.yaml\n          - ./order.yaml"
+                    "- baseUrl: http://127.0.0.1:${multiPortTestPort(0)}\n        specs:\n          - ./product.yaml\n          - ./order.yaml"
                 )
                 "multi_spec_stub_on_same_port" -> contents.replace(
                     "- ./product/product.yaml\n      - ./order/order.yaml",
-                    "- baseUrl: http://127.0.0.1:${testPort(0)}\n        specs:\n          - ./product/product.yaml\n          - ./order/order.yaml"
+                    "- baseUrl: http://127.0.0.1:${multiPortTestPort(0)}\n        specs:\n          - ./product/product.yaml\n          - ./order/order.yaml"
                 )
                 "multi_port_stub_with_duplicated_spec" -> Regex("(?m)^      - product_with_category.yaml$").replace(
                     contents,
-                    "      - baseUrl: http://127.0.0.1:${testPort(0)}\n        specs:\n          - product_with_category.yaml"
+                    "      - baseUrl: http://127.0.0.1:${multiPortTestPort(0)}\n        specs:\n          - product_with_category.yaml"
                 )
                 else -> contents
             }
 
             val outputDirectory = File("build/tmp/dynamic-multi-port-configs").apply { mkdirs() }
-            val output = File.createTempFile("multi-port-${testPort()}-", ".yaml", outputDirectory)
+            val output = File.createTempFile("multi-port-${multiPortTestPort()}-", ".yaml", outputDirectory)
             output.writeText(contents)
             return output
         }
 
         private fun dynamicConfiguredPort(configuredPort: Int): Int = when (configuredPort) {
-            9000 -> testPort(0)
-            9001 -> testPort(1)
-            9002 -> testPort(2)
-            9003 -> testPort(3)
+            9000 -> multiPortTestPort(0)
+            9001 -> multiPortTestPort(1)
+            9002 -> multiPortTestPort(2)
+            9003 -> multiPortTestPort(3)
             else -> configuredPort
         }
 
@@ -3442,7 +3449,7 @@ Then status 200
         fun `should serve requests from multiple ports as configured in specmatic config where stubs are loaded from examples`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3477,7 +3484,7 @@ Then status 200
         fun `should serve requests from multiple baseUrls with a path as configured in specmatic config where stubs are loaded from examples`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_baseUrl_stub_with_path/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3512,7 +3519,7 @@ Then status 200
         fun `should serve requests from multiple ports as configured in specmatic config where no examples are loaded as stubs`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_without_examples/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use {
                 val productWithoutCategoryResponse = LegacyHttpClient(
                     endPointFromHostAndPort("localhost", dynamicConfiguredPort(9000), null)
                 ).execute(
@@ -3544,7 +3551,7 @@ Then status 200
         fun `should only start stub server on specified baseUrls`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use {
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3553,7 +3560,7 @@ Then status 200
 
                 assertThrows<ConnectException> {
                     LegacyHttpClient(endPointFromHostAndPort(
-                        "localhost", testPort(4), null
+                        "localhost", multiPortTestPort(4), null
                     )).execute(request)
                 }
             }
@@ -3563,7 +3570,7 @@ Then status 200
         fun `should return an error if a request for a specific specification is sent to the wrong port`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_without_examples/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use {
 
                 val productWithoutCategoryExampleBasedRequest = HttpRequest(
                     method = "POST",
@@ -3594,7 +3601,7 @@ Then status 200
         fun `should return generated response even if the request matches the stub being served on another port`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_with_stubbed_unstubbed_specs/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use {
                 val exportedProductStubbedRequest = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3671,7 +3678,7 @@ Then status 200
         fun `should serve requests from multiple ports when the specs are configured using a mixture of string based and object based syntax`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_string_and_object_syntax/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use {
                 val productsResponse = LegacyHttpClient(
                     endPointFromHostAndPort("localhost", dynamicConfiguredPort(9000), null)
                 ).execute(
@@ -3779,7 +3786,7 @@ Then status 200
         fun `should serve requests from multiple ports as configured in specmatic config where stubs are loaded from explicit examples directory`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_with_explicit_examples_dir/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, dataDirPaths = listOf("src/test/resources/multi_port_stub_with_explicit_examples_dir/examples/stub"), port = testPort()).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, dataDirPaths = listOf("src/test/resources/multi_port_stub_with_explicit_examples_dir/examples/stub"), port = multiPortTestPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3815,7 +3822,7 @@ Then status 200
         fun `should be able to serve requests matching partial examples`() {
             val specmaticConfigFile = dynamicMultiPortConfig("src/test/resources/multi_port_stub_with_partials/specmatic.yaml").canonicalPath
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use { _ ->
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use { _ ->
                 val request = HttpRequest(
                     method = "POST",
                     path = "/products",
@@ -3845,7 +3852,7 @@ Then status 200
                 loopBackAndWildcardHostnames.map { host -> Triple(host, port, expectedId) }
             }
 
-            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = testPort()).use {
+            createStub(timeoutMillis = STUB_SHUTDOWN_TIMEOUT, givenConfigFileName = specmaticConfigFile, port = multiPortTestPort()).use {
                 assertThat(hostPortIdCombos).allSatisfy { (host, port, expectedId) ->
                     val request = HttpRequest(
                         method = "POST", path = "/products",
@@ -3942,7 +3949,7 @@ Then status 200
                         every { protocol } returns SpecmaticProtocol.HTTP
                     }
                 )
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -3976,7 +3983,7 @@ Then status 200
                         every { protocol } returns SpecmaticProtocol.HTTP
                     }
                 )
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${9090}",
                         features,
@@ -4010,7 +4017,7 @@ Then status 200
                         every { protocol } returns SpecmaticProtocol.HTTP
                     }
                 )
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${7070}",
                         features,
@@ -4042,7 +4049,7 @@ Then status 200
                     }
                 )
 
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4059,7 +4066,7 @@ Then status 200
                 val specToStubBaseUrlMap = mapOf("spec1.yaml" to 8080).toBaseUrlMap()
                 val features = emptyList<Feature>()
 
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4093,7 +4100,7 @@ Then status 200
                 }
                 val features = listOf(feature1,feature2)
 
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4127,7 +4134,7 @@ Then status 200
                 }
                 val features = listOf(feature1,feature2)
 
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
@@ -4203,7 +4210,7 @@ Then status 200
                 }
                 val features = listOf(feature1, duplicatePathFeature)
 
-                HttpStub(features = features, port = testPort()).use { stub ->
+                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${8080}",
                         features,
