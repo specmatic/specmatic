@@ -89,6 +89,10 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
         return isValidSpec(this)
     }
 
+    override fun File.isCheckableSpec(): Boolean {
+        return isOpenAPI(path, logFailure = false) && isValidSpec()
+    }
+
     override fun File.isExternalisedExample(): Boolean {
         return getParentExamplesDirectory(toPath()) != null && exampleCompatibilityChecker.isCompatibleExample(this)
     }

@@ -32,6 +32,10 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Fixed
+
+- Backward compatibility checks no longer list or check ordinary YAML/JSON files and schema fragments as standalone OpenAPI specifications. Shared fragments still trigger checks of affected specifications, including through transitive references.
+
 ### Changed
 
 - Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Sonatype announced that, from October 1, 2026, publishing artifacts with a commercial nature requires Maven Central Publisher Pro regardless of publishing volume ([policy details](https://central.sonatype.org/news/20260908_publisher_tiers_commercial_use/)). Add the Specmatic releases repository to your build:
