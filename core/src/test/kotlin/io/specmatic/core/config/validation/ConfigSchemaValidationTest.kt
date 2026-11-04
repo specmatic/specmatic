@@ -515,6 +515,17 @@ class ConfigSchemaValidationTest {
                               alias: order-client
                               password: client-key-pass
                             keyStorePassword: store-pass
+                        privateKeyClient:
+                          oauth2:
+                            grantType: client_credentials
+                            clientAuthentication: private_key_jwt
+                            privateKey:
+                              vault:
+                                secretKey: oauth/client
+                                field: /private_key
+                            signingAlgorithm: ES256
+                            keyId: orders-key
+                            clientAssertionAudience: https://identity.example.test/client-assertion
                       bindings:
                         - binding:
                             use: full
@@ -729,6 +740,202 @@ class ConfigSchemaValidationTest {
                 }
 
                 @ParameterizedTest
+                @ValueSource(
+                    strings = [
+                        "RS256", "RS384", "RS512",
+                        "PS256", "PS384", "PS512",
+                        "ES256", "ES384", "ES512",
+                    ],
+                )
+                fun `accepts private_key_jwt with supported asymmetric signing algorithms`(algorithm: String) {
+                    assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    grantType: password
+                                    clientAuthentication: private_key_jwt
+                                    privateKey:
+                                      env: OAUTH_CLIENT_PRIVATE_KEY
+                                    signingAlgorithm: $algorithm
+                                    keyId: orders-key
+                    """.trimIndent())).isEqualTo(validOutput)
+                }
+
+                @Test
+                fun `rejects unsupported private_key_jwt signing algorithms`() {
+                    val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    grantType: client_credentials
+                                    clientAuthentication: private_key_jwt
+                                    signingAlgorithm: HS256
+                    """.trimIndent())
+
+                    assertThat(errors.flatMap { it.flattened() }.map { it.instanceLocation })
+                        .isEqualTo(listOf("/systemUnderTest/service/runOptions/arazzo/security/profiles/client/oauth2/signingAlgorithm"))
+                }
+
+                @ParameterizedTest
+                @ValueSource(strings = ["", "   "])
+                fun `rejects blank private_key_jwt key identifiers`(keyId: String) {
+                    val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    clientAuthentication: private_key_jwt
+                                    keyId: "$keyId"
+                    """.trimIndent())
+
+                    assertThat(errors.flatMap { it.flattened() }.map { it.instanceLocation })
+                        .isEqualTo(listOf("/systemUnderTest/service/runOptions/arazzo/security/profiles/client/oauth2/keyId"))
+                }
+
+                @Test
+                fun `accepts a client assertion audience independent from the grant assertion audience`() {
+                    assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    grantType: urn:ietf:params:oauth:grant-type:jwt-bearer
+                                    clientAuthentication: private_key_jwt
+                                    clientAssertionAudience: https://identity.example.test/client-assertion
+                                    grantAssertion:
+                                      issuer: grant-issuer
+                                      subject: authorized-subject
+                                      audience: https://identity.example.test/grant-assertion
+                    """.trimIndent())).isEqualTo(validOutput)
+                }
+
+                @ParameterizedTest
+                @ValueSource(strings = ["", "   "])
+                fun `rejects blank client assertion audiences`(audience: String) {
+                    val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    clientAssertionAudience: "$audience"
+                    """.trimIndent())
+
+                    assertThat(errors.flatMap { it.flattened() }.map { it.instanceLocation })
+                        .isEqualTo(listOf("/systemUnderTest/service/runOptions/arazzo/security/profiles/client/oauth2/clientAssertionAudience"))
+                }
+
+                @Test
+                fun `accepts an independently configured JWT Bearer grant assertion`() {
+                    assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    grantType: urn:ietf:params:oauth:grant-type:jwt-bearer
+                                    clientAuthentication: private_key_jwt
+                                    privateKey:
+                                      env: OAUTH_CLIENT_PRIVATE_KEY
+                                    signingAlgorithm: PS256
+                                    keyId: client-key
+                                    grantAssertion:
+                                      issuer: grant-issuer
+                                      subject: authorized-subject
+                                      audience: https://issuer.example.test/
+                                      privateKey:
+                                        vault:
+                                          secretKey: oauth/grant
+                                          field: /private_key
+                                      signingAlgorithm: ES256
+                                      keyId: grant-key
+                    """.trimIndent())).isEqualTo(validOutput)
+                }
+
+                @Test
+                fun `rejects grant assertion settings for another grant type`() {
+                    val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    grantType: client_credentials
+                                    grantAssertion:
+                                      issuer: grant-issuer
+                                      subject: authorized-subject
+                    """.trimIndent())
+
+                    assertThat(errors.flatMap { it.flattened() }.map { it.instanceLocation })
+                        .isEqualTo(listOf("/systemUnderTest/service/runOptions/arazzo/security/profiles/client/oauth2"))
+                }
+
+                @Test
+                fun `rejects unsupported JWT Bearer grant signing algorithms`() {
+                    val errors = schema(SpecmaticConfigVersion.VERSION_3, """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions: []
+                        runOptions:
+                          arazzo:
+                            security:
+                              profiles:
+                                client:
+                                  oauth2:
+                                    grantType: urn:ietf:params:oauth:grant-type:jwt-bearer
+                                    grantAssertion:
+                                      issuer: grant-issuer
+                                      subject: authorized-subject
+                                      signingAlgorithm: HS256
+                    """.trimIndent())
+
+                    assertThat(errors.flatMap { it.flattened() }.map { it.instanceLocation })
+                        .isEqualTo(listOf("/systemUnderTest/service/runOptions/arazzo/security/profiles/client/oauth2/grantAssertion/signingAlgorithm"))
+                }
+
+                @ParameterizedTest
                 @ValueSource(strings = ["file", "directory"])
                 fun `rejects blank explicit mTLS key-store locations`(location: String) {
                     val errors = schema(SpecmaticConfigVersion.VERSION_3, """
@@ -910,7 +1117,7 @@ class ConfigSchemaValidationTest {
                 }
 
                 @Test
-                fun `rejects empty and incomplete profile binding contexts`() {
+                fun `rejects empty and malformed profile binding contexts`() {
                     val errors = schema(SpecmaticConfigVersion.VERSION_3, """
             version: 3
             systemUnderTest:
@@ -929,10 +1136,6 @@ class ConfigSchemaValidationTest {
                             use: nullSource
                         - binding:
                             when:
-                              workflow: paymentWorkflow
-                            use: incompleteStep
-                        - binding:
-                            when:
                               scopes: [payments:read]
                             use: missingScheme
                     vault:
@@ -948,7 +1151,6 @@ class ConfigSchemaValidationTest {
                             "/systemUnderTest/service/runOptions/arazzo/security/bindings/0/binding/when",
                             "/systemUnderTest/service/runOptions/arazzo/security/bindings/1/binding/when/source",
                             "/systemUnderTest/service/runOptions/arazzo/security/bindings/2/binding/when",
-                            "/systemUnderTest/service/runOptions/arazzo/security/bindings/3/binding/when",
                             "/systemUnderTest/service/runOptions/arazzo/vault/bindings/0/binding/when",
                         )
                 }
@@ -2129,6 +2331,78 @@ class ConfigSchemaValidationTest {
             assertThat(result.absoluteKeywordLocation)
                 .contains("config-v3-resolved.schema.json#/definitions/Arazzo")
         }
+    }
+
+    @Test
+    fun `accepts Enterprise workflow source and step binding contexts`() {
+        val output = validator.validateDefinition(
+            version = SpecmaticConfigVersion.VERSION_3,
+            definitionName = "ArazzoRunOptions",
+            tree = objectMapper.readTree("""
+            {
+              "security": {
+                "bindings": [
+                  { "binding": { "when": { "workflow": "PlaceOrder", "source": "Orders" }, "use": "orders" } },
+                  { "binding": { "when": { "workflow": "PlaceOrder" }, "use": "workflow" } },
+                  { "binding": { "when": { "workflow": "PlaceOrder", "step": "createOrder" }, "use": "step" } }
+                ]
+              },
+              "vault": {
+                "bindings": [
+                  { "binding": { "when": { "workflow": "PlaceOrder", "source": "Orders" }, "use": "vault" } },
+                  { "binding": { "when": { "workflow": "PlaceOrder" }, "use": "workflow" } },
+                  { "binding": { "when": { "workflow": "PlaceOrder", "step": "createOrder" }, "use": "step" } }
+                ]
+              }
+            }
+            """.trimIndent()),
+        )
+
+        assertThat(output).isEqualTo(validOutput)
+    }
+
+    @Test
+    fun `rejects Arazzo source workflow and step bindings`() {
+        val output = validator.validateDefinition(
+            version = SpecmaticConfigVersion.VERSION_3,
+            definitionName = "ArazzoRunOptions",
+            tree = objectMapper.readTree("""
+            {
+              "security": {
+                "bindings": [
+                  { "binding": { "when": { "workflow": "PlaceOrder", "step": "createOrder", "source": "Orders" }, "use": "orders" } }
+                ]
+              }
+            }
+            """.trimIndent()),
+        )
+
+        assertThat(output).isNotEmpty()
+        assertThat(output.flatMap { it.flattened() }).allSatisfy { result ->
+            assertThat(result.valid).isFalse()
+        }
+    }
+
+    @Test
+    fun `Arazzo binding schema fields follow editor order`() {
+        val schema = javaClass.getResourceAsStream(
+            "/config-validation/config-v3-resolved.schema.json",
+        )!!.use { objectMapper.readTree(it) }
+        val definitions = schema["definitions"]
+
+        fun propertyNames(definition: String) = definitions[definition]["properties"]
+            .fieldNames()
+            .asSequence()
+            .toList()
+
+        assertThat(propertyNames("ArazzoSecurityProfileBinding"))
+            .containsExactly("use", "when")
+        assertThat(propertyNames("ArazzoVaultProfileBinding"))
+            .containsExactly("use", "when")
+        assertThat(propertyNames("ArazzoSecurityBindingContext"))
+            .containsExactly("workflow", "source", "step", "scheme", "scopes")
+        assertThat(propertyNames("ArazzoVaultBindingContext"))
+            .containsExactly("workflow", "source", "step")
     }
 
     private fun detail(testCase: InvalidSchemaCase) = detail(
