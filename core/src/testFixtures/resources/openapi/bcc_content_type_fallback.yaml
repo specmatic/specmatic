@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: Items API
+  version: 1.0.0
+paths:
+  /items/{id}:
+    put:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          __REQUEST_CONTENT_TYPES__
+      responses:
+        '202':
+          description: Accepted
+        '204':
+          description: Updated
+        '__RESPONSE_STATUS__':
+          description: Unavailable
+          __RESPONSE_CONTENT__
+components:
+  schemas:
+    Item:
+      type: object
+      properties:
+        name:
+          type: string
+    Problem:
+      type: object
+      xml:
+        name: problem
+      properties:
+        title:
+          type: string
+        status:
+          type: integer
+    ResponseWithStringId:
+      type: object
+      xml:
+        name: response
+      required: [id]
+      properties:
+        id:
+          type: string
+    ResponseWithIntegerId:
+      type: object
+      xml:
+        name: response
+      required: [id]
+      properties:
+        id:
+          type: integer
+    ResponseWithBooleanId:
+      type: object
+      xml:
+        name: response
+      required: [id]
+      properties:
+        id:
+          type: boolean
+    UnconstrainedString:
+      type: string
+    ConstrainedString:
+      type: string
+      enum: [accepted, created]

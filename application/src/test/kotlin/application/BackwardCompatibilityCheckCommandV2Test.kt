@@ -703,6 +703,54 @@ class BackwardCompatibilityCheckCommandV2Test {
         }
 
         @ParameterizedTest
+        @ValueSource(ints = [1, 2, 3])
+        fun `compare accepts response media type change regardless of request content type count`(requestContentTypeCount: Int) {
+            val requestContentTypes = listOf(
+                "application/json",
+                "application/*+json",
+                "application/vnd.example+json",
+            ).take(requestContentTypeCount)
+
+            val (output, exitCode, _) = runChange(
+                oldSpec = spec(requestContentTypes, "application/json"),
+                newSpec = spec(requestContentTypes, "application/problem+json"),
+            )
+
+            assertThat(exitCode).isEqualTo(0)
+            val compatibilityVerdicts = output.lineSequence()
+                .map(String::trim)
+                .filter { it.startsWith("[Compatibility Check] Verdict:") }
+                .toList()
+
+            assertThat(compatibilityVerdicts)
+                .withFailMessage("Unexpected compatibility output:\n$output")
+                .isEqualTo(listOf("[Compatibility Check] Verdict: PASS"))
+        }
+
+        private fun spec(requestContentTypes: List<String>, responseContentType: String): String {
+            val template = checkNotNull(javaClass.getResource("/openapi/bcc_content_type_fallback.yaml")).readText()
+            val requestContent = requestContentTypes.joinToString("\n") { contentType ->
+                $$"""
+                "$$contentType":
+                  schema:
+                    $ref: '#/components/schemas/Item'
+                """.trimIndent().prependIndent("          ")
+            }
+
+            val responseContent = $$"""
+                content:
+                  "$$responseContentType":
+                    schema:
+                      $ref: '#/components/schemas/Problem'
+            """.trimIndent().prependIndent("          ")
+
+            return template
+                .replace("          __REQUEST_CONTENT_TYPES__", requestContent)
+                .replace("          __RESPONSE_CONTENT__", responseContent)
+                .replace("__RESPONSE_STATUS__", "503")
+        }
+
+        @ParameterizedTest
         @CsvSource(
             "true, false, newer-load-error.stdout",
             "false, true, older-load-error.stdout",
