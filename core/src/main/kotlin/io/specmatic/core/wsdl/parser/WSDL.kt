@@ -159,7 +159,7 @@ private fun checkSchemaDeclarations(documents: List<SchemaDocument>, namespace: 
 }
 
 private fun collectSchemas(documents: List<SchemaDocument>): Map<String, XMLNode> =
-    documents.distinctBy { it.identity }.filter { it.schema.attributes.containsKey("targetNamespace") }
+    documents.onEach { validateSchemaOccurrenceRanges(it.schema, it.source) }.distinctBy { it.identity }.filter { it.schema.attributes.containsKey("targetNamespace") }
         .groupBy { it.schema.getAttributeValue("targetNamespace") }
         .mapValues { (namespace, documentsInNamespace) ->
             checkSchemaDeclarations(documentsInNamespace, namespace)
@@ -334,15 +334,19 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun toFeature(path: String, specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Feature {
-        return Feature(
-            scenarios = toScenarioInfos(specmaticConfig).map { scenarioInfo ->
-                Scenario(scenarioInfo.copy(specification = path))
-            },
-            name = getServiceName().toStringLiteral(),
-            path = path,
-            specmaticConfig = specmaticConfig,
-            protocol = SpecmaticProtocol.SOAP,
-        )
+        return try {
+            Feature(
+                scenarios = toScenarioInfos(specmaticConfig).map { scenarioInfo ->
+                    Scenario(scenarioInfo.copy(specification = path))
+                },
+                name = getServiceName().toStringLiteral(),
+                path = path,
+                specmaticConfig = specmaticConfig,
+                protocol = SpecmaticProtocol.SOAP,
+            )
+        } catch (e: ContractException) {
+            throw ContractException("${e.message} in $path", exceptionCause = e)
+        }
     }
 
     fun toScenarioInfos(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): List<ScenarioInfo> {
@@ -449,6 +453,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             typeNode.name == "complexType" || typeNode.name == "simpleType"
         }
     }
+
+    fun findGroup(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode =
+        findSchemaNode("group", fullyQualifiedName.namespace, fullyQualifiedName.localName, localSchema)
 
     fun findAttributeGroup(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode {
         return findSchemaNode("attributeGroup", fullyQualifiedName.namespace, fullyQualifiedName.localName, localSchema)
@@ -600,7 +607,7 @@ private fun indexDefinitions(definitions: Map<String, XMLNode>): Map<DefinitionL
 }
 
 private fun indexSchemas(schemas: Map<String, XMLNode>): Map<SchemaLookupKey, XMLNode> {
-    val schemaTags = setOf("element", "complexType", "simpleType", "attribute", "attributeGroup")
+    val schemaTags = setOf("element", "complexType", "simpleType", "attribute", "attributeGroup", "group")
     return schemas.flatMap { (namespace, schema) ->
         schema.childNodes.filterIsInstance<XMLNode>()
             .filter { it.name in schemaTags }

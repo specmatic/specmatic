@@ -1495,11 +1495,11 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `multiple should not encompass single`() {
+        fun `multiple should encompass single`() {
             val multiple = XMLPattern("<number $occursMultipleTimes>(number)</number>")
             val single = XMLPattern("<number>(number)</number>")
 
-            assertThat(multiple.encompasses(single, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+            assertThat(multiple.encompasses(single, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
         }
 
         @Test

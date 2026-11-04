@@ -3,6 +3,9 @@ package io.specmatic.core.wsdl.parser.message
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import io.specmatic.core.pattern.XMLParticlePattern
+import io.specmatic.core.pattern.XMLOccurrenceRange
+import io.specmatic.core.pattern.XMLSequencePattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
@@ -31,7 +34,7 @@ internal class CollectionOfChildrenInComplexTypeTest {
         val wsdlTypeInfo = collection.process(listOf(WSDLTypeInfo()), emptyMap(), emptySet())
         val expected = WSDLTypeInfo(
             nodes = listOf(toXMLNode("<data>(string)</data>")),
-            members = listOf(XMLPattern(toXMLNode("<data>(string)</data>")))
+            members = listOf(XMLParticlePattern(XMLSequencePattern(listOf(XMLPattern(toXMLNode("<data>(string)</data>")).withOccurrenceRange(XMLOccurrenceRange(1, 1))))))
         )
         assertThat(wsdlTypeInfo).containsExactly(expected)
     }

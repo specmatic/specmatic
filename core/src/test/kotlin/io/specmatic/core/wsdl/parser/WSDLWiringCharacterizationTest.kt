@@ -2,6 +2,9 @@ package io.specmatic.core.wsdl.parser
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.XMLParticlePattern
+import io.specmatic.core.pattern.XMLAllPattern
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.pattern.XMLGenerationDecisions
@@ -43,12 +46,12 @@ class WSDLWiringCharacterizationTest {
         assertThat(rootNode.attributes[TYPE_ATTRIBUTE_NAME]?.toStringLiteral()).isEqualTo("SignonCustIdType")
         assertThat(rootPattern).isInstanceOf(XMLPattern::class.java)
         rootPattern as XMLPattern
-        assertThat(rootPattern.pattern.nodes.filterIsInstance<XMLPattern>().map { it.pattern.realName })
+        assertThat(inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLPattern>().map { it.pattern.realName })
             .contains("Choice-ref:SPName")
-        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val choiceGroup = inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>().single()
         assertThat(choiceGroup.choices).hasSize(2)
         assertThat(choiceGroup.choices).allSatisfy { choice ->
-            assertThat(choice).allSatisfy { pattern ->
+            assertThat(inspectionMembers(choice)).allSatisfy { pattern ->
                 assertThat(pattern).isInstanceOf(XMLPattern::class.java)
             }
         }
@@ -68,7 +71,7 @@ class WSDLWiringCharacterizationTest {
 
         val typeInfo = soapElement.deriveSpecmaticTypes("ScalarChoiceRequestType", emptyMap(), emptySet())
         val rootPattern = typeInfo.types.getValue("ScalarChoiceRequestType") as XMLPattern
-        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val choiceGroup = inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>().single()
 
         assertThat(choiceGroup.minOccurs).isEqualTo(1)
         assertThat(choiceGroup.maxOccurs).isEqualTo(1)
@@ -89,7 +92,7 @@ class WSDLWiringCharacterizationTest {
 
         val typeInfo = soapElement.deriveSpecmaticTypes("OptionalChoiceRequestType", emptyMap(), emptySet())
         val rootPattern = typeInfo.types.getValue("OptionalChoiceRequestType") as XMLPattern
-        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val choiceGroup = inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>().single()
 
         assertThat(choiceGroup.minOccurs).isEqualTo(0)
         assertThat(choiceGroup.maxOccurs).isEqualTo(1)
@@ -111,7 +114,7 @@ class WSDLWiringCharacterizationTest {
 
         assertThat(rootPattern).isInstanceOf(XMLPattern::class.java)
         rootPattern as XMLPattern
-        assertThat(rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>()).hasSize(2)
+        assertThat(inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>()).hasSize(2)
     }
 
     @Test
@@ -125,9 +128,9 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceRequestType", emptyMap(), emptySet())
         val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceRequestType") as XMLPattern
-        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val choiceGroup = inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>().single()
         val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
-        val generatedBodies = variants.map { XMLPattern(rootPattern.pattern.copy(nodes = listOf(rootPattern.pattern.nodes.first(), it))).generate(resolver).toStringLiteral() }
+        val generatedBodies = variants.map { XMLPattern(rootPattern.pattern.copy(nodes = listOf(inspectionMembers(rootPattern.pattern.nodes).first(), it))).generate(resolver).toStringLiteral() }
 
         assertThat(variants).hasSize(3)
         assertThat(generatedBodies).anySatisfy {
@@ -155,7 +158,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceUnboundedRequestType", emptyMap(), emptySet())
         val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceUnboundedRequestType") as XMLPattern
-        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val choiceGroup = inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>().single()
 
         assertThat(choiceGroup.newBasedOn(resolver).toList()).hasSizeGreaterThan(2)
     }
@@ -171,7 +174,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingComplexChoiceRequestType", emptyMap(), emptySet())
         val resolver = Resolver(newPatterns = typeInfo.types)
         val rootPattern = typeInfo.types.getValue("RepeatingComplexChoiceRequestType") as XMLPattern
-        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val choiceGroup = inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>().single()
         val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
         val sequences = variants.map(::choiceNames)
 
@@ -194,7 +197,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceMinTwoRequestType", emptyMap(), emptySet())
         val resolver = Resolver(newPatterns = typeInfo.types)
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceMinTwoRequestType") as XMLPattern
-        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val choiceGroup = inspectionMembers(rootPattern.pattern.nodes).filterIsInstance<XMLChoiceGroupPattern>().single()
         val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
         val sequences = variants.map(::choiceNames)
 
@@ -209,12 +212,22 @@ class WSDLWiringCharacterizationTest {
         return text.windowed(token.length, 1).count { it == token }
     }
 
+    // Existing wiring assertions inspect declarations inside the now-preserved groups.
+    private fun inspectionMembers(patterns: List<Pattern>): List<Pattern> = patterns.flatMap { pattern ->
+        when (pattern) {
+            is XMLParticlePattern -> inspectionMembers(listOf(pattern.member))
+            is XMLSequencePattern -> inspectionMembers(pattern.members)
+            is XMLAllPattern -> inspectionMembers(pattern.members)
+            else -> listOf(pattern)
+        }
+    }
+
     private fun choiceNames(sequence: XMLSequencePattern): List<String> =
-        sequence.members.map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
+        inspectionMembers(sequence.members).map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
 
     private fun choiceNames(choiceGroup: XMLChoiceGroupPattern): List<List<String>> =
         choiceGroup.choices.map { choice ->
-            choice.map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
+            inspectionMembers(choice).map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
         }
 
     private object IncludeOptionalXMLNodes : XMLGenerationDecisions {
@@ -475,7 +488,7 @@ class WSDLWiringCharacterizationTest {
         val requestPattern = typeInfo.types.getValue("CommandType_retrieveCardStatusRequest") as XMLPattern
 
         assertXmlAttribute(requestPattern, "id", "(string)")
-        assertThat(requestPattern.pattern.nodes.filterIsInstance<XMLPattern>().map { it.pattern.name })
+        assertThat(inspectionMembers(requestPattern.pattern.nodes).filterIsInstance<XMLPattern>().map { it.pattern.name })
             .contains("productAccessArrangement")
     }
 
@@ -526,7 +539,7 @@ class WSDLWiringCharacterizationTest {
         val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Derived"))
         val typeInfo = soapElement.deriveSpecmaticTypes("DerivedType", emptyMap(), emptySet())
         val derivedPattern = typeInfo.types.getValue("DerivedType") as XMLPattern
-        val childNames = derivedPattern.pattern.nodes.filterIsInstance<XMLPattern>().map { it.pattern.name }
+        val childNames = inspectionMembers(derivedPattern.pattern.nodes).filterIsInstance<XMLPattern>().map { it.pattern.name }
 
         assertThat(childNames).containsExactly("id")
         assertXmlAttribute(derivedPattern, "traceId?", "(string)")
@@ -1298,7 +1311,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("HeaderType", emptyMap(), emptySet())
         val headerPattern = concreteRoot(typeInfo.types.getValue("HeaderType") as XMLPattern, "Header", "tns:Header", namespace)
 
-        val wildcard = headerPattern.pattern.nodes.filterIsInstance<XMLWildcardPattern>().single()
+        val wildcard = inspectionMembers(headerPattern.pattern.nodes).filterIsInstance<XMLWildcardPattern>().single()
         val sample = toXMLNode(
             """
             <tns:Header xmlns:tns="$namespace" xmlns:ext="urn:extension">

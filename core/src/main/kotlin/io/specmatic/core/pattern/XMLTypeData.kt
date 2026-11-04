@@ -85,6 +85,7 @@ data class XMLTypeData(
     val wsdlCompatibleTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlConcreteSubtypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlSubstitutionGroupMembers: Map<WSDLTypeName, WSDLSubstitutionGroupMember> = emptyMap(),
+    val occurrences: XMLOccurrenceRange? = null,
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()

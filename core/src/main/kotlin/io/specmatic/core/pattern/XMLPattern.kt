@@ -130,7 +130,28 @@ data class XMLPattern(
     fun withCurrentWSDLTypeOnly(): XMLPattern =
         copy(pattern = pattern.copy(wsdlTypeSelectionMode = WSDLTypeSelectionMode.CurrentTypeOnly))
 
+    // Share repetition mechanics with groups, without exposing a wrapper to XML element consumers.
+    private fun occurrenceParticle(): XMLParticlePattern = XMLParticlePattern(
+        copy(pattern = pattern.copy(occurrences = null)), requireNotNull(pattern.occurrences)
+    )
+
+    internal fun matchCandidates(values: List<Value>, resolver: Resolver): List<ConsumeResult<Value, Value>> =
+        if (pattern.occurrences != null) occurrenceParticle().matchCandidates(values, resolver)
+        else listOf(matches(values, resolver))
+
+    private fun restoreElementOccurrence(variant: Pattern): XMLPattern = when (variant) {
+        is XMLParticlePattern -> elementVariant(variant.member).let {
+            it.copy(pattern = it.pattern.copy(occurrences = variant.occurrences))
+        }
+        is XMLSequencePattern -> copy(pattern = pattern.copy(occurrences = XMLOccurrenceRange(0, 0)))
+        else -> elementVariant(variant)
+    }
+
+    private fun elementVariant(variant: Pattern): XMLPattern = variant as? XMLPattern
+        ?: copy(pattern = pattern.copy(attributes = pattern.attributes - TYPE_ATTRIBUTE_NAME, nodes = listOf(variant)))
+
     override fun matches(sampleData: List<Value>, resolver: Resolver): ConsumeResult<Value, Value> {
+        if (pattern.occurrences != null) return occurrenceParticle().matches(sampleData, resolver)
         val xmlValues = sampleData.filterIsInstance<XMLValue>()
         if (xmlValues.size != sampleData.size)
             return ConsumeResult(Failure("XMLPattern can only match XML values"))
@@ -467,6 +488,15 @@ data class XMLPattern(
 
         val sampleChildNodes = childNodesForMatching(sampleData)
 
+        if (pattern.nodes.any { it is XMLChildGenerationPattern && (it !is XMLPattern || it.pattern.occurrences != null) }) {
+            val candidates = xmlSequenceCandidates(pattern.nodes, sampleChildNodes, resolver)
+            val complete = candidates.firstOrNull { it.result.isSuccess() && it.remainder.isEmpty() }
+            if (complete != null) return complete.result
+            val closest = candidates.first()
+            return if (!closest.result.isSuccess()) closest.result
+                else closest.provisionalError?.result ?: (closest.remainder.first() as XMLValue).matchFailure()
+        }
+
         val results = pattern.nodes.scanIndexed(
             ConsumeResult<XMLValue, Value>(
                 Success(),
@@ -714,6 +744,7 @@ data class XMLPattern(
         generateXMLNodes(resolver, XMLGenerationState(decisions)).asSingleXMLNode()
 
     override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        if (pattern.occurrences != null) return occurrenceParticle().generateXMLNodes(resolver, state)
         val patternBeingGenerated = cyclePreventionPattern()
         if (patternBeingGenerated == this) {
             return generateXMLAfterDereferencing(resolver, state)
@@ -806,6 +837,7 @@ data class XMLPattern(
         state: XMLGenerationState
     ): GeneratedNodes? =
         when {
+            childPattern is XMLPattern && childPattern.pattern.occurrences != null -> childPattern.generateXMLNodes(resolver, state)
             childPattern.shouldSkipXMLNodeDueToCycleCutoff(resolver) -> GeneratedNodes.none(state)
             childPattern is XMLPattern && childPattern.isOptional() -> childPattern.generateOptionalChildWhenSelected(resolver, state)
             childPattern is XMLPattern && childPattern.occurMultipleTimes() -> childPattern.generateRepeatedChildXMLNodes(resolver, state)
@@ -830,6 +862,9 @@ data class XMLPattern(
         row: Row,
         resolver: Resolver
     ): Sequence<ReturnValue<Pattern>> {
+        if (pattern.occurrences != null) return occurrenceParticle().newBasedOn(row, resolver).map { variant ->
+            variant.ifValue { restoreElementOccurrence(it) }
+        }
         if (!pattern.isConcrete()) {
             val dereferenced = dereferenceType(resolver)
             if (dereferenced !is XMLPattern) {
@@ -958,6 +993,7 @@ data class XMLPattern(
         newBasedOnWithOccurrences(resolver).map { it.withoutXMLOccurrenceMarkers() as XMLPattern }
 
     private fun newBasedOnWithOccurrences(resolver: Resolver): Sequence<XMLPattern> {
+        if (pattern.occurrences != null) return occurrenceParticle().newBasedOn(resolver).map { restoreElementOccurrence(it) }
         val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
         if (concreteWSDLTypeCandidates.isNotEmpty()) {
             return concreteWSDLTypeCandidates.asSequence().flatMap { selectedPattern ->
@@ -1159,7 +1195,22 @@ data class XMLPattern(
         resolver: Resolver,
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
-        return newBasedOn(row, resolver).map { HasValue(it.value) }
+        if (pattern.occurrences != null) return occurrenceParticle().negativeBasedOn(row, resolver, config).map { variant ->
+            variant.ifValue { restoreElementOccurrence(it) }
+        }
+        if (!pattern.isConcrete()) {
+            return resolver.withCyclePrevention(cyclePreventionPattern(), returnNullOnCycle = canBeOmittedAfterCycle()) { childResolver ->
+                dereferenceType(childResolver).negativeBasedOn(row, childResolver, config)
+            } ?: emptySequence()
+        }
+        val occurrenceNegatives = pattern.nodes.asSequence().flatMapIndexed { index, child ->
+            resolver.withCyclePrevention(child, returnNullOnCycle = child is XMLPattern && child.canBeOmittedAfterCycle()) { childResolver ->
+                child.negativeBasedOn(row, childResolver, config).map { negative ->
+                    negative.ifValue<Pattern> { copy(pattern = pattern.copy(nodes = pattern.nodes.toMutableList().apply { this[index] = it })) }
+                }
+            } ?: emptySequence()
+        }
+        return newBasedOn(row, resolver).map { HasValue(it.value) } + occurrenceNegatives
     }
 
     private fun dereferenceType(resolver: Resolver): Pattern {
@@ -1185,6 +1236,7 @@ data class XMLPattern(
                         realName = this.pattern.realName,
                         attributes = attributes,
                         namespaceUri = this.pattern.namespaceUri,
+                        occurrences = this.pattern.occurrences,
                         wsdlSubstitutionGroupMembers = referred.pattern.wsdlSubstitutionGroupMembers + this.pattern.wsdlSubstitutionGroupMembers,
                     ),
                 )
@@ -1258,7 +1310,7 @@ data class XMLPattern(
         throw recursiveGenerationException(pattern)
     }
 
-    private fun canBeOmittedAfterCycle(): Boolean = occurMultipleTimes() || isOptional()
+    private fun canBeOmittedAfterCycle(): Boolean = pattern.occurrences?.allowsZero ?: (occurMultipleTimes() || isOptional())
 
     private fun Pattern.canReturnNullOnCycle(): Boolean = this is XMLPattern && canBeOmittedAfterCycle()
 
@@ -1352,6 +1404,14 @@ data class XMLPattern(
         typeStack: TypeStack
     ): Result {
         val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)
+        if (!pattern.isConcrete() || (otherResolvedPattern is XMLPattern && !otherResolvedPattern.pattern.isConcrete())) {
+            val pair = PairOfTypes(referredType, (otherResolvedPattern as? XMLPattern)?.referredType)
+            if (pair.hasNoNulls() && pair in typeStack) return Success()
+            val concrete = dereferenceType(thisResolver)
+            val otherConcrete = (otherResolvedPattern as? XMLPattern)?.dereferenceType(otherResolver) ?: otherResolvedPattern
+            return concrete.encompasses(otherConcrete, thisResolver, otherResolver, if (pair.hasNoNulls()) typeStack + pair else typeStack)
+        }
+
 
         return when (otherResolvedPattern) {
             is ExactValuePattern -> otherResolvedPattern.fitsWithin(
@@ -1361,43 +1421,15 @@ data class XMLPattern(
                 typeStack
             )
 
-            // TODO: BCC blind spot for top-level $ref XML bodies.
-            // When `application/xml` request/response bodies are `$ref`s to component schemas,
-            // toXMLPattern() returns a stub XMLPattern that only carries the `specmatic_type`
-            // attribute and has no child nodes. encompasses() then compares the two stubs:
-            // nodeNames match, attributes (both just `specmatic_type=Customer`) match, and
-            // child-node iteration is over empty lists — so any breakage *inside* the
-            // referenced component (e.g. a child property going from required to optional)
-            // goes undetected. Request matches() is unaffected because matchesXMLNode() calls
-            // dereferenceType() before deep-matching.
-            //
-            // Sketch of the fix (attempted in this PR, reverted because it needs more work):
-            //   1. In `encompasses`, before the deep compare, call
-            //      `this.dereferenceType(thisResolver)` and
-            //      `otherResolvedPattern.dereferenceType(otherResolver)`. If either changes,
-            //      recurse with the dereferenced patterns.
-            //   2. That alone yields correct *detection* but the source-location anchor lands
-            //      on the component header, not the child property. The component patterns
-            //      cached via `cacheComponentPattern` (see OpenApiSpecification.handleXmlReference
-            //      → convertAndCacheResolvedRef) are built by `toXMLPattern` but never passed
-            //      through `annotateXMLPattern`, so the cached Customer.name XMLPattern has no
-            //      `schemaPointer`. Fix: annotate at cache time using
-            //      `/components/schemas/<name>` as the base pointer (the existing JSON path
-            //      already does this — see annotateJsonObjectPattern call sites for shared
-            //      components).
-            //   3. mergeReferredPattern() in XMLPattern.kt copies `referred` and overrides
-            //      name/attributes from the referring stub — make sure it preserves the
-            //      referred pattern's `schemaPointer` and `attributePointers` (data-class copy
-            //      already does, but worth verifying after step 2).
-            //   4. Add BCC test fixtures back: ref-name-mandatory-old.yaml / -new.yaml with
-            //      response body $ref to a Customer component whose `name` toggles required.
-            //      Expected anchor: the new spec's `components.schemas.Customer.properties.name`
-            //      line (was 30:11 in the test fixture I drafted).
             is XMLPattern -> nodeNamesShouldBeEqual(otherResolvedPattern).ifSuccess {
                 attributesEncompass(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             }.ifSuccess {
                 thisOccurrenceEncompassesTheOther(this, otherResolvedPattern)
             }.ifSuccess {
+                if ((pattern.nodes + otherResolvedPattern.pattern.nodes).any { it is XMLChildGenerationPattern && (it !is XMLPattern || it.pattern.occurrences != null) }) {
+                    return@ifSuccess XMLSequencePattern(pattern.nodes).encompasses(
+                        XMLSequencePattern(otherResolvedPattern.pattern.nodes), thisResolver, otherResolver, typeStack)
+                }
                 val others = otherResolvedPattern.pattern.nodes.map { resolvedHop(it, otherResolver) }
                 val these = adapt(
                     adaptFromList(pattern.nodes.map { resolvedHop(it, thisResolver) }, thisResolver),
@@ -1555,6 +1587,10 @@ data class XMLPattern(
     }
 
     private fun thisOccurrenceEncompassesTheOther(thisOne: XMLPattern, otherOne: XMLPattern): Result {
+        if (thisOne.pattern.occurrences != null || otherOne.pattern.occurrences != null) {
+            return if (thisOne.pattern.occurrenceRange().encompasses(otherOne.pattern.occurrenceRange())) Success()
+            else Failure("XML occurrence range ${thisOne.pattern.occurrenceRange()} does not encompass ${otherOne.pattern.occurrenceRange()}")
+        }
         val thisTypeOccurrence = thisOne.pattern.getAttributeValue(OCCURS_ATTRIBUTE_NAME)
         val otherTypeOccurrence = otherOne.pattern.getAttributeValue(OCCURS_ATTRIBUTE_NAME)
 

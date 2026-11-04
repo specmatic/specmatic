@@ -14,14 +14,11 @@ interface XMLGenerationDecisions {
     fun numberOfMultipleXMLNodes(): Int = 1
 
     fun numberOfXMLNodesFor(minOccurs: Int, maxOccurs: Int?): Int {
-        val maximumOccurrences = maxOccurs ?: Int.MAX_VALUE
-        val requiredOccurrences = minOccurs.coerceAtMost(maximumOccurrences)
-
-        if (requiredOccurrences > 0) return requiredOccurrences
-        if (maximumOccurrences == 0) return 0
-
-        return if (includeOptionalXMLNode()) 1 else 0
+        return XMLOccurrenceRange(minOccurs, maxOccurs).representativeCount()
     }
+
+    fun numberOfXMLNodesFor(range: XMLOccurrenceRange): Int =
+        if (range.fitsIntBounds) numberOfXMLNodesFor(range.min, range.max) else range.representativeCount()
 
     fun chooseXMLChoiceBranch(choiceCount: Int): Int = kotlin.random.Random.nextInt(choiceCount)
 }

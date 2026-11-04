@@ -12,7 +12,6 @@ import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.fold.Item
-import kotlin.math.max
 
 data class XMLChoiceGroupPattern(
     val choices: List<List<Pattern>>,
@@ -20,6 +19,8 @@ data class XMLChoiceGroupPattern(
     val maxOccurs: Int? = 1,
     override val typeAlias: String? = null
 ) : Pattern, XMLChildGenerationPattern {
+    init { XMLOccurrenceRange(minOccurs, maxOccurs) }
+
     override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
         return visitor.alternativeSequences(
             case = AlternativeSequencesPatternCase(
@@ -50,68 +51,14 @@ data class XMLChoiceGroupPattern(
             return ConsumeResult(Failure("XMLChoiceGroupPattern can only match XML values"), sampleData)
         }
 
-        return matchOccurrences(xmlValues, resolver, 0).minByOrNull { it.remainder.size }
-            ?: ConsumeResult(Failure("Choice group did not match"), sampleData)
+        val candidates = matchCandidates(sampleData, resolver)
+        return candidates.firstOrNull { it.result.isSuccess() } ?: candidates.first()
     }
 
-    private fun matchOccurrences(
-        remaining: List<XMLValue>,
-        resolver: Resolver,
-        matchedCount: Int
-    ): List<ConsumeResult<Value, Value>> {
-        val results = mutableListOf<ConsumeResult<Value, Value>>()
-
-        if (matchedCount >= minOccurs) {
-            results += ConsumeResult(Success(), remaining)
+    internal fun matchCandidates(values: List<Value>, resolver: Resolver): List<ConsumeResult<Value, Value>> =
+        xmlRepetitionCandidates(this, occurrenceRange, values) { remaining ->
+            choices.ifEmpty { listOf(emptyList()) }.flatMap { alternative -> xmlSequenceCandidates(alternative, remaining, resolver) }
         }
-
-        val maxReached = maxOccurs?.let { matchedCount >= it } ?: false
-        if (maxReached) {
-            return results
-        }
-
-        choices.forEach { alternative ->
-            val matchedAlternative = matchAlternative(alternative, remaining, resolver)
-            when (matchedAlternative.result) {
-                is Success -> {
-                    val consumed = remaining.size - matchedAlternative.remainder.size
-                    if (consumed > 0) {
-                        results += matchOccurrences(
-                            matchedAlternative.remainder.filterIsInstance<XMLValue>(),
-                            resolver,
-                            matchedCount + 1
-                        )
-                    }
-                }
-
-                is Failure -> {
-                    if (matchedCount < minOccurs && results.none { it.result is Success }) {
-                        results += matchedAlternative
-                    }
-                }
-            }
-        }
-
-        return results
-    }
-
-    private fun matchAlternative(
-        alternative: List<Pattern>,
-        remaining: List<XMLValue>,
-        resolver: Resolver
-    ): ConsumeResult<Value, Value> {
-        val matched = alternative.fold(ConsumeResult<Value, Value>(Success(), remaining)) { consumeResult, pattern ->
-            when (consumeResult.result) {
-                is Failure -> consumeResult
-                else -> pattern.matches(consumeResult.remainder, resolver)
-            }
-        }
-
-        return when (matched.result) {
-            is Failure -> matched.copy(remainder = remaining)
-            else -> matched
-        }
-    }
 
     override fun generate(resolver: Resolver): Value =
         generateXMLNodes(resolver, XMLGenerationState()).asContainer()
@@ -189,7 +136,8 @@ data class XMLChoiceGroupPattern(
         row: Row,
         resolver: Resolver,
         config: NegativePatternConfiguration
-    ): Sequence<ReturnValue<Pattern>> = emptySequence()
+    ): Sequence<ReturnValue<Pattern>> = if (emitsNoXMLNodes()) emptySequence() else occurrenceRange.negativeCounts().asSequence()
+        .map { count -> HasValue(XMLParticlePattern(copy(minOccurs = 1, maxOccurs = 1), XMLOccurrenceRange(count, count))) }
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> {
         return representativeMaterializedSequences { choiceBranch ->
@@ -233,6 +181,7 @@ data class XMLChoiceGroupPattern(
     private fun representativeMaterializedSequences(
         examplesForChoiceBranch: (List<Pattern>) -> Sequence<List<Pattern>>
     ): Sequence<List<List<Pattern>>> {
+        if (emitsNoXMLNodes()) return sequenceOf(emptyList())
         return representativeOccurrenceCounts().asSequence().flatMap { occurrenceCount ->
             representativeChoiceSelections(occurrenceCount).asSequence().flatMap { selectedBranches ->
                 materializedVariantsFor(selectedBranches, examplesForChoiceBranch)
@@ -240,14 +189,7 @@ data class XMLChoiceGroupPattern(
         }
     }
 
-    private fun representativeOccurrenceCounts(): List<Int> {
-        val upperBound = maxOccurs ?: max(minOccurs, 2)
-        return listOfNotNull(
-            0.takeIf { minOccurs == 0 },
-            minOccurs.takeIf { minOccurs > 0 },
-            upperBound.takeIf { upperBound > minOccurs }
-        ).distinct()
-    }
+    private fun representativeOccurrenceCounts(): List<Int> = occurrenceRange.positiveCounts().map { it.intValueExact() }.sorted()
 
     private fun representativeChoiceSelections(occurrenceCount: Int): List<List<List<Pattern>>> {
         if (occurrenceCount == 0) {
@@ -311,13 +253,14 @@ data class XMLChoiceGroupPattern(
         otherResolver: Resolver,
         typeStack: TypeStack
     ): Result {
-        return encompassesResolved(
+        val structural = encompassesResolved(
             resolvedHop(otherPattern, otherResolver),
             otherPattern,
             thisResolver,
             otherResolver,
             typeStack
         )
+        return if (structural.isSuccess()) structural else xmlGroupEncompasses(this, resolvedHop(otherPattern, otherResolver), thisResolver, otherResolver, typeStack)
     }
 
     private fun encompassesResolved(
@@ -517,12 +460,8 @@ data class XMLSequencePattern(
     }
 
     override fun matches(sampleData: List<Value>, resolver: Resolver): ConsumeResult<Value, Value> {
-        return members.fold(ConsumeResult<Value, Value>(Success(), sampleData)) { consumeResult, pattern ->
-            when (consumeResult.result) {
-                is Failure -> consumeResult
-                is Success -> pattern.matches(consumeResult.remainder, resolver)
-            }
-        }
+        val candidates = xmlSequenceCandidates(members, sampleData, resolver)
+        return candidates.firstOrNull { it.result.isSuccess() } ?: candidates.first()
     }
 
     override fun generate(resolver: Resolver): Value =
@@ -541,15 +480,22 @@ data class XMLSequencePattern(
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
-        sequenceOf(HasValue(this))
+        listCombinations(members.map { member -> HasValue(member.newBasedOn(row, resolver).map { it.value }) })
+            .map { combination -> combination.ifValue { XMLSequencePattern(it) } }
 
     override fun negativeBasedOn(
         row: Row,
         resolver: Resolver,
         config: NegativePatternConfiguration
-    ): Sequence<ReturnValue<Pattern>> = emptySequence()
+    ): Sequence<ReturnValue<Pattern>> = members.asSequence().flatMapIndexed { index, member ->
+        member.negativeBasedOn(row, resolver, config).map { negative ->
+            negative.ifValue { XMLSequencePattern(members.toMutableList().apply { this[index] = it }) }
+        }
+    }
 
-    override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
+    override fun newBasedOn(resolver: Resolver): Sequence<Pattern> =
+        listCombinations(members.map { member -> HasValue(member.newBasedOn(resolver)) })
+            .map { XMLSequencePattern(it.value) }
 
     override fun parse(value: String, resolver: Resolver): Value {
         return XMLPattern("<sequence>$value</sequence>").parse(value, resolver)
@@ -566,7 +512,7 @@ data class XMLSequencePattern(
         typeStack: TypeStack
     ): Result {
         val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)
-        return when (otherResolvedPattern) {
+        val structural = when (otherResolvedPattern) {
             is JSONArrayPattern -> Failure("Expected XML sequence, got ${otherResolvedPattern.typeName}")
             is XMLChoiceGroupPattern -> encompassesChoiceGroup(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             is XMLSubstitutionGroupPattern -> encompassesSubstitutionGroup(otherResolvedPattern, thisResolver, otherResolver, typeStack)
@@ -575,6 +521,8 @@ data class XMLSequencePattern(
             is ListPattern -> encompassesSequence(listOf(otherResolvedPattern), thisResolver, otherResolver, typeStack)
             else -> encompassesSequence(listOf(otherResolvedPattern), thisResolver, otherResolver, typeStack)
         }
+        val otherContent = if (otherResolvedPattern is XMLPattern) XMLSequencePattern(otherResolvedPattern.pattern.nodes) else otherResolvedPattern
+        return if (structural.isSuccess()) structural else xmlGroupEncompasses(this, otherContent, thisResolver, otherResolver, typeStack)
     }
 
     private fun encompassesChoiceGroup(
@@ -624,25 +572,26 @@ data class XMLSequencePattern(
         otherResolver: Resolver,
         typeStack: TypeStack
     ): Result {
-        val consumedSequence = members.fold(ConsumeResult<Pattern, Pattern>(Success(), otherSequence)) { consumeResult, member ->
-            when (consumeResult.result) {
-                is Failure -> consumeResult
-                is Success -> member.encompasses(
-                    consumeResult.remainder,
-                    thisResolver,
-                    otherResolver,
-                    "XML sequence length ${members.size} does not encompass ${otherSequence.size}",
-                    typeStack
-                )
+        val these = xmlCompatibilitySequence(members)
+        val others = xmlCompatibilitySequence(otherSequence)
+        data class SequencePosition(val encompassingIndex: Int, val encompassedIndex: Int)
+        val memo = mutableMapOf<SequencePosition, Result>()
+        fun compare(myIndex: Int, otherIndex: Int): Result = memo.getOrPut(SequencePosition(myIndex, otherIndex)) {
+            when {
+                myIndex == these.size -> if (otherIndex == others.size) Success() else Failure("Unexpected XML sequence members")
+                otherIndex == others.size -> if (these.drop(myIndex).all { it.matches(emptyList(), thisResolver).result.isSuccess() }) Success()
+                    else Failure("Required XML sequence members are absent")
+                else -> {
+                    val member = these[myIndex]
+                    val consumed = member.encompasses(others.drop(otherIndex), thisResolver, otherResolver, "Required XML sequence member missing", typeStack)
+                    val matchedRest = if (consumed.result.isSuccess()) compare(myIndex + 1, others.size - consumed.remainder.size) else consumed.result
+                    if (matchedRest.isSuccess()) matchedRest
+                    else if (member.matches(emptyList(), thisResolver).result.isSuccess()) compare(myIndex + 1, otherIndex)
+                    else matchedRest
+                }
             }
         }
-
-        return when {
-            consumedSequence.result is Failure -> consumedSequence.result
-            consumedSequence.remainder.isNotEmpty() ->
-                Failure("XML sequence length ${members.size} does not encompass ${otherSequence.size}")
-
-            else -> Success()
-        }
+        val structural = compare(0, 0)
+        return if (structural.isSuccess()) structural else xmlGroupEncompasses(this, XMLSequencePattern(otherSequence), thisResolver, otherResolver, typeStack)
     }
 }
