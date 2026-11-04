@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.util.stream.Stream
@@ -2639,6 +2640,124 @@ paths:
 
         val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         assertThat(result.success()).isTrue()
+    }
+
+    @Nested
+    inner class ResponsePropertyBounds {
+        @ParameterizedTest
+        @CsvSource(
+            value = [
+                """minProperties | 2 | 1 | This is an object with at least 1 properties in the new specification response but an object with at least 2 properties in the old specification""",
+                """maxProperties | 2 | 3 | This is an object with at most 3 properties in the new specification response but an object with at most 2 properties in the old specification"""
+            ],
+            delimiter = '|',
+            ignoreLeadingAndTrailingWhitespace = true
+        )
+        fun `loosening a response property bound should be backward incompatible`(
+            bound: String,
+            oldLimit: Int,
+            newLimit: Int,
+            expectedMessage: String
+        ) {
+            val oldSpec = responseSpecWith(bound, oldLimit)
+            val newSpec = responseSpecWith(bound, newLimit)
+            assertThat(newSpec).isNotEqualTo(oldSpec)
+
+            val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+            val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
+            val results = testBackwardCompatibility(older, newer, InsightsReportOptions())
+
+            assertBackwardCompatibilityFailure(
+                results = results,
+                expectedReport = """
+                In scenario "Search pets. Response: Search accepted"
+                API: POST /pets/search -> 200
+
+                  >> RESPONSE.BODY
+
+                      R1003: Constraint violation
+                      Documentation: https://docs.specmatic.io/rules#r1003
+                      Summary: The value does not satisfy the constraints defined in the specification
+
+                      $expectedMessage
+                """
+            )
+        }
+
+        private fun responseSpecWith(bound: String, limit: Int): String = """
+        openapi: 3.0.3
+        info:
+          title: Pet Shelter API
+          version: 1.0.0
+        paths:
+          /pets/search:
+            post:
+              summary: Search pets
+              responses:
+                '200':
+                  description: Search accepted
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        additionalProperties: false
+                        $bound: $limit
+                        properties:
+                          lastSeen:
+                            type: string
+                          cursor:
+                            type: string
+                          next:
+                            type: string
+        """.trimIndent()
+    }
+
+    @Test
+    fun `backward compatibility should pass with min and max properties sspecified for an object schema`() {
+        val oldSpec = """
+        openapi: 3.0.3
+        info:
+          title: Pet Shelter
+          version: 1.0.0
+        paths:
+          /pets/search:
+            post:
+              summary: Search pets
+              description: Search pets using optional filters
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        lastSeen:
+                          oneOf:
+                            - type: string
+                            - type: object
+                              minProperties: 1
+                              maxProperties: 2
+                              properties:
+                                before:
+                                  type: string
+                                after:
+                                  type: string
+              responses:
+                '202':
+                  description: Search accepted
+        """.trimIndent()
+
+        val newSpec = oldSpec.replace(
+            "description: Search pets using optional filters",
+            "description: Search pets using optional filters."
+        )
+
+        assertThat(newSpec).isNotEqualTo(oldSpec)
+        val oldContract = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newContract = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
+
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
     }
 
     @Test
