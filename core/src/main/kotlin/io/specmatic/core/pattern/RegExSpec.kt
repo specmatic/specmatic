@@ -3,6 +3,10 @@ package io.specmatic.core.pattern
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.regex.OpenApiRegexAnchorNormalizer
 import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
+import io.specmatic.core.pattern.regex.RegexLookaroundCompilation
+import io.specmatic.core.pattern.regex.RegexLookaroundCompiler
+import io.specmatic.core.pattern.regex.RegexScanner
+import io.specmatic.core.pattern.regex.RegexToken
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -18,11 +22,23 @@ enum class RegexMatchMode {
 
 class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH) {
     private val originalRegex = regex
-    private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
+    private val regexGenerator = regex?.let(::createRegexGenerator)
     private val regexForRuntimeMatch = originalRegex?.let { Regex(it.toRuntimeRegex(matchMode)) }
 
     init {
         validateRegex()
+    }
+
+    private fun createRegexGenerator(expression: String): RegexBasedStringGenerator {
+        when (val result = RegexLookaroundCompiler(matchMode, ::cleanRegularRegexContent).compile(expression)) {
+            RegexLookaroundCompilation.NotApplicable -> Unit
+            is RegexLookaroundCompilation.Compiled -> return RegexBasedStringGenerator(expression, result.automaton)
+            is RegexLookaroundCompilation.Unsupported -> {
+                logger.log("WARNING: Cannot compile lookarounds in regex $expression: ${result.reason}. Using existing regex generation.")
+            }
+        }
+
+        return RegexBasedStringGenerator(cleanRegex(expression))
     }
 
     private fun validateRegex() {
@@ -107,14 +123,20 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     private fun cleanRegex(regex: String): String {
-        return regex
+        val preProcessedRegex = regex
             .removeOuterAnchors()
             .removePrefix(WORD_BOUNDARY)
             .removeSuffix(WORD_BOUNDARY)
+
+        return cleanRegularRegexContent(preProcessedRegex)
+    }
+
+    internal fun cleanRegularRegexContent(regex: String): String {
+        return regex
             .replaceRegexLowerBounds()
             .replaceShorthandCharacterClasses()
             .requote()
-            .replaceNonCapturingGroups()
+            .normalizeRegularTokens()
             .replaceUnescapedDot()
     }
 
@@ -230,47 +252,17 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
         }
     }
 
-    private fun String.replaceNonCapturingGroups(): String {
-        val result = StringBuilder(length)
-        var insideCharClass = false
-        var pendingEscape = false
-        var index = 0
-
-        while (index < length) {
-            val ch = this[index]
-            when {
-                pendingEscape -> {
-                    result.append(ch)
-                    pendingEscape = false
-                    index++
-                }
-                ch == '\\' -> {
-                    pendingEscape = true
-                    result.append(ch)
-                    index++
-                }
-                ch == '[' -> {
-                    insideCharClass = true
-                    result.append(ch)
-                    index++
-                }
-                ch == ']' -> {
-                    insideCharClass = false
-                    result.append(ch)
-                    index++
-                }
-                !insideCharClass && ch == '(' && index + 2 < length && this[index + 1] == '?' && this[index + 2] == ':' -> {
-                    result.append('(')
-                    index += 3
-                }
-                else -> {
-                    result.append(ch)
-                    index++
-                }
+    private fun String.normalizeRegularTokens(): String {
+        return RegexScanner().scan(this).tokens.joinToString("") { token ->
+            val text = token.text(this)
+            when (token) {
+                is RegexToken.GroupStart.Named -> "("
+                is RegexToken.GroupStart.Regular -> if (text == "(?:") "(" else text
+                // Preference modifiers do not change repetition counts: a+? -> a+; literal question marks stay intact.
+                is RegexToken.Quantifier -> if (text.length > 1 && text.endsWith('?')) text.dropLast(1) else text
+                else -> text
             }
         }
-
-        return result.toString()
     }
 
     private fun String.replaceEcmaEndAssertions(): String {

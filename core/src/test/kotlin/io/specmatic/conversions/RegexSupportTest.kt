@@ -21,6 +21,46 @@ class RegexSupportTest {
     private val regex = "[0-9a-f]{24}"
 
     @Test
+    fun `OpenAPI password lookaheads generate valid request bodies`() {
+        val password = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z0-9]).*$"
+        val feature = OpenApiSpecification.fromYAML(
+            yamlContent = """
+            openapi: 3.0.1
+            info:
+              title: Password API
+              version: "1"
+            paths:
+              /password:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      text/plain:
+                        schema:
+                          type: string
+                          minLength: 8
+                          maxLength: 20
+                          pattern: '$password'
+                  responses:
+                    '204':
+                      description: Accepted
+            """.trimIndent(),
+            openApiFilePath = "./openapi.yaml"
+        ).toFeature()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val value = request.body.toStringLiteral()
+                assertThat(value.length).isBetween(8, 20)
+                assertThat(Regex(password).containsMatchIn(value)).isTrue()
+                return HttpResponse(204)
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
     fun `invalid regex results in exception`() {
         assertThatThrownBy {
         val feature = OpenApiSpecification.fromYAML(

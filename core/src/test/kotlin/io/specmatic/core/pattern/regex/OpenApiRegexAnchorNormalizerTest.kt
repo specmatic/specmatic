@@ -15,6 +15,16 @@ internal class OpenApiRegexAnchorNormalizerTest {
     private val wholeValueNormalizer = OpenApiRegexAnchorNormalizer(allowUnanchoredSides = false)
 
     @Nested
+    inner class CustomSearchContext {
+        @ParameterizedTest
+        @CsvSource(delimiter = '→', value = ["^a→a[ab]*", "a$→[ab]*a", "^a$→a"])
+        fun `uses the supplied context only for unanchored sides`(source: String, expected: String) {
+            val customNormalizer = OpenApiRegexAnchorNormalizer(anyCharacterSequence = "[ab]*")
+            assertThat(customNormalizer.normalize(source)).isEqualTo(OpenApiRegexAnchorNormalizer.Result.Normalized(expected))
+        }
+    }
+
+    @Nested
     inner class FullyAnchoredPatterns {
         @ParameterizedTest
         @CsvSource(
