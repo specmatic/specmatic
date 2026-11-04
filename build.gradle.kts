@@ -1,5 +1,5 @@
 import io.specmatic.gradle.extensions.RepoType
-import io.specmatic.gradle.vuln.RootFSVulnScanTask
+import io.specmatic.gradle.vuln.AbstractVulnScanTask
 
 plugins {
     id("io.specmatic.gradle")
@@ -36,7 +36,7 @@ subprojects {
 
 project(":specmatic-executable") {
     val vexFile = rootProject.file("vex/specmatic.openvex.json")
-    tasks.withType<RootFSVulnScanTask>().configureEach {
+    tasks.withType<AbstractVulnScanTask>().configureEach {
         inputs.file(vexFile)
         extraArgs.addAll(listOf("--vex", vexFile.absolutePath))
     }
