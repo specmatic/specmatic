@@ -12,6 +12,6 @@
     "headers": {
       "Content-Type": "application/soap+xml"
     },
-    "body": "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"><env:Body><DataResponse><output>&lt;result&gt;OK&lt;/result&gt;</output></DataResponse></env:Body></env:Envelope>"
+    "body": "<env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"><env:Body><ns0:DataResponse xmlns:ns0=\"http://www.example.com/data\"><output>&lt;result&gt;OK&lt;/result&gt;</output></ns0:DataResponse></env:Body></env:Envelope>"
   }
 }

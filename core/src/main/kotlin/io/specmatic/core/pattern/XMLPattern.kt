@@ -24,6 +24,7 @@ private const val SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/env
 
 private sealed class WSDLTypeSelection {
     data class Use(val pattern: Pattern) : WSDLTypeSelection()
+    data class MalformedQName(val value: String, val reason: String) : WSDLTypeSelection()
     data class Unknown(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
     data class Invalid(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
     data class Abstract(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
@@ -45,7 +46,8 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
         isSOAP = isSOAP,
         namespaceUri = node.elementNamespaceUriOrNull(),
         isSOAPHeader = isSOAPHeader,
-        attributeNamespaceUris = attributeNamespaceUriMap(node)
+        attributeNamespaceUris = attributeNamespaceUriMap(node),
+        namespaceBindings = node.namespaces,
     )
 }
 
@@ -173,7 +175,7 @@ data class XMLPattern(
         }
 
         val nextXMLValue = xmlValues.firstOrNull() ?: return true
-        return nextXMLValue !is XMLNode || !prefixLessComparison(nextXMLValue)
+        return nextXMLValue !is XMLNode || !hasSameExpandedName(nextXMLValue)
     }
 
     private fun matchesRequiredNode(
@@ -193,7 +195,7 @@ data class XMLPattern(
             matches(it, resolver) is Success
         }
 
-        return if (remainder.isNotEmpty() && remainder.first().let { it is XMLNode && prefixLessComparison(it) }) {
+        return if (remainder.isNotEmpty() && remainder.first().let { it is XMLNode && hasSameExpandedName(it) }) {
             ConsumeResult(matches(remainder.first(), resolver), remainder)
         } else if (remainder.isNotEmpty()) {
             val provisionalError = ProvisionalError<Value>(
@@ -217,14 +219,15 @@ data class XMLPattern(
         when (val result = matches(xmlValue, resolver)) {
             is Success -> ConsumeResult(Success(), xmlValues.drop(1))
             is Failure -> when {
-                xmlValue is XMLNode && prefixLessComparison(xmlValue) -> ConsumeResult(result, xmlValues)
+                xmlValue is XMLNode && hasSameExpandedName(xmlValue) -> ConsumeResult(result, xmlValues)
                 else -> ConsumeResult(Success(), xmlValues, ProvisionalError(result, this, xmlValue))
             }
         }
     }
 
-    private fun prefixLessComparison(xmlValue: XMLNode) =
-        xmlValue.name.substringAfter(":") == this.pattern.name
+    internal fun hasSameExpandedName(xmlValue: XMLNode): Boolean =
+        xmlValue.name == pattern.name && (pattern.requiredNamespaceUri == null ||
+            xmlValue.elementNamespaceUriOrNull().orEmpty() == pattern.requiredNamespaceUri)
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is XMLNode) return dataTypeMismatchResult(
@@ -244,6 +247,9 @@ data class XMLPattern(
     }
 
     private fun matchesXMLNode(sampleData: XMLNode, resolver: Resolver): Result {
+        if (pattern.requiredNamespaceUri != null && pattern.isSOAP && pattern.name == SOAP_ENVELOPE) {
+            sampleData.namespaceValidationFailure()?.let { return it.breadCrumb(pattern.name, resolver.locate(schemaPointer)) }
+        }
         val matchingType = dereferenceType(resolver)
         val sampleDataWithoutEmptyHeader = dropEmptySOAPHeader(sampleData)
 
@@ -252,6 +258,7 @@ data class XMLPattern(
                 val matchResult = when (selectedType) {
                     is WSDLTypeSelection.Unknown,
                     is WSDLTypeSelection.Invalid,
+                    is WSDLTypeSelection.MalformedQName,
                     is WSDLTypeSelection.Abstract -> failureForWSDLTypeSelection(selectedType)
 
                     is WSDLTypeSelection.Use -> matchWithSelectedType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
@@ -269,9 +276,13 @@ data class XMLPattern(
             }
         }
 
-        if (pattern.isNillable()) {
-            if (sampleData.childNodes.isEmpty())
-                return Success()
+        if (pattern.isNillable() && sampleData.childNodes.isEmpty()) {
+            return when {
+                pattern.requiredNamespaceUri == null -> Success()
+                matchingType is XMLPattern -> matchingType.matchEmptyNillableNode(sampleData, resolver)
+                matchingType is AnyPattern -> matchingType.matches(sampleData, resolver)
+                else -> matchEmptyNillableNode(sampleData, resolver)
+            }
         }
 
         return when (matchingType) {
@@ -302,7 +313,7 @@ data class XMLPattern(
         return when (matchingType) {
             is XMLPattern -> {
                 if (matchingType.pattern.isNillable() && sampleData.childNodes.isEmpty()) {
-                    return Success()
+                    return matchingType.matchEmptyNillableNode(sampleData, resolver)
                 }
 
                 matchingType.matchName(sampleData, resolver).ifSuccess {
@@ -315,6 +326,18 @@ data class XMLPattern(
             }
 
             else -> matchWithType(matchingType, sampleData, resolver)
+        }
+    }
+
+    private fun matchEmptyNillableNode(sampleData: XMLNode, resolver: Resolver): Result {
+        if (pattern.requiredNamespaceUri == null) return Success()
+        val sampleWithoutNilMetadata = sampleData.copy(attributes = sampleData.attributes.filterNot { (name, _) ->
+            name.localName() == "nil" && sampleData.attributeNamespaceUri(name) == XML_SCHEMA_INSTANCE_NAMESPACE
+        })
+        return matchName(sampleData, resolver).ifSuccess {
+            matchNamespaces(sampleData)
+        }.ifSuccess {
+            matchAttributes(sampleWithoutNilMetadata, resolver)
         }
     }
 
@@ -363,6 +386,7 @@ data class XMLPattern(
 
     private fun failureForWSDLTypeSelection(selectedType: WSDLTypeSelection): Failure {
         return when (selectedType) {
+            is WSDLTypeSelection.MalformedQName -> Failure("Invalid xsi:type '${selectedType.value}': ${selectedType.reason}")
             is WSDLTypeSelection.Unknown -> unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType)
             is WSDLTypeSelection.Invalid -> invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType)
             is WSDLTypeSelection.Abstract -> abstractXSITypeResult(selectedType.assertedType, selectedType.declaredType)
@@ -371,8 +395,19 @@ data class XMLPattern(
     }
 
     private fun selectWSDLType(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
-        sampleData.xsiTypeName()?.let { assertedType ->
-            return selectWSDLType(assertedType, declaredType, resolver)
+        val assertedType = try {
+            sampleData.xsiTypeName()
+        } catch (exception: ContractException) {
+            if (pattern.requiredNamespaceUri != null) {
+                return WSDLTypeSelection.MalformedQName(
+                    sampleData.attributeValueByNamespace(XML_SCHEMA_INSTANCE_NAMESPACE, "type")!!.string,
+                    exception.message.orEmpty()
+                )
+            }
+            null
+        }
+        assertedType?.let {
+            return selectWSDLType(it, declaredType, resolver)
         }
 
         return selectWSDLTypeUsingSubstitutionGroupElementName(sampleData, declaredType, resolver)
@@ -472,7 +507,8 @@ data class XMLPattern(
                 .asSequence()
                 .filterIsInstance<XMLNode>()
                 .firstOrNull { mightBeSOAPHeader ->
-                    mightBeSOAPHeader.name == "Header" && mightBeSOAPHeader.childNodes.isEmpty()
+                    mightBeSOAPHeader.name == "Header" && mightBeSOAPHeader.childNodes.isEmpty() &&
+                        (pattern.requiredNamespaceUri == null || mightBeSOAPHeader.elementNamespaceUriOrNull().orEmpty() == pattern.requiredNamespaceUri)
                 }
 
         val sampleDataWithoutEmptyHeader = soapHeader?.let { sampleData.remove(it) } ?: sampleData
@@ -483,7 +519,9 @@ data class XMLPattern(
         sampleData: XMLNode,
         resolver: Resolver,
     ): Result {
-        if (sampleData.name.lowercase() == SOAP_BODY && sampleData.firstNode() is XMLNode && sampleData.firstNode()?.name?.lowercase() == SOAP_FAULT)
+        val firstNode = sampleData.firstNode() as? XMLNode
+        if (sampleData.name.lowercase() == SOAP_BODY && firstNode?.name?.lowercase() == SOAP_FAULT &&
+            (pattern.requiredNamespaceUri == null || firstNode.elementNamespaceUriOrNull().orEmpty() == pattern.requiredNamespaceUri))
             return Success()
 
         val sampleChildNodes = childNodesForMatching(sampleData)
@@ -611,10 +649,15 @@ data class XMLPattern(
     }
 
     private fun matchNamespaces(sampleData: XMLNode): Result {
-        return PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(
-            Success(),
-            "Removed namespace validation but we should put it back"
-        )
+        val requiredNamespace = pattern.requiredNamespaceUri ?: return Success()
+        val actualNamespace = sampleData.elementNamespaceUriOrNull().orEmpty()
+        return when {
+            sampleData.namespacePrefix.isNotBlank() && sampleData.elementNamespaceUriOrNull().isNullOrBlank() ->
+                Failure("XML namespace prefix ${sampleData.namespacePrefix} cannot be resolved for ${sampleData.realName}")
+            requiredNamespace != actualNamespace ->
+                Failure("Expected XML namespace '${requiredNamespace.ifEmpty { "(none)" }}' for ${pattern.name}, got '${actualNamespace.ifEmpty { "(none)" }}'")
+            else -> Success()
+        }
     }
 
     private fun matchAttributes(sampleData: XMLNode, resolver: Resolver): Result {
@@ -640,16 +683,33 @@ data class XMLPattern(
         }
 
         val missingKey = resolver.findKeyError(
-            ignoreXMLNamespaces(patternAttributesWithoutXmlns),
-            ignoreXMLNamespaces(sampleAttributesForKeyCheck)
+            patternAttributesWithoutXmlns.mapKeys { patternAttributeName(it.key) },
+            sampleAttributesForKeyCheck.mapKeys { sampleAttributeName(it.key, sampleData) }
         )
         if (missingKey != null) {
-            val keyLocation = resolver.locate(attributePointers[missingKey.name] ?: attributePointers[withoutOptionality(missingKey.name)])
+            val declaredName = patternAttributesWithoutXmlns.keys.firstOrNull {
+                withoutOptionality(patternAttributeName(it)) == withoutOptionality(missingKey.name)
+            }
+            val keyLocation = resolver.locate(attributePointers[declaredName] ?: attributePointers[declaredName?.let(::withoutOptionality)])
+            if (pattern.requiredNamespaceUri != null && declaredName != null) {
+                val differentlyQualified = sampleAttributesWithoutXmlns.keys.firstOrNull {
+                    it.localName() == withoutOptionality(declaredName).localName() &&
+                        sampleAttributeName(it, sampleData) != withoutOptionality(patternAttributeName(declaredName))
+                }
+                if (differentlyQualified != null) {
+                    return Failure("Expected XML attribute ${withoutOptionality(patternAttributeName(declaredName))}, got ${sampleAttributeName(differentlyQualified, sampleData)}")
+                        .breadCrumb(withoutOptionality(declaredName), keyLocation)
+                }
+            }
             return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
                 .breadCrumb(missingKey.name, keyLocation)
         }
 
-        return matchAttributes(patternAttributesWithoutXmlns, sampleAttributesWithoutXmlns, resolver)
+        return matchAttributes(
+            patternAttributesWithoutXmlns.mapKeys { patternAttributeName(it.key) },
+            sampleAttributesWithoutXmlns.mapKeys { sampleAttributeName(it.key, sampleData) },
+            resolver
+        )
     }
 
     private fun isAllowedByAttributeWildcard(
@@ -657,11 +717,17 @@ data class XMLPattern(
         sampleData: XMLNode,
         declaredAttributes: Map<String, Pattern>
     ): Boolean {
-        val declaredAttributeNames = declaredAttributes.keys.map(::withoutOptionality).toSet()
+        val declaredAttributeNames = declaredAttributes.keys.map { withoutOptionality(patternAttributeName(it)) }.toSet()
 
-        return withoutOptionality(attributeName) !in declaredAttributeNames &&
+        return withoutOptionality(sampleAttributeName(attributeName, sampleData)) !in declaredAttributeNames &&
                 pattern.attributeWildcards.any { it.allows(attributeName, sampleData) }
     }
+
+    private fun patternAttributeName(name: String): String =
+        if (pattern.requiredNamespaceUri == null) name else expandedAttributeName(name, pattern.attributeNamespaceUri(name))
+
+    private fun sampleAttributeName(name: String, owner: XMLNode): String =
+        if (pattern.requiredNamespaceUri == null) name else expandedAttributeName(name, owner.attributeNamespaceUri(name))
 
     private fun <T> dropSOAP11MetadataAttributes(
         attributes: Map<String, T>,
@@ -784,7 +850,7 @@ data class XMLPattern(
         val generatedChildNodes = resolvedPattern.generateChildrenForCurrentNode(resolver, state, pattern.name)
 
         return GeneratedNodes.fromGeneratedValue(
-            XMLNode(pattern.realName, generatedAttributes, generatedChildNodes.nodes, inheritNamespacesInChildren = true),
+            resolvedPattern.pattern.generatedXMLNode(generatedAttributes, generatedChildNodes.nodes),
             generatedChildNodes.nextState
         )
     }
@@ -1099,6 +1165,7 @@ data class XMLPattern(
 
             is WSDLTypeSelection.Unknown,
             is WSDLTypeSelection.Invalid,
+            is WSDLTypeSelection.MalformedQName,
             is WSDLTypeSelection.Abstract -> throw ContractException(
                 failureForWSDLTypeSelection(selectedType).toFailureReport()
             )
@@ -1176,17 +1243,19 @@ data class XMLPattern(
     }
 
     private fun withElementNameFrom(node: XMLNode): XMLPattern =
-        withElementName(node.name, node.realName, node.elementNamespaceUriOrNull())
+        withElementName(node.name, node.realName, node.elementNamespaceUriOrNull(),
+            if (pattern.requiredNamespaceUri != null) node.elementNamespaceUriOrNull().orEmpty() else null)
 
     private fun withElementNameFrom(typeData: XMLTypeData): XMLPattern =
-        withElementName(typeData.name, typeData.realName, typeData.namespaceUri)
+        withElementName(typeData.name, typeData.realName, typeData.namespaceUri, typeData.requiredNamespaceUri)
 
-    private fun withElementName(name: String, realName: String, namespaceUri: String?): XMLPattern =
+    private fun withElementName(name: String, realName: String, namespaceUri: String?, requiredNamespaceUri: String?): XMLPattern =
         copy(
             pattern = pattern.copy(
                 name = name,
                 realName = realName,
                 namespaceUri = namespaceUri,
+                requiredNamespaceUri = requiredNamespaceUri,
             )
         )
 
@@ -1236,6 +1305,7 @@ data class XMLPattern(
                         realName = this.pattern.realName,
                         attributes = attributes,
                         namespaceUri = this.pattern.namespaceUri,
+                        requiredNamespaceUri = this.pattern.requiredNamespaceUri,
                         occurrences = this.pattern.occurrences,
                         wsdlSubstitutionGroupMembers = referred.pattern.wsdlSubstitutionGroupMembers + this.pattern.wsdlSubstitutionGroupMembers,
                     ),
@@ -1479,24 +1549,24 @@ data class XMLPattern(
         typeStack: TypeStack,
     ): Result {
         val thisAttributes =
-            pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") }
+            pattern.attributes.filterNot { isXMLPatternMetadataAttribute(it.key) }
         val otherAttributes = otherResolvedPattern.pattern.attributes.filterNot {
-            it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:")
+            isXMLPatternMetadataAttribute(it.key)
         }
 
         val declaredAttributeResult = mapEncompassesMap(
-            thisAttributes,
-            otherAttributes,
+            thisAttributes.mapKeys { patternAttributeName(it.key) },
+            otherAttributes.mapKeys { otherResolvedPattern.patternAttributeName(it.key) },
             thisResolver,
             otherResolver,
             typeStack,
-            otherPropertyPointers = otherResolvedPattern.attributePointers,
-            thisPropertyPointers = this.attributePointers
+            otherPropertyPointers = otherResolvedPattern.attributePointers.mapKeys { otherResolvedPattern.patternAttributeName(it.key) },
+            thisPropertyPointers = this.attributePointers.mapKeys { patternAttributeName(it.key) }
         )
 
-        val thisAttributeNames = thisAttributes.keys.map(::withoutOptionality).toSet()
+        val thisAttributeNames = thisAttributes.keys.map { withoutOptionality(patternAttributeName(it)) }.toSet()
         val extraAttributeFailures =
-            otherAttributes.keys.filter { withoutOptionality(it) !in thisAttributeNames }.mapNotNull { attributeName ->
+            otherAttributes.keys.filter { withoutOptionality(otherResolvedPattern.patternAttributeName(it)) !in thisAttributeNames }.mapNotNull { attributeName ->
                 val namespaceUri = otherResolvedPattern.pattern.attributeNamespaceUri(attributeName)
                 val rawName = withoutOptionality(attributeName)
                 val otherPointer = otherResolvedPattern.attributePointers[attributeName] ?: otherResolvedPattern.attributePointers[rawName]
@@ -1604,6 +1674,9 @@ data class XMLPattern(
         pattern.name != otherResolvedPattern.pattern.name ->
             Failure("Expected a node named ${pattern.name}, but got ${otherResolvedPattern.pattern.name} instead.")
 
+        pattern.requiredNamespaceUri != null && pattern.requiredNamespaceUri != otherResolvedPattern.pattern.requiredNamespaceUri ->
+            Failure("Expected XML namespace '${pattern.requiredNamespaceUri.ifEmpty { "(none)" }}' for ${pattern.name}, got '${otherResolvedPattern.pattern.requiredNamespaceUri.orEmpty().ifEmpty { "(none)" }}'")
+
         else -> Success()
     }
 
@@ -1653,14 +1726,9 @@ data class XMLPattern(
 }
 
 private fun XMLNode.xsiTypeName(): WSDLTypeName? {
-    val value = attributeValueByNamespace(XML_SCHEMA_INSTANCE_NAMESPACE, "type")?.toStringLiteral() ?: return null
-    return runCatching {
-        val namespace = when {
-            value.namespacePrefix().isBlank() -> elementNamespaceUriOrNull().orEmpty()
-            else -> resolveNamespace(value)
-        }
-        WSDLTypeName(namespace, value.localName(), value.namespacePrefix().ifBlank { null })
-    }.getOrNull()
+    val value = attributeValueByNamespace(XML_SCHEMA_INSTANCE_NAMESPACE, "type")?.string?.trim() ?: return null
+    val name = fullyQualifiedNameFromQName(value)
+    return WSDLTypeName(name.namespace, name.localName, name.prefix.ifBlank { null })
 }
 
 private fun XMLNode.wsdlElementName(): WSDLTypeName =

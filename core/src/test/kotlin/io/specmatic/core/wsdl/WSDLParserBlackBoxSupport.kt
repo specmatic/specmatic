@@ -10,6 +10,35 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import java.io.File
+import java.io.StringReader
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
+import org.xml.sax.InputSource
+
+internal fun soapElementCount(body: String, namespace: String, localName: String): Int =
+    soapDocument(body).getElementsByTagNameNS(namespace, localName).length
+
+internal fun soapPayloadElement(body: String): Element {
+    val soapBody = soapDocument(body).getElementsByTagNameNS("http://schemas.xmlsoap.org/soap/envelope/", "Body").item(0)
+    return (0 until soapBody.childNodes.length).map { soapBody.childNodes.item(it) }.filterIsInstance<Element>().single()
+}
+
+internal fun assertEmptySoapEnvelope(body: String) {
+    val envelope = soapDocument(body).documentElement
+    assertThat(envelope.localName).isEqualTo("Envelope")
+    assertThat(envelope.namespaceURI).isEqualTo("http://schemas.xmlsoap.org/soap/envelope/")
+    val children = (0 until envelope.childNodes.length).map { envelope.childNodes.item(it) }.filterIsInstance<Element>()
+    assertThat(children).hasSize(1)
+    val soapBody = children.single()
+    assertThat(soapBody.localName).isEqualTo("Body")
+    assertThat(soapBody.namespaceURI).isEqualTo("http://schemas.xmlsoap.org/soap/envelope/")
+    assertThat((0 until soapBody.childNodes.length).map { soapBody.childNodes.item(it) }.filterIsInstance<Element>()).isEmpty()
+    assertThat(soapBody.textContent).isBlank()
+}
+
+private fun soapDocument(body: String) =
+    DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+        .newDocumentBuilder().parse(InputSource(StringReader(body)))
 
 internal data class WsdlExampleFixture(
     val feature: Feature,

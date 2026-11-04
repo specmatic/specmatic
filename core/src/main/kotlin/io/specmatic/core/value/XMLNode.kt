@@ -251,17 +251,19 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
 
     fun elementNamespaceUri(): String? {
         return when {
+            namespacePrefix == XML_NAMESPACE_PREFIX -> XML_NAMESPACE_URI
             namespacePrefix.isNotBlank() -> namespaces[namespacePrefix]
                 ?: throw ContractException("Namespace prefix $namespacePrefix cannot be resolved")
             else -> namespaces[DEFAULT_NAMESPACE_PREFIX]
-        }
+        }?.takeIf { it.isNotEmpty() }
     }
 
     fun elementNamespaceUriOrNull(): String? {
         return when {
+            namespacePrefix == XML_NAMESPACE_PREFIX -> XML_NAMESPACE_URI
             namespacePrefix.isNotBlank() -> namespaces[namespacePrefix]
             else -> namespaces[DEFAULT_NAMESPACE_PREFIX]
-        }
+        }?.takeIf { it.isNotEmpty() }
     }
 
     fun attributeNamespaceUri(attributeName: String): String? {
@@ -321,7 +323,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
             attributes.isEmpty() -> ""
             else -> {
                 " " + attributes.entries.joinToString(" ") {
-                    "${it.key}=${quoted(it.value)}"
+                    "${it.key}=${quotedAttributeValue(it.key, it.value)}"
                 }
             }
         }
@@ -354,7 +356,11 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
         }
     }
 
-    private fun quoted(value: StringValue): String = "\"${value.toStringLiteral()}\""
+    private fun quotedAttributeValue(name: String, value: StringValue): String {
+        // Namespace identities remain decoded internally; escaping belongs at the XML boundary.
+        val serialized = if (name == "xmlns" || name.startsWith("xmlns:")) StringValue(value.string, xml = true) else value
+        return "\"${serialized.toStringLiteral()}\""
+    }
 
     override fun displayableType(): String = "xml"
     override fun exactMatchElseType(): XMLPattern {
@@ -398,7 +404,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
         val namespacePrefix = name.namespacePrefix()
 
         return when {
-            namespacePrefix.isBlank() -> ""
+            namespacePrefix.isBlank() -> namespaces[DEFAULT_NAMESPACE_PREFIX].orEmpty()
             namespacePrefix == XML_NAMESPACE_PREFIX -> XML_NAMESPACE_URI
             else -> namespaces[name.namespacePrefix()] ?:
                 throw ContractException("Namespace ${name.namespacePrefix()} not found in node $this\nAvailable namespaces: $namespaces")

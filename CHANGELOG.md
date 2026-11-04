@@ -59,6 +59,8 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Fixed
 
+- WSDL SOAP matching and compatibility checks validate element and attribute namespace URIs while accepting equivalent prefixes and inherited bindings. Messages and examples with missing or incorrect namespaces are now rejected. Generated requests and responses preserve global-element qualification, local form rules and qualified attributes, including SOAP 1.2 envelope namespaces.
+
 - WSDL loading follows local XSD includes, including nested, repeated and cyclic references and namespace-free schemas adopting their includer’s namespace. Invalid includes report their source and cause.
 
 - WSDL loading retains declarations from multiple XSD documents sharing a target namespace, preserves their source schema context, and reports conflicting declarations with source locations.

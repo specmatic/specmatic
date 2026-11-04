@@ -15,6 +15,7 @@ import io.specmatic.core.value.localName
 import io.specmatic.core.wsdl.parser.WSDL
 
 private data class TypeReferenceKey(val namespace: String, val localName: String)
+private data class AttributeName(val namespace: String, val localName: String)
 
 class AttributeElement(xmlNode: XMLNode, wsdl: WSDL) {
     private val resolvedAttribute = resolveAttributeReference(xmlNode, wsdl)
@@ -22,10 +23,15 @@ class AttributeElement(xmlNode: XMLNode, wsdl: WSDL) {
         ?: throw ContractException("'name' not defined for attribute: ${xmlNode.oneLineDescription}")
     val type: Value = attributeTypeValue(resolvedAttribute, wsdl)
     val namespaceUri: String? = attributeNamespaceUri(xmlNode)
+    private val qualifiedName: String = when (namespaceUri) {
+        null, "" -> name
+        "http://www.w3.org/XML/1998/namespace" -> "xml:$name"
+        else -> "${wsdl.getSchemaNamespacePrefix(namespaceUri)}:$name"
+    }
     private val mandatory: Boolean = isMandatory(resolvedAttribute) ?: false
     val nameWithOptionality: String = when (mandatory) {
-        true -> name
-        else -> withOptionality(name)
+        true -> qualifiedName
+        else -> withOptionality(qualifiedName)
     }
 }
 
@@ -90,13 +96,13 @@ fun attributeWildcardsFrom(complexType: XMLNode, wsdl: WSDL): List<XMLAttributeW
 
 fun attributePatternMap(attributes: List<AttributeElement>): Map<String, Pattern> {
     val duplicateAttribute = attributes
-        .groupBy { withoutOptionality(it.nameWithOptionality) }
+        .groupBy { AttributeName(it.namespaceUri.orEmpty(), it.name) }
         .filterValues { it.size > 1 }
         .keys
         .firstOrNull()
 
     if (duplicateAttribute != null)
-        throw ContractException("Duplicate attribute $duplicateAttribute found while expanding attributeGroup")
+        throw ContractException("Duplicate attribute ${duplicateAttribute.localName} found while expanding attributeGroup")
 
     return attributes.associate { it.nameWithOptionality to it.type.exactMatchElseType() }
 }

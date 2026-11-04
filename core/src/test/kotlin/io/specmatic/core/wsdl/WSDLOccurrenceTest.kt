@@ -20,11 +20,11 @@ class WSDLOccurrenceTest {
             val children = "<Item>value</Item>".repeat(count)
             val request = HttpRequest(method = "POST", path = PATH,
                 headers = mapOf("SOAPAction" to "\"$SOAP_ACTION\"", "Content-Type" to "text/xml"),
-                body = StringValue(envelope("<Request>$children</Request>")))
+                body = StringValue(envelope("<t:Request>$children</t:Request>")))
             val requestResult = scenario.matches(request, scenario.resolver)
             assertThat(requestResult.isSuccess()).describedAs("request count %s: %s", count, requestResult.reportString()).isEqualTo(count in 2..3)
             val responseResult = scenario.httpResponsePattern.matchesResponse(
-                HttpResponse(status = 200, headers = mapOf("Content-Type" to "text/xml"), body = StringValue(envelope("<Response>$children</Response>"))),
+                HttpResponse(status = 200, headers = mapOf("Content-Type" to "text/xml"), body = StringValue(envelope("<t:Response>$children</t:Response>"))),
                 scenario.resolver)
             assertThat(responseResult.isSuccess()).describedAs("response count %s: %s", count, responseResult.reportString()).isEqualTo(count in 2..3)
         }
@@ -278,7 +278,7 @@ class WSDLOccurrenceTest {
         val variants = body.newBasedOn(io.specmatic.core.pattern.Row(), scenario.resolver).map { it.value }.toList() + body.newBasedOn(scenario.resolver).toList()
         assertThat(variants).isNotEmpty()
         for (variant in variants) {
-            val result = variant.matches(toXMLNode(envelope("<Request><B>b</B><A>a</A></Request>")), scenario.resolver)
+            val result = variant.matches(toXMLNode(envelope("<t:Request><B>b</B><A>a</A></t:Request>")), scenario.resolver)
             assertThat(result.isSuccess()).describedAs(result.reportString()).isTrue()
         }
     }
@@ -438,7 +438,7 @@ class WSDLOccurrenceTest {
 
     private fun request(children: String) = HttpRequest(method = "POST", path = PATH,
         headers = mapOf("SOAPAction" to "\"$SOAP_ACTION\"", "Content-Type" to "text/xml"),
-        body = StringValue(envelope("<Request>$children</Request>")))
+        body = StringValue(envelope("<t:Request>$children</t:Request>")))
 
     private fun envelope(body: String) = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:t="$NAMESPACE"><soapenv:Body>$body</soapenv:Body></soapenv:Envelope>"""
 

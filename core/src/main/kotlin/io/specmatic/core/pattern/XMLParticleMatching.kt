@@ -89,5 +89,5 @@ internal fun xmlRepetitionCandidates(
 private fun ProvisionalError<Value>?.matchesElementName(): Boolean {
     val element = this?.type as? XMLPattern ?: return false
     val value = this.value as? XMLNode ?: return false
-    return value.name.substringAfter(":") == element.pattern.name
+    return element.hasSameExpandedName(value)
 }

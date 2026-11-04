@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.w3c.dom.Element
 import java.io.File
 import java.util.stream.Stream
 
@@ -29,8 +30,14 @@ class WSDLComprehensionTest {
         val request = scenario.generateHttpRequest(feature.flagsBased)
         val response = scenario.generateHttpResponse()
 
-        assertThat(request.body.toStringLiteral()).contains("<Request>").containsPattern("<Request>-?\\d+</Request>")
-        assertThat(response.body.toStringLiteral()).contains("<Response>").containsPattern("<Response>(true|false)</Response>")
+        val requestPayload = soapPayloadElement(request.body.toStringLiteral())
+        val responsePayload = soapPayloadElement(response.body.toStringLiteral())
+        assertThat(requestPayload.localName).isEqualTo("Request")
+        assertThat(requestPayload.namespaceURI).isEqualTo(NAMESPACE)
+        assertThat(requestPayload.textContent).matches("""-?\d+""")
+        assertThat(responsePayload.localName).isEqualTo("Response")
+        assertThat(responsePayload.namespaceURI).isEqualTo(NAMESPACE)
+        assertThat(responsePayload.textContent).matches("true|false")
         assertThat(scenario.matches(request, scenario.resolver)).isInstanceOf(Result.Success::class.java)
         assertThat(scenario.matches(response, scenario.resolver)).isInstanceOf(Result.Success::class.java)
     }
@@ -308,32 +315,40 @@ class WSDLComprehensionTest {
 
     @ParameterizedTest
     @MethodSource("qualifiedElementForms")
-    fun `toFeature qualifies SOAP body elements when schema qualification rules require it`(
+    fun `toFeature qualifies local SOAP payload children when schema qualification rules require it`(
         elementFormDefault: String,
         form: String,
     ) {
-        val feature = primitiveElementFeature(elementFormDefault, form)
-        val generatedBody = feature.scenarios.single().generateHttpRequest(feature.flagsBased).body.toStringLiteral()
+        val feature = localElementFeature(elementFormDefault, form)
+        val payload = soapPayloadElement(feature.scenarios.single().generateHttpRequest(feature.flagsBased).body.toStringLiteral())
+        val child = payload.childNodes.let { nodes ->
+            (0 until nodes.length).map { nodes.item(it) }.filterIsInstance<Element>().single()
+        }
 
-        assertThat(generatedBody)
-            .contains("$NAMESPACE\"")
-            .containsPattern("<[A-Za-z0-9_-]+:Request>")
-        assertRequestMatches(feature, soapEnvelope("<t:Request>value</t:Request>"))
+        assertThat(payload.namespaceURI).isEqualTo(NAMESPACE)
+        assertThat(child.localName).isEqualTo("Value")
+        assertThat(child.namespaceURI).isEqualTo(NAMESPACE)
+        assertRequestMatches(feature, requestBody("<t:Value>value</t:Value>"))
+        assertRequestDoesNotMatch(feature, requestBody("<Value>value</Value>"))
     }
 
     @ParameterizedTest
     @MethodSource("unqualifiedElementForms")
-    fun `toFeature leaves SOAP body elements unqualified when schema qualification rules require it`(
+    fun `toFeature leaves local SOAP payload children unqualified while qualifying the global payload`(
         elementFormDefault: String,
         form: String,
     ) {
-        val feature = primitiveElementFeature(elementFormDefault, form)
-        val generatedBody = feature.scenarios.single().generateHttpRequest(feature.flagsBased).body.toStringLiteral()
+        val feature = localElementFeature(elementFormDefault, form)
+        val payload = soapPayloadElement(feature.scenarios.single().generateHttpRequest(feature.flagsBased).body.toStringLiteral())
+        val child = payload.childNodes.let { nodes ->
+            (0 until nodes.length).map { nodes.item(it) }.filterIsInstance<Element>().single()
+        }
 
-        assertThat(generatedBody)
-            .contains("<Request>")
-            .doesNotContainPattern("<[A-Za-z0-9_-]+:Request>")
-        assertRequestMatches(feature, primitiveRequestBody("value"))
+        assertThat(payload.namespaceURI).isEqualTo(NAMESPACE)
+        assertThat(child.localName).isEqualTo("Value")
+        assertThat(child.namespaceURI).isNull()
+        assertRequestMatches(feature, requestBody("<Value>value</Value>"))
+        assertRequestDoesNotMatch(feature, requestBody("<t:Value>value</t:Value>"))
     }
 
     @Test
@@ -372,9 +387,8 @@ class WSDLComprehensionTest {
         assertThat(scenario.matches(soapRequest(body), scenario.resolver)).isInstanceOf(Result.Failure::class.java)
     }
 
-    private fun primitiveElementFeature(elementFormDefault: String, form: String): Feature = wsdlFeature(
-        requestDeclaration = """<xsd:element name="Request" type="xsd:string" $form/>""",
-        responseDeclaration = """<xsd:element name="Response" type="xsd:string" $form/>""",
+    private fun localElementFeature(elementFormDefault: String, form: String): Feature = wsdlFeature(
+        requestDeclaration = complexRequestDeclaration("""<xsd:element name="Value" type="xsd:string" $form/>"""),
         schemaAttributes = elementFormDefault,
     )
 
@@ -450,10 +464,10 @@ class WSDLComprehensionTest {
         body = StringValue(body),
     )
 
-    private fun primitiveRequestBody(value: String): String = soapEnvelope("<Request>$value</Request>")
+    private fun primitiveRequestBody(value: String): String = soapEnvelope("<t:Request>$value</t:Request>")
 
     private fun requestBody(children: String, attributes: String = ""): String =
-        soapEnvelope("<Request $attributes>$children</Request>")
+        soapEnvelope("<t:Request $attributes>$children</t:Request>")
 
     private fun soapEnvelope(body: String): String = """
         <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:t="$NAMESPACE">
@@ -505,6 +519,7 @@ class WSDLComprehensionTest {
 
         @JvmStatic
         fun unqualifiedElementForms(): Stream<org.junit.jupiter.params.provider.Arguments> = Stream.of(
+            arguments("", ""),
             arguments("elementFormDefault=\"unqualified\"", ""),
             arguments("elementFormDefault=\"unqualified\"", "form=\"unqualified\""),
             arguments("elementFormDefault=\"qualified\"", "form=\"unqualified\""),

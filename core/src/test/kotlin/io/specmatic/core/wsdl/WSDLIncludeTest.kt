@@ -277,7 +277,7 @@ class WSDLIncludeTest {
         val feature = parseContractFileToFeature(write("include.wsdl", wsdl(root)))
         val generated = feature.scenarios.single().generateHttpRequest()
         val payload = soapPayload(generated.body.toStringLiteral())
-        val trace = payload.getAttribute("trace")
+        val trace = payload.getAttributeNS(NAMESPACE, "trace")
         val code = payload.getElementsByTagNameNS(NAMESPACE, "CodeElement").item(0).textContent
         assertThat(trace.toIntOrNull()).isNotNull()
         assertThat(code.length).isBetween(2, 4)
