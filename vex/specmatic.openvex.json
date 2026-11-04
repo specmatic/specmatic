@@ -1,0 +1,24 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/specmatic/specmatic/security/vex/guava-ghsa-xxph-c9ww-hj94",
+  "author": "Specmatic",
+  "timestamp": "2026-11-04T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "GHSA-xxph-c9ww-hj94"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.google.guava/guava@32.1.2-jre"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "GraphQL Java 25.0 shades and relocates Guava, then minimizes the bundled classes. Its maintainer confirms that only immutable collections remain and the vulnerable deserialization gadget code is absent: https://github.com/graphql-java/graphql-java/pull/4498#issuecomment-6473483561. The vulnerable CompactHashMap and CompactHashSet classes are absent. The bundled MapMakerInternalMap rejects native deserialization with InvalidObjectException rather than performing the vulnerable allocation.",
+      "action_statement": "Reassess if the bundled GraphQL Java version or its relocated Guava contents change.",
+      "timestamp": "2026-11-04T00:00:00Z"
+    }
+  ]
+}

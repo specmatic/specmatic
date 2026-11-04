@@ -1,4 +1,5 @@
 import io.specmatic.gradle.extensions.RepoType
+import io.specmatic.gradle.vuln.RootFSVulnScanTask
 
 plugins {
     id("io.specmatic.gradle")
@@ -6,9 +7,11 @@ plugins {
     id("com.asarkar.gradle.build-time-tracker") version "5.0.2"
 }
 
-allprojects {
-    configurations.configureEach {
-        resolutionStrategy.force("com.google.guava:guava:33.7.2-jre")
+subprojects {
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        dependencies.constraints.add("implementation", "com.google.guava:guava:33.7.2-jre") {
+            because("Fixes GHSA-xxph-c9ww-hj94 in transitive Guava dependencies")
+        }
     }
 
     repositories {
@@ -28,6 +31,14 @@ allprojects {
             name = "specmaticSnapshots"
             url = uri("https://repo.specmatic.io/snapshots")
         }
+    }
+}
+
+project(":specmatic-executable") {
+    val vexFile = rootProject.file("vex/specmatic.openvex.json")
+    tasks.withType<RootFSVulnScanTask>().configureEach {
+        inputs.file(vexFile)
+        extraArgs.addAll(listOf("--vex", vexFile.absolutePath))
     }
 }
 
