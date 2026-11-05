@@ -58,3 +58,9 @@ Implementation baseline: 9a485f72be139a5e6cf250c297531a6a01f25f10 from origin/ma
 - The rebuilt CLI returned 200 for equivalent prefixes and default namespaces, and 400 for wrong/missing namespaces, unqualified required attributes and wrongly qualified children. The fixture includes a chameleon schema and a namespace URI containing `&`. Both successful request and generated response payloads independently passed the JDK XSD validator. The CLI contract test against that mock passed.
 - Against the verified updated Maven-local Core artifact, 24 standalone XSD parser/matcher tests and 21 matcher/visitor tests passed. The separate consumer repository is unchanged. Temporary verification settings pinned Cucumber messages to Core's resolved version, 28.1.0, and restricted Specmatic repositories to their own groups to avoid unrelated credential-protected metadata queries.
 - Fresh read-only standards and spec reviews have no unresolved findings.
+
+## Namespace validation performance follow-up
+
+Namespace well-formedness validation at the WSDL SOAP envelope boundary now walks the existing XMLNode tree iteratively. It no longer serializes the payload or creates a second DOM. The walk checks namespace declarations, QName syntax, prefix bindings and duplicate expanded attribute names, including wildcard-skipped descendants. One mutable binding map is restored as element scopes end; the traversal stack holds child iterators rather than every pending sibling. Text values are not inspected or escaped by this check.
+
+Verification: all 53 focused WSDL namespace regression cases passed. The full core suite completed successfully with 8,675 tests, 13 skipped, and no failures or errors, using the existing ignored single-worker verification settings. Standards and correctness reviews found no remaining issues.

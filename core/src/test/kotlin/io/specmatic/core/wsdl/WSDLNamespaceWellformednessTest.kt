@@ -3,6 +3,7 @@ package io.specmatic.core.wsdl
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -27,6 +28,15 @@ class WSDLNamespaceWellformednessTest {
         assertThat(result.isSuccess()).describedAs("$description: ${result.reportString()}").isTrue()
     }
 
+    @Test
+    fun `large skipped payloads retain namespace validation`() {
+        val children = "<alias:Child alias:id=\"one\"/>".repeat(10_000)
+        val validBody = "<o:Request xmlns:alias=\"urn:child\">$children</o:Request>"
+        assertThat(validate(envelope("", validBody)).isSuccess()).isTrue()
+        val invalidBody = "<o:Request xmlns:alias=\"urn:child\">$children<missing:Child/></o:Request>"
+        assertThat(validate(envelope("", invalidBody)).reportString()).contains("namespace")
+    }
+
     private fun validate(document: String): io.specmatic.core.Result {
         val declarations = """<xs:element name="Request"><xs:complexType><xs:sequence>
             <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
@@ -46,6 +56,7 @@ class WSDLNamespaceWellformednessTest {
         private const val NAMESPACE = "http://example.com/orders"
         @JvmStatic
         fun invalidNamespaceDocuments(): List<Arguments> = listOf(
+            Arguments.of("empty declared prefix", "", """<o:Request><Child xmlns:="urn:invalid"/></o:Request>"""),
             Arguments.of("wrong reserved xml binding", "xmlns:xml=\"urn:wrong\"", "<o:Request/>"),
             Arguments.of("reserved xmlns prefix", "xmlns:xmlns=\"urn:wrong\"", "<o:Request/>"),
             Arguments.of("reserved xmlns namespace", "xmlns:alias=\"http://www.w3.org/2000/xmlns/\"", "<o:Request/>"),
@@ -56,6 +67,7 @@ class WSDLNamespaceWellformednessTest {
             Arguments.of("multiple colons in element name", "", "<o:Request><o:bad:name/></o:Request>"),
             Arguments.of("multiple colons in attribute name", "", """<o:Request o:bad:id="one"/>"""),
             Arguments.of("reserved xmlns element prefix", "", "<o:Request><xmlns:Child/></o:Request>"),
+            Arguments.of("duplicate expanded attributes after child rebinding", "xmlns:a=\"urn:a\" xmlns:b=\"urn:b\"", """<o:Request><Child xmlns:b="urn:a" a:id="one" b:id="two"/></o:Request>"""),
             Arguments.of("duplicate expanded attributes", "xmlns:a=\"urn:ids\" xmlns:b=\"urn:ids\"", """<o:Request a:id="one" b:id="two"/>""")
         )
 
@@ -67,6 +79,9 @@ class WSDLNamespaceWellformednessTest {
             Arguments.of("default namespace reset on skipped child", "", """<o:Request xmlns="urn:other"><Local xmlns=""/></o:Request>"""),
             Arguments.of("implicit xml prefix", "", """<o:Request xml:lang="en"/>"""),
             Arguments.of("explicit legal xml prefix", "xmlns:xml=\"http://www.w3.org/XML/1998/namespace\"", """<o:Request xml:lang="en"/>"""),
+            Arguments.of("child rebinding does not leak to siblings", "xmlns:a=\"urn:a\" xmlns:b=\"urn:b\"", """<o:Request><Child xmlns:b="urn:a"/><Sibling a:id="one" b:id="two"/></o:Request>"""),
+            Arguments.of("default namespace does not qualify attributes", "", """<o:Request xmlns="urn:ids" xmlns:a="urn:ids" id="one" a:id="two"/>"""),
+            Arguments.of("Unicode namespace names", "xmlns:α=\"urn:unicode\"", """<o:Request><α:Δ α:属性="one"/></o:Request>"""),
             Arguments.of("same local attribute names in distinct namespaces", "xmlns:a=\"urn:a\" xmlns:b=\"urn:b\"", """<o:Request a:id="one" b:id="two"/>""")
         )
 
