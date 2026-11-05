@@ -9,7 +9,7 @@ plugins {
 
 subprojects {
     plugins.withId("org.jetbrains.kotlin.jvm") {
-        dependencies.constraints.add("implementation", "com.google.guava:guava:33.7.2-jre") {
+        dependencies.constraints.add("implementation", "com.google.guava:guava:33.8.0-android") {
             because("Fixes GHSA-xxph-c9ww-hj94 in transitive Guava dependencies")
         }
     }
