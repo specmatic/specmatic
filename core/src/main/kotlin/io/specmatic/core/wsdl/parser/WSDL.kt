@@ -445,9 +445,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             declaration.addSchema(findSchema(fullyQualifiedName.namespace, localSchema))
         else
             declaration
-        // Global elements are qualified regardless of the schema's local element default.
+        val form = if (schemaTargetNamespace(contextualDeclaration).isNullOrBlank()) "unqualified" else "qualified"
         val node = contextualDeclaration.copy(
-            attributes = contextualDeclaration.attributes.plus(otherRefAttributes).plus("form" to StringValue("qualified"))
+            attributes = contextualDeclaration.attributes.plus(otherRefAttributes).plus("form" to StringValue(form))
         )
 
         return if(hasSimpleTypeAttribute(node)) {

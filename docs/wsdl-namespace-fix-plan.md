@@ -64,3 +64,11 @@ Implementation baseline: 9a485f72be139a5e6cf250c297531a6a01f25f10 from origin/ma
 Namespace well-formedness validation at the WSDL SOAP envelope boundary now walks the existing XMLNode tree iteratively. It no longer serializes the payload or creates a second DOM. The walk checks namespace declarations, QName syntax, prefix bindings and duplicate expanded attribute names, including wildcard-skipped descendants. One mutable binding map is restored as element scopes end; the traversal stack holds child iterators rather than every pending sibling. Text values are not inspected or escaped by this check.
 
 Verification: all 53 focused WSDL namespace regression cases passed. The full core suite completed successfully with 8,675 tests, 13 skipped, and no failures or errors, using the existing ignored single-worker verification settings. Standards and correctness reviews found no remaining issues.
+
+## Namespace reset serialization and global declaration forms
+
+XML serialization now tracks the active default namespace in its existing traversal. Empty default declarations are omitted when no nonempty default namespace is inherited, and retained when needed to keep an element or its QName context namespace-free. This applies to all XMLNode serialization, including hand-written XML, while preserving namespace meaning. Named prefix bindings and nonempty default declarations are unchanged.
+
+Global SOAP declarations receive synthetic form metadata according to the declaring schema: qualified when it has a target namespace, otherwise unqualified. This prevents the metadata from incorrectly requiring a nonexistent namespace. General loading and lookup of schemas without a target namespace remain deferred; this change does not enable that feature. Standalone and prefixed/default-namespaced SOAP serialization cases verify namespace-free payload identity independently of that loader limitation.
+
+Verification: the focused XML node and WSDL namespace suite passed all 102 cases before the two explicit SOAP serialization cases were added. The final repository-wide suite passed with 9,248 tests, 14 skipped, and no failures or errors, including all five new serialization cases. Independent correctness and standards reviews found no blocking issues. The no-target-namespace loader limitation is unchanged.

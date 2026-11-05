@@ -32,6 +32,8 @@ class WSDLNamespaceQualificationTest {
         val payload = generatedPayload(schema)
         assertThat(payload.namespaceURI).isEqualTo(NAMESPACE)
         assertThat(payload.getElementsByTagNameNS("", "local").length).isEqualTo(1)
+        val local = payload.getElementsByTagNameNS("", "local").item(0) as Element
+        assertThat(local.hasAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns")).isFalse()
     }
 
     @Test

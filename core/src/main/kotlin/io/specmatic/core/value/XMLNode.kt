@@ -318,11 +318,16 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
         return this.nodeToString("  ", System.lineSeparator())
     }
 
-    private fun nodeToString(indent: String, lineSeparator: String): String {
+    private fun nodeToString(indent: String, lineSeparator: String, inheritedDefaultNamespace: String = ""): String {
+        val defaultNamespace = attributes["xmlns"]?.string ?: inheritedDefaultNamespace
+        val serializedAttributes = if (attributes["xmlns"]?.string == "" && inheritedDefaultNamespace.isEmpty())
+            attributes - "xmlns"
+        else
+            attributes
         val attributesString = when {
-            attributes.isEmpty() -> ""
+            serializedAttributes.isEmpty() -> ""
             else -> {
-                " " + attributes.entries.joinToString(" ") {
+                " " + serializedAttributes.entries.joinToString(" ") {
                     "${it.key}=${quotedAttributeValue(it.key, it.value)}"
                 }
             }
@@ -338,7 +343,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
 
                 val linesBetween = childNodes.map {
                     when(it) {
-                        is XMLNode -> it.nodeToString(indent, lineSeparator)
+                        is XMLNode -> it.nodeToString(indent, lineSeparator, defaultNamespace)
                         is CDATAValue -> it.nodeToString(indent, lineSeparator)
                         else -> it.toStringLiteral()
                     }
