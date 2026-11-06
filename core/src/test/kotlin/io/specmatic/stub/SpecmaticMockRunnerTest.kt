@@ -5,7 +5,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.net.Socket
 import java.util.concurrent.TimeoutException
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -37,8 +39,12 @@ class SpecmaticMockRunnerTest {
 
     @Test
     fun `waitUntilConnectable should return false when endpoint cannot be reached`(): Unit = runBlocking {
-        val connected = waitUntilConnectable(host = "127.0.0.1", port = 8080, timeout = 120.milliseconds, pollInterval = 20.milliseconds, connectAttemptTimeout = 40.milliseconds)
-        assertThat(connected).isFalse()
+        // Reserve an endpoint without listening, so other tests cannot make it connectable.
+        Socket().use { reservedSocket ->
+            reservedSocket.bind(InetSocketAddress("127.0.0.1", 0))
+            val connected = waitUntilConnectable(host = "127.0.0.1", port = reservedSocket.localPort, timeout = 120.milliseconds, pollInterval = 20.milliseconds, connectAttemptTimeout = 40.milliseconds)
+            assertThat(connected).isFalse()
+        }
     }
 
     @Test
