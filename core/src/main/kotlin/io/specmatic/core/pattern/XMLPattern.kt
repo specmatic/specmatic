@@ -1467,6 +1467,27 @@ data class XMLPattern(
         return toXMLNode(parseXML(value))
     }
 
+    override fun parseToType(valueString: String, resolver: Resolver): Pattern =
+        patternFrom(parse(valueString, resolver), resolver) { it.exactMatchElseType() }
+
+    override fun patternFrom(value: Value, resolver: Resolver, parseValueToType: (Value) -> Pattern): Pattern {
+        val examplePattern = super<Pattern>.patternFrom(value, resolver, parseValueToType)
+        if (pattern.requiredNamespaceUri == null || examplePattern !is XMLPattern) return examplePattern
+        return examplePattern.withExampleNamespaces(pattern.isSOAP)
+    }
+
+    private fun withExampleNamespaces(isSOAP: Boolean, isSOAPHeader: Boolean = false): XMLPattern =
+        copy(pattern = pattern.copy(
+            requiredNamespaceUri = pattern.namespaceUri.orEmpty(),
+            isSOAP = isSOAP,
+            isSOAPHeader = isSOAPHeader,
+            nodes = pattern.nodes.map { child ->
+                if (child is XMLPattern)
+                    child.withExampleNamespaces(isSOAP, isSOAP && pattern.name == SOAP_ENVELOPE && child.pattern.name == SOAP_HEADER)
+                else child
+            }
+        ))
+
     override fun encompasses(
         otherPattern: Pattern,
         thisResolver: Resolver,
