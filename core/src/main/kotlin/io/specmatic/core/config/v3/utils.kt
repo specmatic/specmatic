@@ -52,9 +52,19 @@ internal fun determineSpecTypeFor(specFile: File): List<SpecType> {
             listOf(SpecType.OPENAPI)
         in OPENAPI_FILE_EXTENSIONS if isAsyncAPI(specFile.canonicalPath) ->
             listOf(SpecType.ASYNCAPI)
+        in OPENAPI_FILE_EXTENSIONS if isArazzo(specFile.canonicalPath) ->
+            listOf(SpecType.ARAZZO)
         else ->
             listOf(SpecType.OPENAPI, SpecType.ASYNCAPI)
     }
+}
+
+private fun isArazzo(path: String): Boolean = try {
+    File(path).reader().use { reader ->
+        Yaml().load<MutableMap<String, Any?>>(reader).contains("arazzo")
+    }
+} catch (_: Throwable) {
+    false
 }
 
 private fun isAsyncAPI(path: String): Boolean = try {

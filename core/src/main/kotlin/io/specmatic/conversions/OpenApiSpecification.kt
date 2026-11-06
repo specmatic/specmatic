@@ -54,6 +54,7 @@ import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.*
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
+import io.swagger.v3.oas.models.security.OAuthFlow
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
@@ -1837,22 +1838,39 @@ class OpenApiSpecification(
         }
 
         if (securitySchemes.isNullOrEmpty()) return listOf(NoSecurityScheme())
-        fun getSecurityScheme(name: String, collectorContext: CollectorContext): OpenAPISecurityScheme? {
+        fun getSecurityScheme(name: String, requiredScopes: List<String>, collectorContext: CollectorContext): OpenAPISecurityScheme? {
             return collectorContext.checkOptional<OpenAPISecurityScheme?>(name = name, value = securitySchemeComponents[name], isValid = { it != null })
                 .violation { OpenApiLintViolations.SECURITY_SCHEME_MISSING }
                 .message { "Didn't find Security schema with name $name, ignoring this scheme" }
                 .orUse { null }
                 .build()
+                ?.withRequiredScopes(requiredScopes)
         }
 
         return securitySchemes.withIndex().mapNotNull { (index, securityScheme) ->
             val indexedCollectorContext = baseCollectorContext.at(index)
             when (securityScheme.keys.size) {
                 0 -> NoSecurityScheme()
-                1 -> getSecurityScheme(securityScheme.keys.single(), indexedCollectorContext)
-                else -> CompositeSecurityScheme(securityScheme.keys.mapNotNull { getSecurityScheme(it, indexedCollectorContext) })
+                1 -> {
+                    val name = securityScheme.keys.single()
+                    getSecurityScheme(name, securityScheme[name].orEmpty(), indexedCollectorContext)
+                }
+                else -> CompositeSecurityScheme(securityScheme.keys.mapNotNull { name ->
+                    getSecurityScheme(name, securityScheme[name].orEmpty(), indexedCollectorContext)
+                })
             }
         }
+    }
+
+    private fun OpenAPISecurityScheme.withRequiredScopes(scopes: List<String>): OpenAPISecurityScheme {
+        if (this !is BearerSecurityScheme) return this
+        val updatedAuthentication = when (val authentication = this.authentication) {
+            is BearerAuthentication.HttpBearer -> authentication
+            is BearerAuthentication.OAuth2 -> authentication.copy(requiredScopes = scopes.toList())
+            is BearerAuthentication.OpenIdConnect -> authentication.copy(requiredScopes = scopes.toList())
+        }
+
+        return copy(authentication = updatedAuthentication)
     }
 
     private fun toHttpRequestPatterns(
@@ -2686,18 +2704,57 @@ class OpenApiSpecification(
         val securitySchemeConfiguration = securityConfiguration?.getOpenAPISecurityScheme(schemeName)
         val normalizedScheme = securityScheme.scheme?.lowercase()
 
-        if (normalizedScheme == BEARER_SECURITY_SCHEME) {
-            return toBearerSecurityScheme(securitySchemeConfiguration, schemeName)
+        if (securityScheme.type == SecurityScheme.Type.OAUTH2) {
+            return BearerSecurityScheme(
+                configuredToken = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName),
+                authentication = BearerAuthentication.OAuth2(
+                    schemeName = schemeName,
+                    reference = securityScheme.`get$ref`(),
+                    description = securityScheme.description,
+                    extensions = securityScheme.extensions?.toMap(),
+                    flows = securityScheme.flows?.let { flows ->
+                        OpenApiOAuthFlows(
+                            extensions = flows.extensions?.toMap(),
+                            implicit = flows.implicit?.toOpenApiMetadata(),
+                            password = flows.password?.toOpenApiMetadata(),
+                            clientCredentials = flows.clientCredentials?.toOpenApiMetadata(),
+                            authorizationCode = flows.authorizationCode?.toOpenApiMetadata(),
+                        )
+                    },
+                ),
+            )
         }
 
-        if (securityScheme.type == SecurityScheme.Type.OAUTH2 || securityScheme.type == SecurityScheme.Type.OPENIDCONNECT) {
+        if (securityScheme.type == SecurityScheme.Type.OPENIDCONNECT) {
+            return BearerSecurityScheme(
+                configuredToken = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName),
+                authentication = BearerAuthentication.OpenIdConnect(
+                    schemeName = schemeName,
+                    reference = securityScheme.`get$ref`(),
+                    description = securityScheme.description,
+                    extensions = securityScheme.extensions?.toMap(),
+                    openIdConnectUrl = securityScheme.openIdConnectUrl,
+                ),
+            )
+        }
+
+        if (normalizedScheme == BEARER_SECURITY_SCHEME) {
             return toBearerSecurityScheme(securitySchemeConfiguration, schemeName)
         }
 
         if (securityScheme.type == SecurityScheme.Type.APIKEY) {
             val apiKey = getSecurityTokenForApiKeyScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-            if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(securityScheme.name, apiKey)
-            if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(securityScheme.name, apiKey)
+            if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(
+                apiKey = apiKey,
+                name = securityScheme.name,
+                schemeName = schemeName,
+            )
+
+            if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(
+                apiKey = apiKey,
+                name = securityScheme.name,
+                schemeName = schemeName,
+            )
         }
 
         if (securityScheme.type == SecurityScheme.Type.HTTP && normalizedScheme == BASIC_SECURITY_SCHEME) {
@@ -2716,15 +2773,26 @@ class OpenApiSpecification(
         schemeName: String,
     ): BearerSecurityScheme {
         val token = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-        return BearerSecurityScheme(token)
+        return BearerSecurityScheme(
+            configuredToken = token,
+            authentication = BearerAuthentication.HttpBearer(schemeName),
+        )
     }
+
+    private fun OAuthFlow.toOpenApiMetadata() = OpenApiOAuthFlow(
+        tokenUrl = tokenUrl,
+        refreshUrl = refreshUrl,
+        scopes = scopes?.toMap(),
+        extensions = extensions?.toMap(),
+        authorizationUrl = authorizationUrl,
+    )
 
     private fun toBasicAuthSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
         schemeName: String,
     ): BasicAuthSecurityScheme {
         val token = getSecurityTokenForBasicAuthScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-        return BasicAuthSecurityScheme(token)
+        return BasicAuthSecurityScheme(token = token, schemeName = schemeName)
     }
 
     private fun toFormFields(mediaType: MediaType, collectorContext: CollectorContext): Map<String, Pattern> {
