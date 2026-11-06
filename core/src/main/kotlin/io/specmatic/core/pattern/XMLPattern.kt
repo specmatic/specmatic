@@ -663,8 +663,11 @@ data class XMLPattern(
         return when {
             sampleData.namespacePrefix.isNotBlank() && sampleData.elementNamespaceUriOrNull().isNullOrBlank() ->
                 Failure("XML namespace prefix ${sampleData.namespacePrefix} cannot be resolved for ${sampleData.realName}")
-            requiredNamespace != actualNamespace ->
-                Failure("Expected XML namespace '${requiredNamespace.ifEmpty { "(none)" }}' for ${pattern.name}, got '${actualNamespace.ifEmpty { "(none)" }}'")
+            requiredNamespace != actualNamespace -> {
+                val expected = if (requiredNamespace.isEmpty()) "no XML namespace" else "XML namespace '$requiredNamespace'"
+                val actual = if (actualNamespace.isEmpty()) "no namespace" else "'$actualNamespace'"
+                Failure("Expected $expected for element '${pattern.name}', got $actual.")
+            }
             else -> Success()
         }
     }
@@ -690,6 +693,7 @@ data class XMLPattern(
         val sampleAttributesForKeyCheck = sampleAttributesWithoutXmlns.filterNot { (key, _) ->
             isAllowedByAttributeWildcard(key, sampleData, patternAttributesWithoutXmlns)
         }
+        val sampleAttributeNamesByIdentity = sampleAttributesWithoutXmlns.keys.associateBy { sampleAttributeName(it, sampleData) }
 
         val missingKey = resolver.findKeyError(
             patternAttributesWithoutXmlns.mapKeys { patternAttributeName(it.key) },
@@ -707,17 +711,19 @@ data class XMLPattern(
                 }
                 if (differentlyQualified != null) {
                     return Failure("Expected XML attribute ${withoutOptionality(patternAttributeName(declaredName))}, got ${sampleAttributeName(differentlyQualified, sampleData)}")
-                        .breadCrumb(withoutOptionality(declaredName), keyLocation)
+                        .breadCrumb(differentlyQualified, keyLocation)
                 }
             }
             return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
-                .breadCrumb(missingKey.name, keyLocation)
+                .breadCrumb(sampleAttributeNamesByIdentity[missingKey.name]
+                    ?: if (pattern.requiredNamespaceUri == null) missingKey.name else "", keyLocation)
         }
 
         return matchAttributes(
             patternAttributesWithoutXmlns.mapKeys { patternAttributeName(it.key) },
             sampleAttributesWithoutXmlns.mapKeys { sampleAttributeName(it.key, sampleData) },
-            resolver
+            resolver,
+            sampleAttributeNamesByIdentity
         )
     }
 
@@ -783,7 +789,8 @@ data class XMLPattern(
     private fun matchAttributes(
         patternAttributesWithoutXmlns: Map<String, Pattern>,
         sampleAttributesWithoutXmlns: Map<String, StringValue>,
-        resolver: Resolver
+        resolver: Resolver,
+        sampleAttributeNamesByIdentity: Map<String, String>
     ): Result =
         mapZip(
             ignoreXMLNamespaces(patternAttributesWithoutXmlns),
@@ -797,7 +804,7 @@ data class XMLPattern(
                 resolver.matchesPattern(patternValue, resolvedValue)
             } catch (e: ContractException) {
                 e.failure()
-            }.breadCrumb(key)
+            }.breadCrumb(sampleAttributeNamesByIdentity[key] ?: key)
         }.find { it is Failure } ?: Success()
 
     private fun <ValueType> ignoreXMLNamespaces(attributes: Map<String, ValueType>): Map<String, ValueType> =
