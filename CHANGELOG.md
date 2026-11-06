@@ -34,6 +34,8 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Added
 
+- WSDL/SOAP namespace validation, example matching, generation and compatibility checks, including qualified attributes and SOAP 1.2. Accepts equivalent prefixes and rejects missing or incorrect namespaces. Includes namespace error codes `R1004` and `R1005`.
+
 - WSDL contracts preserve and enforce `minOccurs` and `maxOccurs` for elements, wildcards, sequences, choices, and XSD 1.0 `all` groups, including named group references and zero occurrences. Invalid bounds fail during loading with source context. Generated SOAP cases include occurrence boundaries, and compatibility checks retain numeric ranges and group structure.
 
 ### Changed
@@ -58,8 +60,6 @@ Each release section should stand on its own and describe the behavior shipped i
   ```
 
 ### Fixed
-
-- WSDL SOAP matching and compatibility checks validate element and attribute namespace URIs while accepting equivalent prefixes and inherited bindings. Messages and examples with missing or incorrect namespaces are now rejected. Generated requests and responses preserve global-element qualification, local form rules and qualified attributes, including SOAP 1.2 envelope namespaces.
 
 - WSDL loading follows local XSD includes, including nested, repeated and cyclic references and namespace-free schemas adopting their includer’s namespace. Invalid includes report their source and cause.
 
