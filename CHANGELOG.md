@@ -35,9 +35,15 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Added
 
 - WSDL contracts preserve and enforce `minOccurs` and `maxOccurs` for elements, wildcards, sequences, choices, and XSD 1.0 `all` groups, including named group references and zero occurrences. Invalid bounds fail during loading with source context. Generated SOAP cases include occurrence boundaries, and compatibility checks retain numeric ranges and group structure.
+- Regex constraints now support lookaheads, lookbehinds, named captures, and lazy quantifiers when generating matching values.
+- SARIF lint reports can be submitted to Insights as `linter` reports, including arrays of SARIF reports.
 
 ### Changed
 
+- OpenAPI response matching now uses response media types to select compatible response candidates. `oneOf` generation respects variant-specific required fields, and property-bound constraints remain intact when deriving schemas.
+- External example matcher references are resolved before mock responses are filled, so referenced values are applied consistently to served responses.
+- Reporter metadata discovery skips `.specmatic` directories, including nested directories, so their contents are not reported as API specifications.
+- Raw report submissions to Insights are gzip-compressed.
 - Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Sonatype announced that, from October 1, 2026, publishing artifacts with a commercial nature requires Maven Central Publisher Pro regardless of publishing volume ([policy details](https://central.sonatype.org/news/20260908_publisher_tiers_commercial_use/)). Add the Specmatic releases repository to your build:
 
   Gradle:
