@@ -23,11 +23,11 @@ class WSDLNamespaceDiagnosticTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("attributeBreadcrumbs")
-    fun `attribute breadcrumbs use payload names or stop at the containing element`(description: String, attributes: String, breadcrumb: String) {
+    fun `attribute breadcrumbs use payload names or stop at the containing element`(description: String, attributes: String, expectedBreadcrumbs: List<String>) {
         val result = validate("<o:Request $attributes><code>value</code></o:Request>")
         assertThat(result.isSuccess()).isFalse()
         val breadcrumbs = result.reportString().lineSequence().map(String::trim).filter { it.startsWith(">>") }.toList()
-        assertThat(breadcrumbs).describedAs(description).containsExactly(">> $breadcrumb")
+        assertThat(breadcrumbs).describedAs(description).containsExactlyElementsOf(expectedBreadcrumbs.map { ">> $it" })
     }
 
     private fun validate(payload: String, qualifiedCode: Boolean = false): Result {
@@ -48,10 +48,10 @@ class WSDLNamespaceDiagnosticTest {
     companion object {
         @JvmStatic
         fun attributeBreadcrumbs(): List<Arguments> = listOf(
-            Arguments.of("invalid attribute value", """a:id="invalid"""", "REQUEST.BODY.Envelope.Body.Request.a:id"),
-            Arguments.of("wrong attribute namespace", """t:id="42"""", "REQUEST.BODY.Envelope.Body.Request.t:id"),
-            Arguments.of("unexpected attribute", """a:id="42" t:extra="yes"""", "REQUEST.BODY.Envelope.Body.Request.t:extra"),
-            Arguments.of("missing attribute", "", "REQUEST.BODY.Envelope.Body.Request")
+            Arguments.of("invalid attribute value", """a:id="invalid"""", listOf("REQUEST.BODY.Envelope.Body.Request.a:id")),
+            Arguments.of("wrong attribute namespace", """t:id="42"""", listOf("REQUEST.BODY.Envelope.Body.Request", "REQUEST.BODY.Envelope.Body.Request.t:id")),
+            Arguments.of("unexpected attribute", """a:id="42" t:extra="yes"""", listOf("REQUEST.BODY.Envelope.Body.Request.t:extra")),
+            Arguments.of("missing attribute", "", listOf("REQUEST.BODY.Envelope.Body.Request"))
         )
 
         @JvmStatic

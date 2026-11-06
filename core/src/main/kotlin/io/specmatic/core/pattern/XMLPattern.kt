@@ -695,28 +695,33 @@ data class XMLPattern(
         }
         val sampleAttributeNamesByIdentity = sampleAttributesWithoutXmlns.keys.associateBy { sampleAttributeName(it, sampleData) }
 
-        val missingKey = resolver.findKeyError(
+        val keyErrors = resolver.findKeyErrorList(
             patternAttributesWithoutXmlns.mapKeys { patternAttributeName(it.key) },
             sampleAttributesForKeyCheck.mapKeys { sampleAttributeName(it.key, sampleData) }
         )
-        if (missingKey != null) {
-            val declaredName = patternAttributesWithoutXmlns.keys.firstOrNull {
-                withoutOptionality(patternAttributeName(it)) == withoutOptionality(missingKey.name)
-            }
-            val keyLocation = resolver.locate(attributePointers[declaredName] ?: attributePointers[declaredName?.let(::withoutOptionality)])
-            if (pattern.requiredNamespaceUri != null && declaredName != null) {
-                val differentlyQualified = sampleAttributesWithoutXmlns.keys.firstOrNull {
-                    it.localName() == withoutOptionality(declaredName).localName() &&
-                        sampleAttributeName(it, sampleData) != withoutOptionality(patternAttributeName(declaredName))
+        if (keyErrors.isNotEmpty()) {
+            return Failure.fromFailures(keyErrors.map { keyError ->
+                val declaredName = patternAttributesWithoutXmlns.keys.firstOrNull {
+                    withoutOptionality(patternAttributeName(it)) == withoutOptionality(keyError.canonicalKey)
                 }
-                if (differentlyQualified != null) {
-                    return Failure("Expected XML attribute ${withoutOptionality(patternAttributeName(declaredName))}, got ${sampleAttributeName(differentlyQualified, sampleData)}")
-                        .breadCrumb(differentlyQualified, keyLocation)
+                val sampleName = sampleAttributeNamesByIdentity[keyError.name]
+                val keyLocation = resolver.locate(attributePointers[declaredName] ?: attributePointers[declaredName?.let(::withoutOptionality)])
+                val failure = when {
+                    pattern.requiredNamespaceUri != null && keyError is MissingKeyError && declaredName != null ->
+                        Failure(
+                            "Required attribute '${withoutOptionality(declaredName).localName()}' ${attributeNamespaceDescription(pattern.attributeNamespaceUri(declaredName))} is missing.",
+                            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                        )
+                    pattern.requiredNamespaceUri != null && keyError is UnexpectedKeyError && sampleName != null ->
+                        Failure(
+                            "Unexpected attribute '$sampleName' ${attributeNamespaceDescription(sampleData.attributeNamespaceUri(sampleName))}.",
+                            ruleViolation = StandardRuleViolation.UNKNOWN_PROPERTY
+                        )
+                    else -> keyError.missingKeyToResult("attribute", resolver.mismatchMessages)
                 }
-            }
-            return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
-                .breadCrumb(sampleAttributeNamesByIdentity[missingKey.name]
-                    ?: if (pattern.requiredNamespaceUri == null) missingKey.name else "", keyLocation)
+                failure.breadCrumb(sampleName
+                    ?: if (pattern.requiredNamespaceUri == null) keyError.name else "", keyLocation)
+            })
         }
 
         return matchAttributes(
@@ -737,6 +742,9 @@ data class XMLPattern(
         return withoutOptionality(sampleAttributeName(attributeName, sampleData)) !in declaredAttributeNames &&
                 pattern.attributeWildcards.any { it.allows(attributeName, sampleData) }
     }
+
+    private fun attributeNamespaceDescription(namespaceUri: String?): String =
+        if (namespaceUri.isNullOrEmpty()) "with no XML namespace" else "in XML namespace '$namespaceUri'"
 
     private fun patternAttributeName(name: String): String =
         if (pattern.requiredNamespaceUri == null) name else expandedAttributeName(name, pattern.attributeNamespaceUri(name))

@@ -535,7 +535,7 @@ Scenario: test request returns test response
         val wsdlScenario = wsdlFeature.scenarios.single()
         val result = wsdlScenario.httpRequestPattern.matches(soapRequest, wsdlScenario.resolver)
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Expected attribute \"age\" was missing")
+        assertThat(result.reportString()).contains("Required attribute 'age' with no XML namespace is missing.")
     }
 
     @Test
