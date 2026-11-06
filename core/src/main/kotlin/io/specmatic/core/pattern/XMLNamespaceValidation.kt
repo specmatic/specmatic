@@ -10,7 +10,17 @@ import javax.xml.XMLConstants
 /** Validate once at the WSDL envelope boundary, including wildcard-skipped descendants. */
 internal fun XMLNode.namespaceValidationFailure(): Failure? {
     val bindings = namespaces.toMutableMap()
-    fun failure(message: String) = Failure("Invalid XML namespace declarations or names in $realName: $message")
+    val stack = ArrayDeque<NamespaceValidationScope>()
+    fun failure(message: String, node: XMLNode = this): Failure {
+        var result = Failure("Invalid XML namespace declarations or names in $realName: $message")
+        if (stack.isEmpty()) return result
+        result = result.breadCrumb(node.name)
+        // XMLPattern adds the envelope breadcrumb; retain only its descendants here.
+        for (index in stack.lastIndex downTo 1) {
+            result = result.breadCrumb(stack[index].elementName)
+        }
+        return result
+    }
     bindings.forEach { (prefix, uri) ->
         namespaceBindingFailure(prefix, uri)?.let { return failure(it) }
     }
@@ -18,7 +28,6 @@ internal fun XMLNode.namespaceValidationFailure(): Failure? {
 
     // Restore bindings on leaving each element instead of copying the entire scope for each child.
     // Iterators keep the traversal stack proportional to depth, even for very wide payloads.
-    val stack = ArrayDeque<NamespaceValidationScope>()
     var children: Iterator<XMLValue> = listOf(this).iterator()
     while (true) {
         if (!children.hasNext()) {
@@ -36,25 +45,25 @@ internal fun XMLNode.namespaceValidationFailure(): Failure? {
             val prefix = when {
                 name == "xmlns" -> ""
                 name.startsWith("xmlns:") -> name.removePrefix("xmlns:").also { prefix ->
-                    if (prefix.isEmpty()) return failure("Invalid namespace declaration '$name'")
+                    if (prefix.isEmpty()) return failure("Invalid namespace declaration '$name'", node)
                 }
                 else -> return@forEach
             }
-            namespaceBindingFailure(prefix, value.string)?.let { return failure(it) }
+            namespaceBindingFailure(prefix, value.string)?.let { return failure(it, node) }
             previousBindings[prefix] = bindings.put(prefix, value.string)
         }
-        namespaceNameFailure(node.realName, bindings)?.let { return failure(it) }
+        namespaceNameFailure(node.realName, bindings)?.let { return failure(it, node) }
         val attributeNames = HashSet<Pair<String, String>>()
         node.attributes.keys.forEach { name ->
             if (name == "xmlns" || name.startsWith("xmlns:")) return@forEach
-            namespaceNameFailure(name, bindings)?.let { return failure(it) }
+            namespaceNameFailure(name, bindings)?.let { return failure(it, node) }
             // Default namespaces apply to element names, never to unprefixed attributes.
             val prefix = name.namespacePrefix()
             val uri = if (prefix.isEmpty()) "" else bindings.getValue(prefix)
             if (!attributeNames.add(uri to name.localName()))
-                return failure("Duplicate attribute {$uri}${name.localName()} on ${node.realName}")
+                return failure("Duplicate attribute {$uri}${name.localName()} on ${node.realName}", node)
         }
-        stack.addLast(NamespaceValidationScope(children, previousBindings))
+        stack.addLast(NamespaceValidationScope(children, previousBindings, node.name))
         children = node.childNodes.iterator()
     }
 }
@@ -62,6 +71,7 @@ internal fun XMLNode.namespaceValidationFailure(): Failure? {
 private data class NamespaceValidationScope(
     val siblings: Iterator<XMLValue>,
     val previousBindings: Map<String, String?>,
+    val elementName: String,
 )
 
 private fun namespaceBindingFailure(prefix: String, uri: String): String? = when {

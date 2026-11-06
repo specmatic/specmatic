@@ -37,6 +37,16 @@ class WSDLNamespaceWellformednessTest {
         assertThat(validate(envelope("", invalidBody)).reportString()).contains("namespace")
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("namespaceFailureBreadcrumbs")
+    fun `namespace failures report the actual XML ancestry`(description: String, declarations: String, body: String, breadcrumb: String) {
+        val result = validate(envelope(declarations, body))
+        val breadcrumbs = result.reportString().lineSequence()
+            .map(String::trim).filter { it.startsWith(">>") }.toList()
+
+        assertThat(breadcrumbs).describedAs(description).containsExactly(">> $breadcrumb")
+    }
+
     private fun validate(document: String): io.specmatic.core.Result {
         val declarations = """<xs:element name="Request"><xs:complexType><xs:sequence>
             <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
@@ -54,6 +64,17 @@ class WSDLNamespaceWellformednessTest {
 
     companion object {
         private const val NAMESPACE = "http://example.com/orders"
+        @JvmStatic
+        fun namespaceFailureBreadcrumbs(): List<Arguments> = listOf(
+            Arguments.of("unbound payload prefix", "", "<missing:Request/>", "REQUEST.BODY.Envelope.Body.Request"),
+            Arguments.of("nested skipped descendant", "", "<o:Request><Outer><missing:Inner/></Outer></o:Request>", "REQUEST.BODY.Envelope.Body.Request.Outer.Inner"),
+            Arguments.of("completed siblings are excluded", "", "<o:Request><First><Valid/></First><Second><missing:Inner/></Second></o:Request>", "REQUEST.BODY.Envelope.Body.Request.Second.Inner"),
+            Arguments.of("unbound attribute prefix", "", """<o:Request missing:id="one"/>""", "REQUEST.BODY.Envelope.Body.Request"),
+            Arguments.of("invalid nested binding", "", """<o:Request><Outer xmlns:bad=""/></o:Request>""", "REQUEST.BODY.Envelope.Body.Request.Outer"),
+            Arguments.of("duplicate expanded attributes", "", """<o:Request><Outer xmlns:a="urn:ids" xmlns:b="urn:ids" a:id="one" b:id="two"/></o:Request>""", "REQUEST.BODY.Envelope.Body.Request.Outer"),
+            Arguments.of("envelope is included once", """xmlns:xml="urn:wrong"""", "<o:Request/>", "REQUEST.BODY.Envelope")
+        )
+
         @JvmStatic
         fun invalidNamespaceDocuments(): List<Arguments> = listOf(
             Arguments.of("empty declared prefix", "", """<o:Request><Child xmlns:="urn:invalid"/></o:Request>"""),
