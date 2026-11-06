@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.localName
@@ -12,7 +13,8 @@ internal fun XMLNode.namespaceValidationFailure(): Failure? {
     val bindings = namespaces.toMutableMap()
     val stack = ArrayDeque<NamespaceValidationScope>()
     fun failure(message: String, node: XMLNode = this): Failure {
-        var result = Failure("Invalid XML namespace declarations or names in $realName: $message")
+        var result = Failure("Invalid XML namespace declarations or names in $realName: $message",
+            ruleViolation = StandardRuleViolation.INVALID_XML_NAMESPACE_USAGE)
         if (stack.isEmpty()) return result
         result = result.breadCrumb(node.name)
         // XMLPattern adds the envelope breadcrumb; retain only its descendants here.

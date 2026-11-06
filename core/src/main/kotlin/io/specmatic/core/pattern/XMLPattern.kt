@@ -369,33 +369,38 @@ data class XMLPattern(
     private fun invalidXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
         return Failure(
             "Invalid type ${assertedType.displayNameForError()}; " +
-                "it is not compatible with base type ${declaredType.displayNameForError()}."
+                "it is not compatible with base type ${declaredType.displayNameForError()}.",
+            ruleViolation = StandardRuleViolation.TYPE_MISMATCH
         )
     }
 
     private fun unknownXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
         return Failure(
             "Unknown type ${assertedType.displayNameForError()}; " +
-                "no matching type was found in the WSDL/schema set for base type ${declaredType.displayNameForError()}."
+                "no matching type was found in the WSDL/schema set for base type ${declaredType.displayNameForError()}.",
+            ruleViolation = StandardRuleViolation.TYPE_MISMATCH
         )
     }
 
     private fun abstractXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
         return Failure(
             "Invalid type ${assertedType.displayNameForError()}; " +
-                "it is abstract and cannot be used as a concrete WSDL type for the ${declaredType.displayNameForError()} element."
+                "it is abstract and cannot be used as a concrete WSDL type for the ${declaredType.displayNameForError()} element.",
+            ruleViolation = StandardRuleViolation.TYPE_MISMATCH
         )
     }
 
     private fun missingXSITypeForAbstractTypeResult(declaredType: WSDLTypeName): Failure {
         return Failure(
-            "Missing type for abstract WSDL type ${declaredType.displayNameForError()}; a concrete subtype is required."
+            "Missing type for abstract WSDL type ${declaredType.displayNameForError()}; a concrete subtype is required.",
+            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         )
     }
 
     private fun failureForWSDLTypeSelection(selectedType: WSDLTypeSelection): Failure {
         return when (selectedType) {
-            is WSDLTypeSelection.MalformedQName -> Failure("Invalid xsi:type '${selectedType.value}': ${selectedType.reason}")
+            is WSDLTypeSelection.MalformedQName -> Failure("Invalid xsi:type '${selectedType.value}': ${selectedType.reason}",
+                ruleViolation = StandardRuleViolation.INVALID_XML_NAMESPACE_USAGE)
             is WSDLTypeSelection.Unknown -> unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType)
             is WSDLTypeSelection.Invalid -> invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType)
             is WSDLTypeSelection.Abstract -> abstractXSITypeResult(selectedType.assertedType, selectedType.declaredType)
@@ -662,14 +667,22 @@ data class XMLPattern(
         val actualNamespace = sampleData.elementNamespaceUriOrNull().orEmpty()
         return when {
             sampleData.namespacePrefix.isNotBlank() && sampleData.elementNamespaceUriOrNull().isNullOrBlank() ->
-                Failure("XML namespace prefix ${sampleData.namespacePrefix} cannot be resolved for ${sampleData.realName}")
-            requiredNamespace != actualNamespace -> {
-                val expected = if (requiredNamespace.isEmpty()) "no XML namespace" else "XML namespace '$requiredNamespace'"
-                val actual = if (actualNamespace.isEmpty()) "no namespace" else "'$actualNamespace'"
-                Failure("Expected $expected for element '${pattern.name}', got $actual.")
-            }
+                Failure("XML namespace prefix ${sampleData.namespacePrefix} cannot be resolved for ${sampleData.realName}",
+                    ruleViolation = StandardRuleViolation.INVALID_XML_NAMESPACE_USAGE)
+            requiredNamespace != actualNamespace -> namespaceMismatchFailure(requiredNamespace, actualNamespace)
             else -> Success()
         }
+    }
+
+    private fun namespaceMismatchFailure(requiredNamespace: String, actualNamespace: String?): Failure {
+        val expected = if (requiredNamespace.isEmpty()) "no XML namespace" else "XML namespace '$requiredNamespace'"
+        val message = if (actualNamespace == null)
+            "Expected $expected for element '${pattern.name}', but the other pattern has no namespace requirement."
+        else {
+            val actual = if (actualNamespace.isEmpty()) "no namespace" else "'$actualNamespace'"
+            "Expected $expected for element '${pattern.name}', got $actual."
+        }
+        return Failure(message, ruleViolation = StandardRuleViolation.XML_NAMESPACE_MISMATCH)
     }
 
     private fun matchAttributes(sampleData: XMLNode, resolver: Resolver): Result {
@@ -1722,7 +1735,7 @@ data class XMLPattern(
             Failure("Expected a node named ${pattern.name}, but got ${otherResolvedPattern.pattern.name} instead.")
 
         pattern.requiredNamespaceUri != null && pattern.requiredNamespaceUri != otherResolvedPattern.pattern.requiredNamespaceUri ->
-            Failure("Expected XML namespace '${pattern.requiredNamespaceUri.ifEmpty { "(none)" }}' for ${pattern.name}, got '${otherResolvedPattern.pattern.requiredNamespaceUri.orEmpty().ifEmpty { "(none)" }}'")
+            namespaceMismatchFailure(pattern.requiredNamespaceUri, otherResolvedPattern.pattern.requiredNamespaceUri)
 
         else -> Success()
     }

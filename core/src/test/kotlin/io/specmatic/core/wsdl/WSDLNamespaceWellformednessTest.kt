@@ -19,6 +19,7 @@ class WSDLNamespaceWellformednessTest {
         val result = validate(envelope(declarations, body))
         assertThat(result.isSuccess()).describedAs(description).isFalse()
         assertThat(result.reportString()).contains("namespace")
+        assertThat(result.toIssues().flatMap { it.ruleViolations }.map { it.id }).containsExactly("R1005")
     }
 
     @ParameterizedTest(name = "{0}")
