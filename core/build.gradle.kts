@@ -16,7 +16,7 @@ dependencies {
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
     implementation("joda-time:joda-time:2.15.1")
-    implementation("net.minidev:json-smart:2.6.0")
+    implementation("net.minidev:json-smart:2.6.1")
 
     implementation("com.ezylang:EvalEx:3.8.0")
     implementation("org.apache.commons:commons-lang3:3.21.0")

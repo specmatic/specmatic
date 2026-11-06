@@ -11,7 +11,7 @@ dependencies {
     }
 
     implementation("joda-time:joda-time:2.15.1")
-    implementation("net.minidev:json-smart:2.6.0")
+    implementation("net.minidev:json-smart:2.6.1")
 
     implementation("com.ezylang:EvalEx:3.8.0")
     implementation("com.arakelian:java-jq:2.0.0")
