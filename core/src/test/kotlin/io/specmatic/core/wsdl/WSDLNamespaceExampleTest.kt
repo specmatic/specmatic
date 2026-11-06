@@ -38,6 +38,34 @@ class WSDLNamespaceExampleTest {
         assertMockResponse("parsed example", envelope("""<urn:Request urn:id="42"><urn:code>AB1</urn:code></urn:Request>"""), 200, true, parsedExample = true)
     }
 
+    @Test
+    fun `business Envelope and Header elements retain their sequence order`() {
+        val fixture = WSDLNamespaceFixture("urn:orders", "/namespaces")
+        val declarations = """<xs:element name="Request"><xs:complexType><xs:sequence>
+            <xs:element name="Envelope"><xs:complexType><xs:sequence>
+            <xs:element name="Header"><xs:complexType><xs:sequence>
+            <xs:element name="first" type="xs:string"/><xs:element name="second" type="xs:string"/>
+            </xs:sequence></xs:complexType></xs:element></xs:sequence></xs:complexType></xs:element>
+            </xs:sequence></xs:complexType></xs:element><xs:element name="Response" type="xs:string"/>"""
+        val feature = parseContractFileToFeature(directory.resolve("business-header.wsdl").apply {
+            writeText(fixture.wsdl(fixture.schema(declarations, "elementFormDefault=\"qualified\"")))
+        })
+        val scenario = feature.scenarios.single()
+        val ordered = "<urn:first>one</urn:first><urn:second>two</urn:second>"
+        val body = envelope("<urn:Request><urn:Envelope><urn:Header>$ordered</urn:Header></urn:Envelope></urn:Request>")
+        val example = scenario.generateHttpRequest().copy(body = StringValue(body))
+        val response = scenario.generateHttpResponse().copy(headers = emptyMap(), body = StringValue(
+            envelope("<urn:Response>EXAMPLE_OK</urn:Response>")
+        ))
+        HttpStub(feature, scenarioStubs = listOf(ScenarioStub(request = example, response = response)), port = testPort()).use { stub ->
+            assertThat(stub.client.execute(example).body.toStringLiteral()).contains("EXAMPLE_OK")
+            val extraHeader = body.replace("</urn:Header>", "<urn:Header/></urn:Header>")
+            assertThat(stub.client.execute(example.copy(body = StringValue(extraHeader))).status).isEqualTo(400)
+            val reordered = body.replace(ordered, "<urn:second>two</urn:second><urn:first>one</urn:first>")
+            assertThat(stub.client.execute(example.copy(body = StringValue(reordered))).status).isEqualTo(400)
+        }
+    }
+
     private fun assertMockResponse(
         description: String,
         body: String,

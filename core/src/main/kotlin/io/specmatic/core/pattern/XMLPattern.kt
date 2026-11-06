@@ -21,6 +21,7 @@ const val SOAP_FAULT = "fault"
 private const val SOAP_ENVELOPE = "Envelope"
 private const val SOAP_HEADER = "Header"
 private const val SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
+private const val SOAP12_ENVELOPE_NAMESPACE = "http://www.w3.org/2003/05/soap-envelope"
 
 private sealed class WSDLTypeSelection {
     data class Use(val pattern: Pattern) : WSDLTypeSelection()
@@ -61,10 +62,18 @@ private fun nodeTypes(node: XMLNode, isSOAP: Boolean): List<Pattern> {
 }
 
 private fun isSOAPHeader(parentNode: XMLNode, childNode: XMLNode, isSOAP: Boolean): Boolean {
-    return isSOAP &&
-            parentNode.name.equals(SOAP_ENVELOPE, ignoreCase = true) &&
-            childNode.name.equals(SOAP_HEADER, ignoreCase = true)
+    return isSOAP && isSOAPHeader(
+        parentNode.name, parentNode.elementNamespaceUriOrNull(),
+        childNode.name, childNode.elementNamespaceUriOrNull()
+    )
 }
+
+private fun isSOAPHeader(parentName: String, parentNamespace: String?, childName: String, childNamespace: String?): Boolean =
+    isSOAPEnvelope(parentName, parentNamespace) &&
+        childName == SOAP_HEADER && childNamespace == parentNamespace
+
+private fun isSOAPEnvelope(name: String, namespace: String?): Boolean =
+    name == SOAP_ENVELOPE && (namespace == SOAP_ENVELOPE_NAMESPACE || namespace == SOAP12_ENVELOPE_NAMESPACE)
 
 private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
     return node.attributes.mapValues { (key, value) ->
@@ -247,7 +256,7 @@ data class XMLPattern(
     }
 
     private fun matchesXMLNode(sampleData: XMLNode, resolver: Resolver): Result {
-        if (pattern.requiredNamespaceUri != null && pattern.isSOAP && pattern.name == SOAP_ENVELOPE) {
+        if (pattern.isSOAP && isSOAPEnvelope(pattern.name, pattern.requiredNamespaceUri)) {
             sampleData.namespaceValidationFailure()?.let { return it.breadCrumb(pattern.name, resolver.locate(schemaPointer)) }
         }
         val matchingType = dereferenceType(resolver)
@@ -493,7 +502,7 @@ data class XMLPattern(
     }
 
     private fun dropEmptySOAPHeader(sampleData: XMLNode): XMLNode {
-        if (!pattern.isSOAP) {
+        if (!pattern.isSOAP || (pattern.requiredNamespaceUri != null && !isSOAPEnvelope(pattern.name, pattern.requiredNamespaceUri))) {
             return sampleData
         }
 
@@ -1483,7 +1492,9 @@ data class XMLPattern(
             isSOAPHeader = isSOAPHeader,
             nodes = pattern.nodes.map { child ->
                 if (child is XMLPattern)
-                    child.withExampleNamespaces(isSOAP, isSOAP && pattern.name == SOAP_ENVELOPE && child.pattern.name == SOAP_HEADER)
+                    child.withExampleNamespaces(isSOAP, isSOAP && isSOAPHeader(
+                        pattern.name, pattern.namespaceUri, child.pattern.name, child.pattern.namespaceUri
+                    ))
                 else child
             }
         ))
