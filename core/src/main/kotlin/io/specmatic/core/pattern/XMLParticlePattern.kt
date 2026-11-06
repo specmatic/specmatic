@@ -44,7 +44,7 @@ data class XMLParticlePattern(
                 val result = remaining.firstOrNull()?.let { member.matches(it, resolver) }
                     ?: Result.Failure("Required XML element ${member.pattern.name} is absent")
                 val value = remaining.firstOrNull()
-                val elementFailure: ProvisionalError<Value>? = if (result is Result.Failure && value is XMLNode && value.name.substringAfter(":") == member.pattern.name)
+                val elementFailure: ProvisionalError<Value>? = if (result is Result.Failure && value is XMLNode && member.hasSameExpandedName(value))
                     ProvisionalError(result, member, value) else null
                 listOf(ConsumeResult(result, if (result.isSuccess()) remaining.subList(1, remaining.size) else remaining, elementFailure))
             } else xmlMatchCandidates(member, remaining, resolver)

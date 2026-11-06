@@ -5,8 +5,10 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.wsdl.soapPayloadElement
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.w3c.dom.Element
 import java.io.File
 
 internal class WsdlSpecificationTest {
@@ -20,7 +22,7 @@ internal class WsdlSpecificationTest {
             method = "POST",
             path = "/stockquote",
             headers = mapOf("SOAPAction" to "\"http://example.com/GetLastTradePrice\""),
-            body = StringValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><TradePriceRequest><tickerSymbol nil="true"/></TradePriceRequest></soapenv:Body></soapenv:Envelope>""")
+            body = StringValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:q="http://example.com/stockquote.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><soapenv:Header/><soapenv:Body><q:TradePriceRequest><tickerSymbol xsi:nil="true"/></q:TradePriceRequest></soapenv:Body></soapenv:Envelope>""")
         )
 
         val scenario = wsdlContract.scenarios.first()
@@ -170,8 +172,15 @@ internal class WsdlSpecificationTest {
             .toList()
 
         assertThat(generatedBodies).anySatisfy { body ->
-            assertThat(body).contains("xsi:type=\"model:OnlineOrder\"")
-            assertThat(body).contains(":channel>")
+            val payload = soapPayloadElement(body)
+            val orders = payload.getElementsByTagNameNS("http://example.com/order-service", "order")
+            assertThat(orders.length).isEqualTo(1)
+            val order = orders.item(0) as Element
+            val assertedType = order.getAttributeNS("http://www.w3.org/2001/XMLSchema-instance", "type")
+            assertThat(assertedType.substringAfter(':')).isEqualTo("OnlineOrder")
+            val typePrefix = assertedType.substringBefore(':', "").ifEmpty { null }
+            assertThat(order.lookupNamespaceURI(typePrefix)).isEqualTo("http://example.com/order-model")
+            assertThat(order.getElementsByTagNameNS("http://example.com/order-model", "channel").length).isEqualTo(1)
         }
     }
 

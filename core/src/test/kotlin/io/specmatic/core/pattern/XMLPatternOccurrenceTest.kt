@@ -12,6 +12,15 @@ class XMLPatternOccurrenceTest {
     }
 
     @Test
+    fun `occurrence validation does not add cardinality to payload breadcrumbs`() {
+        val parent = XMLPattern("<Root/>").let { it.copy(pattern = it.pattern.copy(nodes = listOf(element(1, 1)))) }
+        val result = parent.matches(toXMLNode("<Root><Item><Unexpected/></Item></Root>"), resolver)
+
+        assertThat(result.isSuccess()).isFalse()
+        assertThat(result.reportString()).doesNotContain("occurs 1..1")
+    }
+
+    @Test
     fun `direct element children retain boundaries through both variant APIs`() {
         val parent = XMLPattern("<Root/>").let { it.copy(pattern = it.pattern.copy(nodes = listOf(element(2, 8)))) }
         val variants = parent.newBasedOn(resolver).toList() + parent.newBasedOn(Row(), resolver).map { it.value as XMLPattern }.toList()

@@ -60,6 +60,18 @@ enum class StandardRuleViolation(override val id: String, override val title: St
         summary = "The value does not satisfy the constraints defined in the specification"
     ),
 
+    XML_NAMESPACE_MISMATCH(
+        id = "R1004",
+        title = "XML namespace mismatch",
+        summary = "An XML element does not satisfy the namespace requirement defined in the specification"
+    ),
+
+    INVALID_XML_NAMESPACE_USAGE(
+        id = "R1005",
+        title = "Invalid XML namespace usage",
+        summary = "XML namespace declarations or qualified names violate XML namespace rules"
+    ),
+
     /* ---------------- Key Rules ---------------- */
     REQUIRED_PROPERTY_MISSING(
         id = "R2001",

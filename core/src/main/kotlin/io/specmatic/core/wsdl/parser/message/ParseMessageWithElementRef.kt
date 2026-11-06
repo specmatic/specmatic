@@ -2,6 +2,7 @@ package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
+import io.specmatic.core.value.localName
 
 fun deriveSpecmaticAttributes(element: XMLNode): Map<String, StringValue> {
     return when {
@@ -28,11 +29,12 @@ private fun elementIsOptional(element: XMLNode): Boolean {
 }
 
 fun isPrimitiveType(node: XMLNode): Boolean {
-    val type = simpleTypeName(node)
-    val namespace = node.resolveNamespace(type)
+    val source = if (node.attributes.containsKey("type")) node else node.findFirstChildByName("restriction") ?: node
+    val type = (source.attributes["type"] ?: source.attributes["base"])?.toStringLiteral() ?: simpleTypeName(node)
+    val namespace = source.resolveNamespace(type)
 
     if(namespace.isBlank())
-        return primitiveTypes.contains(type)
+        return primitiveTypes.contains(type.localName())
 
     return namespace == primitiveNamespace
 }

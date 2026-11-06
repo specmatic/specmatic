@@ -180,21 +180,41 @@ fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
 
     val typesNode = rootDefinition.findFirstChildByName("types") ?: toXMLNode("<types/>")
 
-    val schemaPrefixes: Map<String, String> = schemaPrefixesFrom(schemas)
-    val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
     val rootPrefixes: Map<String, String> = prefixToNamespaceMap(rootDefinition)
+    val schemaPrefixes: Map<String, String> = schemaPrefixesFrom(schemas, rootPrefixes)
+    val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
 
     return WSDL(rootDefinition, definitions, schemas, typesNode, schemaPrefixes.plus(namespaceToPrefixMap(rootDefinition)), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
 }
 
-fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> {
+fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> =
+    schemaPrefixesFrom(schemas, emptyMap())
+
+private fun schemaPrefixesFrom(schemas: Map<String, XMLNode>, reservedBindings: Map<String, String>): Map<String, String> {
     if (schemas.isEmpty()) {
         return emptyMap()
     }
 
     val namespaces = schemas.keys.toSet().toList()
 
-    return toURLPrefixMap(namespaces, MappedURLType.INCLUDES_DOMAIN)
+    return toURLPrefixMap(namespaces, MappedURLType.INCLUDES_DOMAIN).entries.fold(emptyMap()) { prefixes, (namespace, suggestedPrefix) ->
+        val basePrefix = xmlNamespacePrefix(suggestedPrefix)
+        val candidates = sequenceOf(basePrefix) + generateSequence(1) { it + 1 }.map { "${basePrefix}_$it" }
+        val prefix = candidates.first { candidate ->
+            candidate !in prefixes.values && (reservedBindings[candidate] == null || reservedBindings[candidate] == namespace)
+        }
+        prefixes + (namespace to prefix)
+    }
+}
+
+private fun xmlNamespacePrefix(suggestedPrefix: String): String {
+    val prefix = suggestedPrefix.replace(Regex("[^A-Za-z0-9_.-]"), "_")
+    return when {
+        prefix.isEmpty() -> "ns"
+        !prefix.first().isLetter() && prefix.first() != '_' -> "_$prefix"
+        prefix.startsWith("xml", ignoreCase = true) -> "_$prefix"
+        else -> prefix
+    }
 }
 
 enum class MappedURLType(val index: Int) {
@@ -213,13 +233,13 @@ fun toURLPrefixMap(urls: List<String>, mappedURLType: MappedURLType): Map<String
     }
         ?: throw ContractException("No schema namespaces found")
 
-    val segmentCount = 1.until(minLength + 1).first { length ->
+    val segmentCount = 1.until(minLength + 1).firstOrNull { length ->
         val segments = normalisedURL.map { url ->
             url.split("/").filterNot { it.isEmpty() }.takeLast(length).joinToString("_")
         }
 
         segments.toSet().size == urls.size
-    }
+    } ?: minLength
 
     val prefixes = normalisedURL.map { url ->
         url.split("/").filterNot { it.isEmpty() }.takeLast(segmentCount).joinToString("_") { it.capitalizeFirstChar() }
@@ -425,7 +445,10 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             declaration.addSchema(findSchema(fullyQualifiedName.namespace, localSchema))
         else
             declaration
-        val node = contextualDeclaration.copy(attributes = contextualDeclaration.attributes.plus(otherRefAttributes))
+        val form = if (schemaTargetNamespace(contextualDeclaration).isNullOrBlank()) "unqualified" else "qualified"
+        val node = contextualDeclaration.copy(
+            attributes = contextualDeclaration.attributes.plus(otherRefAttributes).plus("form" to StringValue(form))
+        )
 
         return if(hasSimpleTypeAttribute(node)) {
             SimpleElement(fullyQualifiedName.qName, node, this)
@@ -567,7 +590,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun getSchemaNamespacePrefix(namespace: String): String {
-        return namespaceToPrefix[namespace] ?: throw ContractException("Tried to lookup a prefix for the namespace $namespace but could not find one")
+        return namespaceToPrefix[namespace]?.takeIf { it.isNotBlank() }
+            ?: prefixToNamespace.entries.firstOrNull { it.key.isNotBlank() && it.value == namespace }?.key
+            ?: throw ContractException("Tried to lookup a prefix for the namespace $namespace but could not find one")
     }
 
     fun getSOAPVersion(): SOAPVersion {

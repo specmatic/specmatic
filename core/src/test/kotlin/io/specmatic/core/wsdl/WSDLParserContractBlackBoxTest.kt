@@ -9,7 +9,6 @@ import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.testBackwardCompatibility
-import io.specmatic.core.wsdl.payload.emptySoapMessage
 import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.RequestContext
@@ -106,8 +105,8 @@ class WSDLParserContractBlackBoxTest {
 
         assertThat(generatedBodies).isNotEmpty()
         assertThat(generatedBodies).allSatisfy { body ->
-            val customerCount = countOccurrences(body, "<Choice-scalar-repeating:CustomerNumber>")
-            val loginCount = countOccurrences(body, "<Choice-scalar-repeating:LoginId>")
+            val customerCount = soapElementCount(body, "http://choice-scalar-repeating", "CustomerNumber")
+            val loginCount = soapElementCount(body, "http://choice-scalar-repeating", "LoginId")
             assertThat(customerCount + loginCount).isBetween(1, 2)
         }
     }
@@ -382,7 +381,7 @@ class WSDLParserContractBlackBoxTest {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.path).isEqualTo("/empty-part")
                     assertThat(request.headers["SOAPAction"]).isIn("\"/empty-part/ping\"", "/empty-part/ping")
-                    assertThat(request.body).isEqualTo(emptySoapMessage())
+                    assertEmptySoapEnvelope(request.body.toStringLiteral())
                     return stub.client.execute(request)
                 }
             })
@@ -479,10 +478,9 @@ class WSDLParserContractBlackBoxTest {
                     assertThat(request.path).isEqualTo("/header-part")
                     assertThat(request.body.toStringLiteral())
                         .contains("soapenv:Header")
-                        .contains("<ClientHeader>")
-                        .contains("</ClientHeader>")
                         .contains("soapenv:Body")
                         .contains("HeaderPartRequest")
+                    assertThat(soapElementCount(request.body.toStringLiteral(), "", "ClientHeader")).isEqualTo(1)
                     return stub.client.execute(request)
                 }
             })

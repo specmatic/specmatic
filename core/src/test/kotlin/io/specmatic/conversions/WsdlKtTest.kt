@@ -102,7 +102,7 @@ class WsdlKtTest {
                                     <xsd:element name="Id" type="xsd:integer" />
                                     <xsd:element name="Name" type="xsd:string" />
                                 </xsd:sequence>
-                                <xs:attribute name="age" type="xs:integer"></xs:attribute>
+                                <xsd:attribute name="age" type="xsd:integer"></xsd:attribute>
                             </xsd:complexType>
                         </xsd:element>
                     </xsd:schema>
@@ -165,7 +165,7 @@ class WsdlKtTest {
                                     <xsd:element name="Id" type="xsd:integer" />
                                     <xsd:element name="Name" type="xsd:string" />
                                 </xsd:sequence>
-                                <xs:attribute name="age" type="xs:integer" use="required"></xs:attribute>
+                                <xsd:attribute name="age" type="xsd:integer" use="required"></xsd:attribute>
                             </xsd:complexType>
                         </xsd:element>
                     </xsd:schema>
@@ -226,15 +226,15 @@ Background:
 Scenario: test request returns test response
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleRequest>test request</SimpleRequest></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleRequest>test request</qr:SimpleRequest></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
 
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
         HttpStub(wsdlFeature, port = testPort()).use {
             val soapRequest =
-                """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleRequest>WKTGM</SimpleRequest></soapenv:Body></soapenv:Envelope>"""
+                """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleRequest>WKTGM</qr:SimpleRequest></soapenv:Body></soapenv:Envelope>"""
 
             val headers = HttpHeaders()
             headers.add("SOAPAction", """"http://specmatic.io/SOAPService/SimpleOperation"""")
@@ -246,10 +246,10 @@ Scenario: test request returns test response
             )
             assertThat(response.statusCodeValue).isEqualTo(200)
             assertThat(response.body)
-                .matches("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>[A-Z]*</SimpleResponse></soapenv:Body></soapenv:Envelope>""")
+                .matches("""<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>[A-Z]*</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>""")
 
             val testRequest =
-                """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleRequest>test request</SimpleRequest></soapenv:Body></soapenv:Envelope>"""
+                """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleRequest>test request</qr:SimpleRequest></soapenv:Body></soapenv:Envelope>"""
             val testResponse = RestTemplate().exchange(
                 URI.create("http://localhost:9000/SOAPService/SimpleSOAP"),
                 HttpMethod.POST,
@@ -257,7 +257,7 @@ Scenario: test request returns test response
                 String::class.java
             )
             assertThat(testResponse.body)
-                .matches("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>""")
+                .matches("""<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>""")
         }
     }
 
@@ -281,12 +281,12 @@ Background:
                     "Content-Type" to "text/xml",
                     "SOAPAction" to """http://specmatic.io/SOAPService/SimpleOperation"""
                 ),
-                body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soapenv:Header/><soapenv:Body><SimpleRequest>test request</SimpleRequest></soapenv:Body></soapenv:Envelope>")
+                body = StringValue("<soapenv:Envelope xmlns:qr=\"http://specmatic.io/SOAPService/\" xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soapenv:Header/><soapenv:Body><qr:SimpleRequest>test request</qr:SimpleRequest></soapenv:Body></soapenv:Envelope>")
             )
 
             val response = HttpResponse(
                 status = 200,
-                body = "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soapenv:Header/><soapenv:Body><soapenv:Fault></soapenv:Fault></soapenv:Body></soapenv:Envelope>"
+                body = "<soapenv:Envelope xmlns:qr=\"http://specmatic.io/SOAPService/\" xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soapenv:Header/><soapenv:Body><soapenv:Fault></soapenv:Fault></soapenv:Body></soapenv:Envelope>"
             )
 
             stub.setExpectation(ScenarioStub(request, response))
@@ -305,9 +305,9 @@ Background:
 Scenario: test request returns test response
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleRequest>test request</SimpleRequest></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleRequest>test request</qr:SimpleRequest></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
 
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
@@ -321,9 +321,9 @@ Scenario: test request returns test response
                         .contains(request.headers["SOAPAction"])
                     val responseBody = when {
                         request.bodyString.contains("test request") ->
-                            """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                            """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                         else ->
-                            """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                            """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>WSDL</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     }
                     return HttpResponse(200, responseBody, mapOf())
                 }
@@ -345,12 +345,12 @@ Background:
 Scenario: test spec with mandatory attributes with examples
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><qr:Id>1</qr:Id><qr:Name>James Smith</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><Id>1</Id><Name>James Smith</Name></qr:Person></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
   Examples:
       | (REQUEST-BODY) |
-      | <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="$age"><qr:Id>3</qr:Id><qr:Name>John Doe</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope> |
+      | <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="$age"><Id>3</Id><Name>John Doe</Name></qr:Person></soapenv:Body></soapenv:Envelope> |
         """.trimIndent()
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
         var countOfTestsWithAgeAttributeSetFromExamples = 0
@@ -360,7 +360,7 @@ Scenario: test spec with mandatory attributes with examples
                 override fun execute(request: HttpRequest): HttpResponse {
                     logRequestCharacteristics(request, ++requestCount)
                     if (requestContainsPersonNodeWithAge(request, age)) countOfTestsWithAgeAttributeSetFromExamples++
-                    val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                    val responseBody = """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>WSDL</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     return HttpResponse(200, responseBody, mapOf())
                 }
             }
@@ -380,9 +380,9 @@ Background:
 Scenario: test spec with mandatory attributes without examples
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><qr:Id>1</qr:Id><qr:Name>James Smith</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><Id>1</Id><Name>James Smith</Name></qr:Person></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
 
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
@@ -392,7 +392,7 @@ Scenario: test spec with mandatory attributes without examples
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     logRequestCharacteristics(request, ++requestCount)
-                    val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                    val responseBody = """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>WSDL</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     if (requestContainsPersonNodeWithRandomAge(request)) countOfTestsWithAgeAttributeSetToRandomValue++
                     return HttpResponse(200, responseBody, mapOf())
                 }
@@ -414,12 +414,12 @@ Background:
 Scenario: test spec with optional attributes without examples
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><qr:Id>1</qr:Id><qr:Name>James Smith</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><Id>1</Id><Name>James Smith</Name></qr:Person></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
   Examples:
       | (REQUEST-BODY) |
-      | <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="$age"><qr:Id>4</qr:Id><qr:Name>John Doe</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope> |
+      | <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="$age"><Id>4</Id><Name>John Doe</Name></qr:Person></soapenv:Body></soapenv:Envelope> |
         """.trimIndent()
 
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
@@ -429,7 +429,7 @@ Scenario: test spec with optional attributes without examples
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     logRequestCharacteristics(request, ++requestCount)
-                    val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                    val responseBody = """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>WSDL</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     if (requestContainsPersonNodeWithAge(request, age)) countOfTestsWithAgeAttributeSetFromExamples++
                     return HttpResponse(200, responseBody, mapOf())
                 }
@@ -450,12 +450,12 @@ Background:
 Scenario: test spec with optional attributes without examples
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><qr:Id>1</qr:Id><qr:Name>James Smith</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><Id>1</Id><Name>James Smith</Name></qr:Person></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
   Examples:
       | (REQUEST-BODY) |
-      | <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><qr:Id>5</qr:Id><qr:Name>Jane Doe</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope> |
+      | <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><Id>5</Id><Name>Jane Doe</Name></qr:Person></soapenv:Body></soapenv:Envelope> |
         """.trimIndent()
 
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
@@ -465,7 +465,7 @@ Scenario: test spec with optional attributes without examples
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     logRequestCharacteristics(request, ++requestCount)
-                    val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                    val responseBody = """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>WSDL</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     if (requestContainsPersonNodeWithoutAgeAttribute(request)) countOfTestsWithoutTheAgeAttribute++
                     return HttpResponse(200, responseBody, mapOf())
                 }
@@ -486,9 +486,9 @@ Background:
 Scenario: test request returns test response
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><qr:Id>1</qr:Id><qr:Name>James Smith</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><Id>1</Id><Name>James Smith</Name></qr:Person></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
 
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
@@ -498,7 +498,7 @@ Scenario: test request returns test response
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     logRequestCharacteristics(request, ++requestCount)
-                    val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                    val responseBody = """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>WSDL</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     if (requestContainsPersonNodeWithRandomAge(request)) countOfTestsWithAgeAttributeSetToRandomValue++
                     return HttpResponse(200, responseBody, mapOf())
                 }
@@ -516,7 +516,7 @@ Scenario: test request returns test response
             "POST",
             "/SOAPService/SimpleSOAP",
             mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-            body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="22"><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
+            body = parsedValue("""<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="22"><Id>2</Id><Name>James Taylor</Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()
         val result = wsdlScenario.httpRequestPattern.matches(soapRequest, wsdlScenario.resolver)
@@ -530,12 +530,12 @@ Scenario: test request returns test response
             "POST",
             "/SOAPService/SimpleSOAP",
             mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-            body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
+            body = parsedValue("""<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><Id>2</Id><Name>James Taylor</Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()
         val result = wsdlScenario.httpRequestPattern.matches(soapRequest, wsdlScenario.resolver)
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Expected attribute \"age\" was missing")
+        assertThat(result.reportString()).contains("Required attribute 'age' with no XML namespace is missing.")
     }
 
     @Test
@@ -545,7 +545,7 @@ Scenario: test request returns test response
             "POST",
             "/SOAPService/SimpleSOAP",
             mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-            body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="22"><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
+            body = parsedValue("""<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="22"><Id>2</Id><Name>James Taylor</Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()
         val result = wsdlScenario.httpRequestPattern.matches(soapRequest, wsdlScenario.resolver)
@@ -559,7 +559,7 @@ Scenario: test request returns test response
             "POST",
             "/SOAPService/SimpleSOAP",
             mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
-            body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
+            body = parsedValue("""<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><Id>2</Id><Name>James Taylor</Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()
         val result = wsdlScenario.httpRequestPattern.matches(soapRequest, wsdlScenario.resolver)
@@ -577,9 +577,9 @@ Background:
 Scenario: test request returns test response
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><qr:Id>1</qr:Id><qr:Name>John Doe</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><Id>1</Id><Name>John Doe</Name></qr:Person></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
         val exception = assertThrows<ContractException> {
             parseGherkinStringToFeature(wsdlSpec)
@@ -598,9 +598,9 @@ Background:
 Scenario: test request returns test response
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleRequest>test request</SimpleRequest></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleRequest>test request</qr:SimpleRequest></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
 
         val wsdlFeature = parseGherkinStringToFeature(wsdlSpec)
@@ -642,7 +642,7 @@ Background:
 Scenario: request not matching wsdl
   When POST /SOAPService/SimpleSOAP2
   And request-header SOAPAction "http://specmatic.io/SOAPService/AnotherOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleRequest>test request</SimpleRequest></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleRequest>test request</qr:SimpleRequest></soapenv:Body></soapenv:Envelope>
   Then status 200
         """.trimIndent()
 
@@ -672,9 +672,9 @@ Background:
 Scenario: test spec with mandatory attributes without examples
   When POST /SOAPService/SimpleSOAP
   And request-header SOAPAction "http://specmatic.io/SOAPService/SimpleOperation"
-  And request-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><qr:Id>1</qr:Id><qr:Name>James Smith</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>
+  And request-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="11"><Id>1</Id><Name>James Smith</Name></qr:Person></soapenv:Body></soapenv:Envelope>
   Then status 200
-  And response-body <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>test response</SimpleResponse></soapenv:Body></soapenv:Envelope>
+  And response-body <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>test response</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>
         """.trimIndent()
         val specmaticConfig = SpecmaticConfigV2(
             version = SpecmaticConfigVersion.VERSION_2,
@@ -686,7 +686,7 @@ Scenario: test spec with mandatory attributes without examples
         val results = wsdlFeature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 logRequestCharacteristics(request, countWithEscapedAction)
-                val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
+                val responseBody = """<soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:SimpleResponse>WSDL</qr:SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                 if (request.headers["SOAPAction"]?.startsWith("\"") == true) countWithEscapedAction++
                 return HttpResponse(200, responseBody)
             }

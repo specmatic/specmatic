@@ -7,10 +7,14 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.trimmedLinesList
+import org.xml.sax.InputSource
+import java.io.StringReader
+import javax.xml.parsers.DocumentBuilderFactory
 
 internal class XMLNodeTest {
     @Test
@@ -20,6 +24,70 @@ internal class XMLNodeTest {
         assertThat(node).isEqualTo(XMLNode("data", "data", emptyMap(), listOf(StringValue("data")), "", emptyMap()))
         assertThat(node.toStringLiteral()).isEqualTo("<data>data</data>")
     }
+
+    @Test
+    fun `serialization omits empty default declarations when no namespace is inherited`() {
+        val xml = toXMLNode("""<Order xmlns=""><id xmlns="">123</id></Order>""").toStringLiteral()
+
+        assertThat(xml).doesNotContain("xmlns=")
+        val document = namespaceAwareDocument(xml)
+        assertThat(document.documentElement.namespaceURI).isNull()
+        assertThat(document.getElementsByTagNameNS("", "id").length).isEqualTo(1)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `namespace-free SOAP payloads only reset an inherited default namespace`(defaultNamespace: Boolean) {
+        val soapNamespace = "http://schemas.xmlsoap.org/soap/envelope/"
+        val envelope = if (defaultNamespace)
+            """<Envelope xmlns="$soapNamespace"><Body><Order xmlns=""/></Body></Envelope>"""
+        else
+            """<s:Envelope xmlns:s="$soapNamespace"><s:Body><Order xmlns=""/></s:Body></s:Envelope>"""
+        val xml = toXMLNode(envelope).toStringLiteral()
+
+        assertThat(xml.contains("xmlns=\"\"")).isEqualTo(defaultNamespace)
+        val document = namespaceAwareDocument(xml)
+        assertThat(document.documentElement.namespaceURI).isEqualTo(soapNamespace)
+        assertThat(document.getElementsByTagNameNS(soapNamespace, "Body").length).isEqualTo(1)
+        assertThat(document.getElementsByTagNameNS("", "Order").length).isEqualTo(1)
+    }
+
+    @Test
+    fun `serialization keeps required resets through prefixed ancestors and restores sibling scopes`() {
+        val xml = toXMLNode("""
+            <Order xmlns="urn:orders" xmlns:o="urn:orders">
+                <o:Container><id xmlns=""><leaf xmlns=""/></id></o:Container>
+                <id xmlns=""/>
+                <qualified/>
+            </Order>
+        """.trimIndent()).toStringLiteral()
+
+        assertThat(Regex("xmlns=\"\"").findAll(xml).count()).isEqualTo(2)
+        val document = namespaceAwareDocument(xml)
+        assertThat(document.getElementsByTagNameNS("", "id").length).isEqualTo(2)
+        assertThat(document.getElementsByTagNameNS("", "leaf").length).isEqualTo(1)
+        assertThat(document.getElementsByTagNameNS("urn:orders", "Container").length).isEqualTo(1)
+        assertThat(document.getElementsByTagNameNS("urn:orders", "qualified").length).isEqualTo(1)
+    }
+
+    @Test
+    fun `serialization respects default namespace rebinding on prefixed elements`() {
+        val xml = toXMLNode("""
+            <Order xmlns="urn:orders" xmlns:o="urn:orders">
+                <o:Container xmlns="urn:inner"><inner/><local xmlns=""/></o:Container>
+                <outer/>
+            </Order>
+        """.trimIndent()).toStringLiteral()
+
+        val document = namespaceAwareDocument(xml)
+        assertThat(document.getElementsByTagNameNS("urn:inner", "inner").length).isEqualTo(1)
+        assertThat(document.getElementsByTagNameNS("", "local").length).isEqualTo(1)
+        assertThat(document.getElementsByTagNameNS("urn:orders", "outer").length).isEqualTo(1)
+    }
+
+    private fun namespaceAwareDocument(xml: String) =
+        DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+            .newDocumentBuilder().parse(InputSource(StringReader(xml)))
 
     @Test
     fun `parses the namespace prefix of a node`() {

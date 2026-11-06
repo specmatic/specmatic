@@ -34,6 +34,8 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Added
 
+- WSDL/SOAP namespace validation, example matching, generation and compatibility checks, including qualified attributes and SOAP 1.2. Accepts equivalent prefixes and rejects missing or incorrect namespaces. Includes namespace error codes `R1004` and `R1005`.
+
 - WSDL contracts preserve and enforce `minOccurs` and `maxOccurs` for elements, wildcards, sequences, choices, and XSD 1.0 `all` groups, including named group references and zero occurrences. Invalid bounds fail during loading with source context. Generated SOAP cases include occurrence boundaries, and compatibility checks retain numeric ranges and group structure.
 - Regex constraints now support lookaheads, lookbehinds, named captures, and lazy quantifiers when generating matching values.
 - SARIF lint reports can be submitted to Insights as `linter` reports, including arrays of SARIF reports.

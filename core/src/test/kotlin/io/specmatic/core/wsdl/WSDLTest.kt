@@ -160,11 +160,24 @@ class WSDLTest {
         }
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
-        assertThat(requestBodies.joinToString("\n"))
-            .contains("<name>Phone</name>")
-            .contains("<type>Gadget</type>")
-        assertThat(responseBodies.joinToString("\n"))
-            .contains("<id>123</id>")
+        assertThat(requestBodies).isNotEmpty()
+        requestBodies.forEach { body ->
+            val payload = soapPayloadElement(body)
+            assertThat(payload.localName).isEqualTo("CreateProduct")
+            assertThat(payload.namespaceURI).isEqualTo("http://www.example.com/orders")
+            assertThat(payload.getElementsByTagNameNS(null, "name").length).isEqualTo(1)
+            assertThat(payload.getElementsByTagNameNS(null, "name").item(0).textContent).isEqualTo("Phone")
+            assertThat(payload.getElementsByTagNameNS(null, "type").length).isEqualTo(1)
+            assertThat(payload.getElementsByTagNameNS(null, "type").item(0).textContent).isEqualTo("Gadget")
+        }
+        assertThat(responseBodies).isNotEmpty()
+        responseBodies.forEach { body ->
+            val payload = soapPayloadElement(body)
+            assertThat(payload.localName).isEqualTo("Id")
+            assertThat(payload.namespaceURI).isEqualTo("http://www.example.com/orders")
+            assertThat(payload.getElementsByTagNameNS(null, "id").length).isEqualTo(1)
+            assertThat(payload.getElementsByTagNameNS(null, "id").item(0).textContent).isEqualTo("123")
+        }
     }
 
     @Test

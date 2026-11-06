@@ -1,6 +1,7 @@
 package io.specmatic.core.wsdl.payload
 
 import io.specmatic.core.value.XMLNode
+import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.message.primitiveNamespace
@@ -24,7 +25,7 @@ internal fun soapSkeleton(namespaces: Map<String, String>): XMLNode {
         0 -> ""
         else -> namespaces.entries
             .joinToString(" ") {
-                "xmlns:${it.key}=\"${it.value}\""
+                "xmlns:${it.key}=\"${StringValue(it.value, xml = true).toStringLiteral()}\""
             }
             .prependIndent(" ")
     }

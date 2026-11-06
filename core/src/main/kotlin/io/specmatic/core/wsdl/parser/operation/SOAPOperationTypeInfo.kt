@@ -12,6 +12,7 @@ import io.specmatic.core.pattern.extractCombinedExtensions
 import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.wsdl.SOAPVersion
+import io.specmatic.core.wsdl.withWSDLNamespaceRequirements
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.core.wsdl.payload.RequestHeaders
@@ -51,16 +52,17 @@ data class SOAPOperationTypeInfo(val operationName: String, val soapVersion: SOA
                 ),
                 httpPathPattern = buildHttpPathPattern(request.path),
                 method = "POST",
-                body = request.requestPayload.toPattern(request.requestHeaders),
+                body = request.requestPayload.toPattern(request.requestHeaders).withWSDLNamespaceRequirements(soapVersion),
             ),
             httpResponsePattern = HttpResponsePattern(
                 status = 200,
                 headersPattern = HttpHeadersPattern(
                     contentType = soapVersion.header(response.responsePayload),
                 ),
-                body = response.responsePayload.toPattern(response.responseHeaders),
+                body = response.responsePayload.toPattern(response.responseHeaders).withWSDLNamespaceRequirements(soapVersion),
             ),
-            patterns = types.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) },
+            patterns = types.types.mapValues { (_, pattern) -> pattern.withWSDLNamespaceRequirements(soapVersion) }
+                .mapKeys { (typeName, _) -> withPatternDelimiters(typeName) },
             isGherkinScenario = false,
             protocol = protocol,
             specType = specType,

@@ -116,12 +116,12 @@ class WSDLSchemaAggregationTest {
         val payloadDocument = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
             .newDocumentBuilder().parse(InputSource(StringReader(request.body.toStringLiteral())))
         val payload = payloadDocument.getElementsByTagNameNS("*", "Request").item(0) as Element
-        assertThat(payload.getAttribute("trace").toIntOrNull()).isNotNull()
+        assertThat(payload.getAttributeNS(NAMESPACE, "trace").toIntOrNull()).isNotNull()
         val code = payloadDocument.getElementsByTagNameNS("*", "CodeElement").item(0).textContent
         assertThat(code.length).isBetween(2, 4)
         HttpStub(feature, port = testPort()).use { stub ->
             assertThat(stub.client.execute(request).status).isEqualTo(200)
-            val invalidBody = request.body.toStringLiteral().replace("trace=\"${payload.getAttribute("trace")}\"", "trace=\"not-an-int\"")
+            val invalidBody = request.body.toStringLiteral().replace("trace=\"${payload.getAttributeNS(NAMESPACE, "trace")}\"", "trace=\"not-an-int\"")
             val invalid = stub.client.execute(request.copy(body = StringValue(invalidBody)))
             assertThat(invalid.status).isEqualTo(400)
             assertThat(invalid.body.toStringLiteral()).contains("trace", "not-an-int")

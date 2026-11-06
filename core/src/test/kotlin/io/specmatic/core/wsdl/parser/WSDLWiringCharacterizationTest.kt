@@ -245,10 +245,16 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("SimpleRequestType", emptyMap(), emptySet())
         val requestBody = soapBody(soapElement, wsdl, "SimpleRequest", "SimpleRequestType", typeInfo)
 
-        assertThat(typeInfo.nodes).containsExactly(toXMLNode("<SimpleRequest>(string)</SimpleRequest>"))
-        assertThat(requestBody)
-            .contains("<SimpleRequest>")
-            .contains("<soapenv:Body>")
+        val rootNode = typeInfo.nodes.single() as XMLNode
+        assertThat(rootNode.name).isEqualTo("SimpleRequest")
+        assertThat(rootNode.namespacePrefix).isNotBlank()
+        assertThat((typeInfo.effectiveMembers.single() as XMLPattern).pattern.namespaceUri)
+            .isEqualTo("http://specmatic.io/SOAPService/")
+        assertThat(rootNode.childNodes.single().toStringLiteral()).isEqualTo("(string)")
+        val generatedPayload = toXMLNode(requestBody).childNodes.filterIsInstance<XMLNode>()
+            .single { it.name == "Body" }.childNodes.filterIsInstance<XMLNode>().single()
+        assertThat(generatedPayload.name).isEqualTo("SimpleRequest")
+        assertThat(generatedPayload.elementNamespaceUri()).isEqualTo("http://specmatic.io/SOAPService/")
     }
 
     @Test
@@ -391,14 +397,14 @@ class WSDLWiringCharacterizationTest {
         val tradePriceRequestPattern = concreteRoot(
             typeInfo.types.getValue("TradePriceRequestType") as XMLPattern,
             "TradePriceRequest",
-            "TradePriceRequest",
+            "xsd1:TradePriceRequest",
             "http://example.com/stockquote.xsd",
         )
         assertThat(tradePriceRequestPattern.matches(
-            toXMLNode("<TradePriceRequest><tickerSymbol/></TradePriceRequest>"),
+            toXMLNode("""<xsd1:TradePriceRequest xmlns:xsd1="http://example.com/stockquote.xsd"><tickerSymbol/></xsd1:TradePriceRequest>"""),
             Resolver(),
         )).isInstanceOf(Result.Success::class.java)
-        assertThat(typeInfo.namespacePrefixes).isEmpty()
+        assertThat(typeInfo.namespacePrefixes).containsExactly("xsd1")
     }
 
     @Test
@@ -1179,8 +1185,8 @@ class WSDLWiringCharacterizationTest {
             """<xsd:attribute name="traceId" type="xsd:ID"/>"""
         )
 
-        assertXmlAttribute(personPattern, "traceId", "(string)")
-        assertThat(personPattern.pattern.attributeNamespaceUri("traceId")).isEqualTo("http://example.com/attribute-types")
+        assertXmlAttribute(personPattern, "tns:traceId", "(string)")
+        assertThat(personPattern.pattern.attributeNamespaceUri("tns:traceId")).isEqualTo("http://example.com/attribute-types")
     }
 
     @Test
@@ -1192,8 +1198,8 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("PersonType", emptyMap(), emptySet())
         val personPattern = typeInfo.types.getValue("PersonType") as XMLPattern
 
-        assertXmlAttribute(personPattern, "id", "(string)")
-        assertThat(personPattern.pattern.attributeNamespaceUri("id")).isEqualTo("http://www.w3.org/XML/1998/namespace")
+        assertXmlAttribute(personPattern, "xml:id", "(string)")
+        assertThat(personPattern.pattern.attributeNamespaceUri("xml:id")).isEqualTo("http://www.w3.org/XML/1998/namespace")
     }
 
     @Test

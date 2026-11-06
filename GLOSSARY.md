@@ -31,3 +31,12 @@ _Avoid_: Namespace-free service
 **Effective schema namespace**:
 The namespace used for a schema document in a particular loading context: its declared target namespace, or the including schema's namespace for a chameleon schema.
 _Avoid_: XML prefix
+
+**Namespace-correct WSDL contract**:
+A WSDL contract whose XML names obey the namespace and qualification requirements of its declarations throughout request matching, response validation, generation, and contract compatibility. Different prefixes bound to the same namespace identify equivalent names.
+
+**Global payload element**:
+A payload element declared directly in an XML Schema, identified by its declaration name and effective schema namespace. Local element qualification defaults do not remove its namespace.
+
+**Local element qualification**:
+Whether an element declared within a schema type belongs to its schema namespace or has no namespace. An explicit `form` setting takes precedence over that declaration's source schema default.

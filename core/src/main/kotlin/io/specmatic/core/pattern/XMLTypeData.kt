@@ -85,6 +85,9 @@ data class XMLTypeData(
     val wsdlCompatibleTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlConcreteSubtypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlSubstitutionGroupMembers: Map<WSDLTypeName, WSDLSubstitutionGroupMember> = emptyMap(),
+    // null leaves namespace semantics unspecified; the empty string requires no namespace.
+    val requiredNamespaceUri: String? = null,
+    val namespaceBindings: Map<String, String> = emptyMap(),
     val occurrences: XMLOccurrenceRange? = null,
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
@@ -169,9 +172,9 @@ data class XMLTypeData(
         val value = (attributes.getValue(attribute) as? ExactValuePattern)?.pattern?.toStringLiteral() ?: return null
         val prefix = value.namespacePrefix()
         val namespace = when {
-            prefix.isBlank() -> namespaceUri.orEmpty()
+            prefix.isBlank() -> getAttributeValue("xmlns") ?: namespaceBindings[""].orEmpty()
             prefix == "xs" || prefix == "xsd" -> XML_SCHEMA_NAMESPACE
-            else -> attributes["xmlns:$prefix"]?.let { (it as? ExactValuePattern)?.pattern?.toStringLiteral() }.orEmpty()
+            else -> getAttributeValue("xmlns:$prefix") ?: namespaceBindings[prefix].orEmpty()
         }
 
         return WSDLTypeName(namespace, value.localName(), value.namespacePrefix().ifBlank { null })

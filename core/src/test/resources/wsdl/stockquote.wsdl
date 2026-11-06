@@ -7,18 +7,19 @@
 
     <types>
         <schema targetNamespace="http://example.com/stockquote.xsd"
-                xmlns="http://www.w3.org/2000/10/XMLSchema">
+                xmlns="http://www.w3.org/2001/XMLSchema"
+                xmlns:xsd="http://www.w3.org/2001/XMLSchema">
             <element name="TradePriceRequest" >
                 <complexType>
                     <all>
-                        <element name="tickerSymbol" type="string" nillable="true"/>
+                        <element name="tickerSymbol" type="xsd:string" nillable="true"/>
                     </all>
                 </complexType>
             </element>
             <element name="TradePrice">
                 <complexType>
                     <all>
-                        <element name="price" type="float"/>
+                        <element name="price" type="xsd:float"/>
                     </all>
                 </complexType>
             </element>
