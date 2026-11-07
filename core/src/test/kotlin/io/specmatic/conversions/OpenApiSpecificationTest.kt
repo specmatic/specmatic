@@ -12150,6 +12150,54 @@ paths:
     }
 
     @Test
+    fun `OpenAPI version 3 schema references resolve against the overlaid document`(@TempDir tempDir: File) {
+        val contract = tempDir.resolve("api.yaml")
+        contract.writeText(
+            """
+            openapi: 3.1.0
+            info: { title: Overlay test, version: "1.0" }
+            paths:
+              /message:
+                get:
+                  responses:
+                    '200':
+                      description: Message
+                      content:
+                        application/json:
+                          schema:
+                            ${'$'}ref: '#/components/schemas/Message'
+            components:
+              schemas:
+                Message:
+                  type: object
+                  required: [text, external]
+                  properties:
+                    text: { type: string, minLength: 1 }
+                    external:
+                      ${'$'}ref: './external.yaml'
+            """.trimIndent()
+        )
+        tempDir.resolve("external.yaml").writeText("type: string\nminLength: 2")
+        val overlay = """
+            overlay: 1.0.0
+            actions:
+              - target: $.components.schemas.Message.properties.text.minLength
+                remove: true
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(
+            contract.readText(), contract.absolutePath, overlayContent = overlay
+        ).toFeature()
+        val scenario = feature.scenarios.single()
+        val body = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver) as JSONObjectPattern
+        val text = resolvedHop(body.pattern.getValue("text"), scenario.resolver) as StringPattern
+        val external = resolvedHop(body.pattern.getValue("external"), scenario.resolver) as StringPattern
+
+        assertThat(text.minLength).isNull()
+        assertThat(external.minLength).isEqualTo(2)
+    }
+
+    @Test
     fun `getImplicitOverlayContent should return empty string when OpenAPI file does not exist`(@TempDir tempDir: File) {
         val nonExistentOpenApiFile = tempDir.resolve("non_existent_api.yaml")
 

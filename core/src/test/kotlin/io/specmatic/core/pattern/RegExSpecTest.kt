@@ -15,6 +15,24 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class RegExSpecTest {
+    @Test
+    fun `prefers a non-control character for the shortest non-whitespace match`() {
+        val spec = RegExSpec("\\S")
+
+        val shortest = spec.generateShortestStringOrRandom(1)
+
+        assertThat(shortest).hasSize(1)
+        assertThat(shortest.single().isISOControl()).isFalse()
+        assertThat(spec.match(StringValue(shortest))).isTrue()
+    }
+
+    @Test
+    fun `keeps a control character when avoiding it would make the match longer`() {
+        val spec = RegExSpec("\u0000|ab")
+
+        assertThat(spec.generateShortestStringOrRandom(1)).isEqualTo("\u0000")
+    }
+
     @Nested
     inner class NamedCaptures {
         @ParameterizedTest

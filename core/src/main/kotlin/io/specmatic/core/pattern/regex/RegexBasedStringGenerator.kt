@@ -8,6 +8,8 @@ import io.specmatic.core.log.logger
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
+private val nonControlStrings = RegExp("[^\u0000-\u001F\u007F-\u009F]*", 0).toAutomaton()
+
 class RegexBasedStringGenerator(val regex: String, private val automaton: Automaton) {
     constructor(regex: String) : this(regex, RegExp(regex, 0).toAutomaton())
 
@@ -28,7 +30,13 @@ class RegexBasedStringGenerator(val regex: String, private val automaton: Automa
         return generate(executionStack, minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
     }
 
-    fun generateShortest(): String = automaton.getShortestExample(true)
+    fun generateShortest(): String {
+        val shortest = automaton.getShortestExample(true)
+        if (shortest.none(Char::isISOControl)) return shortest
+
+        val withoutControls = automaton.intersection(nonControlStrings).getShortestExample(true)
+        return withoutControls?.takeIf { it.length == shortest.length } ?: shortest
+    }
 
     /**
      * Recursively computes the longest accepted string (using at most [remaining] transitions)
