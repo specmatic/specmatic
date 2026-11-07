@@ -37,8 +37,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.4.21")
-    implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
-    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:7.8.1.202611041320-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.8.1.202611041320-r")
     implementation("com.fasterxml.jackson.core:jackson-core:2.22.4")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
 
