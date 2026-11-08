@@ -55,14 +55,61 @@ import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest.BodyPublishers
+import java.net.http.HttpResponse.BodyHandlers
 import java.nio.file.Files
 import java.security.KeyStore
 import java.util.*
 import java.util.function.Consumer
 import java.util.stream.Stream
+import java.util.zip.GZIPOutputStream
 
 internal class HttpStubKtTest {
+
+    @Test
+    fun `preserves gzip request bytes for request interceptors`() {
+        val contract = parseGherkinStringToFeature(
+            """
+            Feature: Report mock
+
+            Scenario: Receive a report
+                When POST /reports
+                And request-header Content-Type application/json
+                And request-body {"reportType": "linter"}
+                Then status 200
+            """.trimIndent()
+        )
+        val report = """{"reportType": "linter"}"""
+        val compressed = ByteArrayOutputStream().apply {
+            GZIPOutputStream(this).use { it.write(report.toByteArray()) }
+        }.toByteArray()
+
+        HttpStub(contract, port = testPort()).use { stub ->
+            stub.registerRequestInterceptor(object : RequestInterceptor {
+                override val name = "gzip decoder"
+
+                override fun interceptRequest(httpRequest: HttpRequest): HttpRequest {
+                    val bytes = Base64.getDecoder().decode(httpRequest.body.toStringLiteral())
+                    assertThat(bytes).isEqualTo(compressed)
+                    return httpRequest.copy(body = parsedJSON(report))
+                }
+            })
+            val request = java.net.http.HttpRequest.newBuilder(URI.create("${stub.endPoint}/reports"))
+                .header("Content-Type", "application/json")
+                .header("Content-Encoding", "gzip")
+                .POST(BodyPublishers.ofByteArray(compressed))
+                .build()
+
+            val response = HttpClient.newHttpClient().send(request, BodyHandlers.discarding())
+
+            assertThat(response.statusCode()).isEqualTo(200)
+        }
+    }
+
 
     @Test
     fun `flush transient stub`() {

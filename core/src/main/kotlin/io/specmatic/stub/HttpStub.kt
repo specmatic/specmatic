@@ -336,7 +336,7 @@ class HttpStub(
                     val requestBaseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}"
                     val requestUrlPath = call.request.path()
                     val defaultBaseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
-                    val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
+                    val rawHttpRequest = ktorHttpRequestToHttpRequest(call, preserveGzipBody = requestInterceptors.isNotEmpty()).also {
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
@@ -1250,9 +1250,12 @@ class HttpStub(
 
 class CouldNotParseRequest(innerException: Throwable) : Exception(exceptionCauseMessage(innerException))
 
-suspend fun ktorHttpRequestToHttpRequest(call: ApplicationCall): HttpRequest {
+suspend fun ktorHttpRequestToHttpRequest(call: ApplicationCall): HttpRequest =
+    ktorHttpRequestToHttpRequest(call, preserveGzipBody = false)
+
+private suspend fun ktorHttpRequestToHttpRequest(call: ApplicationCall, preserveGzipBody: Boolean): HttpRequest {
     try {
-        val (body, formFields, multiPartFormData) = bodyFromCall(call)
+        val (body, formFields, multiPartFormData) = bodyFromCall(call, preserveGzipBody)
 
         val requestHeaders: Map<String, String> = call.request.headers.toMap().mapValues { it.value[0] }
 
@@ -1285,8 +1288,17 @@ private fun transformSOAP1_2ActionToSOAP1_1Header(call: ApplicationCall): Map<St
     return transformedSOAPActionHeader
 }
 
-private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<String, String>, List<MultiPartFormDataValue>> {
+private suspend fun bodyFromCall(
+    call: ApplicationCall,
+    preserveGzipBody: Boolean,
+): Triple<Value, Map<String, String>, List<MultiPartFormDataValue>> {
     return when {
+        preserveGzipBody && call.request.headers[HttpHeaders.ContentEncoding].equals("gzip", ignoreCase = true) -> {
+            // Request adapters receive a JSON document, so carry the compressed bytes as Base64.
+            val bytes: ByteArray = call.receive()
+            Triple(StringValue(Base64.getEncoder().encodeToString(bytes)), emptyMap(), emptyList())
+        }
+
         call.request.httpMethod == HttpMethod.Get -> if (call.request.headers.contains("Content-Type")) {
             Triple(parsedValue(receiveText(call)), emptyMap(), emptyList())
         } else {
