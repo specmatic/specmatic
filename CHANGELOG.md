@@ -67,6 +67,8 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Fixed
 
+- Regex-generated examples use readable characters for `.`, `\S`, `\D`, `\W`, and `\s`, including repeated occurrences and generated prefixes or suffixes. Matching and explicit character-class choices retain their existing semantics. Lookaround expressions retain their existing generation behavior.
+
 - WSDL loading follows local XSD includes, including nested, repeated and cyclic references and namespace-free schemas adopting their includer’s namespace. Invalid includes report their source and cause.
 
 - WSDL loading retains declarations from multiple XSD documents sharing a target namespace, preserves their source schema context, and reports conflicting declarations with source locations.

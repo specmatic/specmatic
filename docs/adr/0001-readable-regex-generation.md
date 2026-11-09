@@ -1,0 +1,21 @@
+# Prefer readable characters for broad regex constructs
+
+Regex-generated examples can contain surprising control characters or other unusual characters. Shortest, longest, and random generation will use ASCII letters and digits for `.` and `\S`, ASCII letters for `\D`, visible ASCII punctuation excluding underscore for `\W`, and a space for `\s`. Repetition within these sets is allowed and preferred over using other characters. This policy also covers wildcards introduced by anchor normalization.
+
+The policy applies only outside explicit character classes. Literal characters, escaped periods, quoted literals, explicit classes, and explicit alternatives retain their meaning and eligibility. We deliberately avoid applying readability preferences to every automaton transition: that would also affect explicitly requested character sets. Narrowing the targeted atoms may change which equal-length alternative wins; no new ranking between alternatives is introduced.
+
+Matching and regex validation retain the original regex semantics. For supported regular constructs, each replacement is a nonempty subset of a one-character atom, preserving the set of accepted lengths. Shortest and longest length objectives therefore remain unchanged, and random generation retains variation within the preferred sets. This does not add support for lookaround, backreferences, flags, Unicode properties, or currently unsupported shorthand combinations inside character classes.
+
+Repetition includes separately written occurrences such as `..`, exact and bounded quantifiers such as `.{N}` and `.{m,n}`, and open-ended quantifiers such as `.+`, `.*`, and `\S*`. Each generated occurrence uses its construct's preferred set independently; characters may repeat or vary. There is no uniqueness requirement or depletion of the preferred set. Existing quantifier semantics remain intact, including zero occurrences where allowed.
+
+## Implementation
+
+Keep the existing semantic normalization and generator for validation, length feasibility, and diagnostics. Derive a generation-specific normalized regex with a token-aware rewrite after anchor normalization introduces its wildcards, but before shorthand expansion erases token identity. The scanner must respect escapes, character classes, and quoted literals. Route shortest, longest, and random example generation through the generation-specific generator; reuse the existing generator when both forms are identical. Runtime matching continues to use the original regex.
+
+Use safely escaped character classes for punctuation. Preserve existing failure behavior for impossible requested lengths; narrowing introduces no additional gaps in accepted lengths for supported constructs. No fallback to nonpreferred characters is necessary for these independent character atoms. Unsupported constructs must not gain an implied correctness guarantee from this change.
+
+## Verification
+
+Verify the five target constructs across shortest, longest, and random generation, including repeated characters and exact lengths. Cover separately written occurrences (`..`), exact and bounded repetition (`.{N}`, `.{m,n}`), and open-ended repetition (`.+`, `.*`, `\S*`), including zero occurrences where allowed. Verify literal and quoted periods, escaped shorthand-looking text, explicit classes, control-only classes, literal alternatives, nested groups, quantifiers, and automatically introduced prefixes and suffixes. Assert generated values match the original regex and preserve length objectives. Random tests should assert membership and length rather than exact output. Run focused existing regex and anchor-normalization tests sequentially.
+
+The user confirmed this design and requested implementation. Quoted literals are escaped before anchor normalization so later token rewriting cannot reinterpret their contents.
