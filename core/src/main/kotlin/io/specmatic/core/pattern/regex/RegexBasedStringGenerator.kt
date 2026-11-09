@@ -8,7 +8,11 @@ import io.specmatic.core.log.logger
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
-class RegexBasedStringGenerator(val regex: String, private val automaton: Automaton) {
+class RegexBasedStringGenerator @JvmOverloads constructor(
+    val regex: String,
+    private val automaton: Automaton,
+    private val diagnosticRegex: String = regex,
+) {
     constructor(regex: String) : this(regex, RegExp(regex, 0).toAutomaton())
 
     init {
@@ -106,7 +110,7 @@ class RegexBasedStringGenerator(val regex: String, private val automaton: Automa
             constraints.add("maxLength $maxLength")
         }
 
-        val warning = StringBuilder("WARNING: Could not generate a string based on $regex")
+        val warning = StringBuilder("WARNING: Could not generate a string based on $diagnosticRegex")
 
         if (constraints.isNotEmpty()) {
             warning.append(" with ")

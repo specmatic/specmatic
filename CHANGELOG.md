@@ -68,6 +68,7 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Fixed
 
 - Contract tests preserve intentionally invalid requests in explicit 4xx examples, including incompatible Accept headers, through request construction and default interceptor validation. Example-derived negative tests are no longer skipped solely for incompatible Accept headers.
+- Regex-generated examples use readable characters for `.`, `\S`, `\D`, `\W`, and `\s`, including repeated occurrences and generated prefixes or suffixes. Matching and explicit character-class choices retain their existing semantics. Lookaround expressions retain their existing generation behavior.
 
 - WSDL loading follows local XSD includes, including nested, repeated and cyclic references and namespace-free schemas adopting their includer’s namespace. Invalid includes report their source and cause.
 
