@@ -1,0 +1,27 @@
+# Prefer readable characters for broad regex constructs
+
+Regex-generated examples can contain surprising control characters or other unusual characters. For expressions without lookarounds, shortest, longest, and random generation will use ASCII letters and digits for `.` and `\S`, ASCII letters for `\D`, visible ASCII punctuation excluding underscore for `\W`, and a space for `\s`. Repetition within these sets is allowed and preferred over using other characters. This policy also covers wildcards introduced by anchor normalization.
+
+The policy applies only outside explicit character classes. Literal characters, escaped periods, quoted literals, explicit classes, and explicit alternatives retain their meaning and eligibility. We deliberately avoid applying readability preferences to every automaton transition: that would also affect explicitly requested character sets. Narrowing the targeted atoms may change which equal-length alternative wins; no new ranking between alternatives is introduced.
+
+Matching and regex validation retain the original regex semantics. For regular expressions without lookarounds, each replacement is a nonempty subset of a one-character atom, preserving the set of accepted lengths. Shortest and longest length objectives therefore remain unchanged, and random generation retains variation within the preferred sets. This does not extend support for backreferences, flags, Unicode properties, or currently unsupported shorthand combinations inside character classes.
+
+Current main supports lookaround generation through a dedicated compiler. Expressions containing lookarounds retain that generation path unchanged, including its unsupported-case handling. Readability narrowing is not applied to these expressions: assertions can require nonpreferred characters or change accepted lengths when consuming atoms are narrowed. For example, `^(?=.*[^A-Za-z0-9]).{4}$` must retain the ability to generate punctuation. Matching remains unchanged for both paths. Applying preferences subject to lookaround constraints is separate work.
+
+Repetition includes separately written occurrences such as `..`, exact and bounded quantifiers such as `.{N}` and `.{m,n}`, and open-ended quantifiers such as `.+`, `.*`, and `\S*`. Each generated occurrence uses its construct's preferred set independently; characters may repeat or vary. There is no uniqueness requirement or depletion of the preferred set. Existing quantifier semantics remain intact, including zero occurrences where allowed.
+
+## Implementation
+
+Construct and store one `regexGenerator`, selected by a factory. Main's existing lookaround compiler retains its compiled path and unsupported-case fallback. For regular expressions without lookarounds, prepare the source before shorthand expansion erases token identity, derive the semantic and readable regex text, and compile only the selected generation language. The readability rewrite respects escapes, character classes, and quoted literals. Shortest, longest, and random generation all use this same generator.
+
+Constructor validation generates a sample from the selected generator and checks it against the original runtime regex. Length-feasibility checks also use the selected generator; regular readability narrowing preserves accepted lengths. Retain semantic regex text for existing constructor validation and `toString()`. When readability changes the generation language, pass the original customer expression separately as diagnostic text and use the readable automaton for generation. Otherwise retain existing diagnostic text. Preserve existing constructor signatures. Runtime matching continues to use the original regex.
+
+Use safely escaped character classes for punctuation. Preserve existing failure behavior for impossible requested lengths; narrowing introduces no additional gaps in accepted lengths for supported constructs. No fallback to nonpreferred characters is necessary for these independent character atoms. Unsupported constructs must not gain an implied correctness guarantee from this change.
+
+## Verification
+
+Verify the five target constructs across shortest, longest, and random generation, including repeated characters and exact lengths. Cover separately written occurrences (`..`), exact and bounded repetition (`.{N}`, `.{m,n}`), and open-ended repetition (`.+`, `.*`, `\S*`), including zero occurrences where allowed. Verify literal and quoted periods, escaped shorthand-looking text, explicit classes, control-only classes, literal alternatives, nested groups, quantifiers, and automatically introduced prefixes and suffixes. Assert generated values match the original regex and preserve length objectives. Random tests should assert membership and length rather than exact output. Run focused existing regex and anchor-normalization tests sequentially.
+
+Verify positive and negative lookarounds requiring non-alphanumeric characters across shortest, longest, and random generation, including password constraints that require uppercase, lowercase, digits, and punctuation together. Existing lookaround compiler, corpus, Unicode, and OpenAPI tests must continue passing.
+
+The original design was agreed before main gained lookaround support. The rebase preserves that support with the boundary described above. Quoted literals are escaped before anchor normalization so later token rewriting cannot reinterpret their contents.
