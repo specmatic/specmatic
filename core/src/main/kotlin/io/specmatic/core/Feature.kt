@@ -884,6 +884,12 @@ data class Feature(
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
             }
 
+            // Client-error examples and example-derived negative tests can deliberately send incompatible Accept values.
+            val generatedScenario = generatedScenarioReturnValue.value
+            if (!generatedScenario.exampleRow.isNullOrEmpty() && (originalScenario.isA4xxScenario() || generatedScenario.isNegative)) {
+                return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
+            }
+
             val responseContentType = originalScenario.responseContentType
             val generatedHeaders = generatedScenarioReturnValue.value.generateHeaders(flagsBased)
             val isCompatible = isAcceptHeaderCompatibleWithResponse(requestHeaders = generatedHeaders, responseContentType = responseContentType)

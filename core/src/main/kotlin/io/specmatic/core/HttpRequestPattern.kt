@@ -823,10 +823,8 @@ data class HttpRequestPattern(
     }
 
     fun newBasedOn(row: Row, initialResolver: Resolver, status: Int = 0): Sequence<ReturnValue<HttpRequestPattern>> {
-        val resolver = when (status) {
-            in invalidRequestStatuses -> initialResolver.invalidRequestResolver()
-            else -> initialResolver
-        }
+        val allowInvalidRequest = status in invalidRequestStatuses || (status in 400..499 && !row.isEmpty())
+        val resolver = if (allowInvalidRequest) initialResolver.invalidRequestResolver() else initialResolver
 
         return returnValue(breadCrumb = "REQUEST") {
             val newHttpPathPatterns: Sequence<ReturnValue<HttpPathPattern?>> = returnValue(breadCrumb = BreadCrumb.PARAM_PATH.value) {
@@ -877,10 +875,10 @@ data class HttpRequestPattern(
                 val parsedValue = runCatching {
                     if (isSubstitution(rawRequestBody)) return@runCatching StringValue(rawRequestBody)
                     val parsedValue = body.parse(rawRequestBody, resolver)
-                    if (!isInvalidRequestResponse(status)) resolver.matchesPattern(body, parsedValue).throwOnFailure()
+                    if (!allowInvalidRequest) resolver.matchesPattern(body, parsedValue).throwOnFailure()
                     parsedValue
                 }.getOrElse { e ->
-                    if (isInvalidRequestResponse(status)) StringValue(rawRequestBody)
+                    if (allowInvalidRequest) StringValue(rawRequestBody)
                     else throw e
                 }
 
@@ -975,10 +973,6 @@ data class HttpRequestPattern(
                 yield(HasException(t))
             }
         }
-    }
-
-    private fun isInvalidRequestResponse(status: Int): Boolean {
-        return status in invalidRequestStatuses
     }
 
     private fun shouldGenerateMandatoryEntryIfMissing(resolver: Resolver, status: Int): Boolean {
