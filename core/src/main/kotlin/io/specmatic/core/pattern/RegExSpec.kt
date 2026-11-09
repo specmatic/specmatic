@@ -32,7 +32,7 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
             val semanticRegex = translateToAutomatonSyntax(preparedRegex)
             val readableRegex = translateToAutomatonSyntax(preparedRegex.withReadableCharacterChoices())
             if (readableRegex == semanticRegex) regexGenerator
-            else RegexBasedStringGenerator(semanticRegex, RegExp(readableRegex, 0).toAutomaton())
+            else RegexBasedStringGenerator(semanticRegex, RegExp(readableRegex, 0).toAutomaton(), diagnosticRegex = expression)
         }
     }
     private val regexForRuntimeMatch = originalRegex?.let { Regex(it.toRuntimeRegex(matchMode)) }

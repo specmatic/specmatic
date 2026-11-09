@@ -13,6 +13,27 @@ import java.util.stream.Stream
 
 class ReadableRegexGenerationTest {
     @ParameterizedTest
+    @ValueSource(strings = ["/\\D$", "^\\D/"])
+    fun `readable diagnostics preserve original expressions with literal slashes`(expression: String) {
+        val spec = RegExSpec(expression)
+        val generated = listOf(
+            spec.generateShortestStringOrRandom(0),
+            spec.generateLongestStringOrRandom(2),
+            spec.generateRandomString(2, 2).toStringLiteral(),
+        )
+
+        assertThat(generated).allSatisfy { value ->
+            assertThat(value).hasSize(2)
+            assertThat(spec.match(StringValue(value))).isTrue()
+        }
+        val (output, impossible) = captureStandardOutput {
+            spec.generateRandomString(1, 1).toStringLiteral()
+        }
+        assertThat(impossible).isEmpty()
+        assertThat(output).contains("WARNING: Could not generate a string based on $expression with minLength 1, maxLength 1")
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = [
         "^(?=.*[^A-Za-z0-9]).{4}$",
         "^(?![A-Za-z0-9]{4}).{4}$",
@@ -33,16 +54,17 @@ class ReadableRegexGenerationTest {
         }
     }
 
-    @Test
-    fun `impossible lengths retain the original regex in generation warnings`() {
-        val spec = RegExSpec("\\D{2}")
+    @ParameterizedTest
+    @ValueSource(strings = ["^\\D{2}$", "^(?:\\S){2}$", "^.{2}$", "^\\Q.\\E\\D$"])
+    fun `readable example warnings show the original expression`(expression: String) {
+        val spec = RegExSpec(expression)
 
         val (output, generated) = captureStandardOutput {
             spec.generateRandomString(3, 3).toStringLiteral()
         }
 
         assertThat(generated).isEmpty()
-        assertThat(output).contains("WARNING: Could not generate a string based on [^0-9]{2} with minLength 3, maxLength 3")
+        assertThat(output).contains("WARNING: Could not generate a string based on $expression with minLength 3, maxLength 3")
     }
 
     @ParameterizedTest
