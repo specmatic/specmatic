@@ -823,7 +823,7 @@ data class HttpRequestPattern(
     }
 
     fun newBasedOn(row: Row, initialResolver: Resolver, status: Int = 0): Sequence<ReturnValue<HttpRequestPattern>> {
-        val allowInvalidRequest = status in invalidRequestStatuses || (status in 400..499 && !row.isEmpty())
+        val allowInvalidRequest = status in 400..499
         val resolver = if (allowInvalidRequest) initialResolver.invalidRequestResolver() else initialResolver
 
         return returnValue(breadCrumb = "REQUEST") {
