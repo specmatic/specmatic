@@ -60,6 +60,12 @@ import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
+import io.swagger.v3.parser.reference.DereferencerContext
+import io.swagger.v3.parser.reference.OpenAPIDereferencer31
+import io.swagger.v3.parser.reference.Reference
+import io.swagger.v3.parser.reference.ReferenceVisitor
+import io.swagger.v3.parser.reference.ReferenceUtils
+import io.swagger.v3.parser.reference.Traverser
 import io.swagger.v3.parser.util.ClasspathHelper
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.io.File
@@ -363,13 +369,11 @@ class OpenApiSpecification(
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
             val preprocessedYaml = preprocessYamlForParser(mergedYaml, collectorContext)
 
-            val parseResult: SwaggerParseResult =
-                OpenAPIV3Parser().readContents(
-                    preprocessedYaml,
-                    null,
-                    resolveExternalReferences(),
-                    openApiFilePath.replace("\\", "/")
-                )
+            val parseResult = parseWithReferences(
+                preprocessedYaml,
+                openApiFilePath.replace("\\", "/"),
+                hasOverlay = mergedYaml != yamlContent,
+            )
             val parsedOpenApi: OpenAPI? = parseResult.openAPI
 
             if (parsedOpenApi == null) {
@@ -464,6 +468,37 @@ class OpenApiSpecification(
                     loggerForErrors.log(parserMessages)
                 }
             }
+        }
+
+        private fun parseWithReferences(yaml: String, location: String, hasOverlay: Boolean): SwaggerParseResult {
+            val parser = OpenAPIV3Parser()
+            val options = resolveExternalReferences()
+            if (hasOverlay && location.isNotBlank() && System.getenv("disableOas31Resolve").isNullOrBlank()) {
+                val root = yamlPreprocessorMapper.readTree(yaml)
+                if (root?.path("openapi")?.asText()?.startsWith("3.1") == true) {
+                    val parsed = parser.readContents(yaml, null, ParseOptions(), location)
+                    if (parsed.openAPI != null) {
+                        val dereferencer = object : OpenAPIDereferencer31() {
+                            override fun buildReferenceVisitorWithContext(
+                                context: DereferencerContext,
+                                reference: Reference,
+                                traverser: Traverser,
+                            ): ReferenceVisitor {
+                                // Swagger otherwise reloads the original file for references to the root document.
+                                reference.jsonNode(root)
+                                reference.referenceSet[ReferenceUtils.toBaseURI(reference.uri)] = reference
+                                return super.buildReferenceVisitorWithContext(context, reference, traverser)
+                            }
+                        }
+                        dereferencer.dereference(
+                            DereferencerContext(parsed, null, location, options, null, null, true),
+                            emptyList<OpenAPIDereferencer31>().iterator(),
+                        )
+                    }
+                    return parsed
+                }
+            }
+            return parser.readContents(yaml, null, options, location)
         }
 
         private fun resolveExternalReferences(): ParseOptions {
