@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.value.StringValue
 import io.specmatic.stub.captureStandardOutput
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.Arguments
@@ -12,6 +13,23 @@ import org.junit.jupiter.api.Test
 import java.util.stream.Stream
 
 class ReadableRegexGenerationTest {
+    @ParameterizedTest
+    @ValueSource(strings = [".", "\\S", "\\D", "\\W", "\\s"])
+    fun `readable character choices preserve length feasibility`(atom: String) {
+        val expression = "^($atom){2,4}$"
+        val spec = RegExSpec(expression)
+
+        spec.validateMinLength(2)
+        spec.validateMaxLength(4)
+
+        assertThatThrownBy { spec.validateMinLength(5) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("minLength 5 cannot be greater than the length of longest possible string that matches regex $expression")
+        assertThatThrownBy { spec.validateMaxLength(1) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessage("maxLength 1 cannot be less than the length of shortest possible string that matches regex $expression")
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["/\\D$", "^\\D/"])
     fun `readable diagnostics preserve original expressions with literal slashes`(expression: String) {

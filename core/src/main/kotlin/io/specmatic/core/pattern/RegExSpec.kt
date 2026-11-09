@@ -24,17 +24,6 @@ enum class RegexMatchMode {
 class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH) {
     private val originalRegex = regex
     private val regexGenerator = regex?.let(::createRegexGenerator)
-    private val exampleGenerator = regex?.let { expression ->
-        val hasLookaround = RegexScanner().scan(expression).tokens.any { it is RegexToken.GroupStart.Lookaround }
-        if (hasLookaround) regexGenerator
-        else {
-            val preparedRegex = prepareRegexForGeneration(expression)
-            val semanticRegex = translateToAutomatonSyntax(preparedRegex)
-            val readableRegex = translateToAutomatonSyntax(preparedRegex.withReadableCharacterChoices())
-            if (readableRegex == semanticRegex) regexGenerator
-            else RegexBasedStringGenerator(semanticRegex, RegExp(readableRegex, 0).toAutomaton(), diagnosticRegex = expression)
-        }
-    }
     private val regexForRuntimeMatch = originalRegex?.let { Regex(it.toRuntimeRegex(matchMode)) }
 
     init {
@@ -43,7 +32,7 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
 
     private fun createRegexGenerator(expression: String): RegexBasedStringGenerator {
         when (val result = RegexLookaroundCompiler(matchMode, ::translateToAutomatonSyntax).compile(expression)) {
-            RegexLookaroundCompilation.NotApplicable -> Unit
+            RegexLookaroundCompilation.NotApplicable -> return createRegularRegexGenerator(expression)
             is RegexLookaroundCompilation.Compiled -> return RegexBasedStringGenerator(expression, result.automaton)
             is RegexLookaroundCompilation.Unsupported -> {
                 logger.log("WARNING: Cannot compile lookarounds in regex $expression: ${result.reason}. Using existing regex generation.")
@@ -51,6 +40,14 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
         }
 
         return RegexBasedStringGenerator(translateToAutomatonSyntax(prepareRegexForGeneration(expression)))
+    }
+
+    private fun createRegularRegexGenerator(expression: String): RegexBasedStringGenerator {
+        val preparedRegex = prepareRegexForGeneration(expression)
+        val semanticRegex = translateToAutomatonSyntax(preparedRegex)
+        val readableRegex = translateToAutomatonSyntax(preparedRegex.withReadableCharacterChoices())
+        return if (readableRegex == semanticRegex) RegexBasedStringGenerator(semanticRegex)
+        else RegexBasedStringGenerator(semanticRegex, RegExp(readableRegex, 0).toAutomaton(), diagnosticRegex = expression)
     }
 
     private fun validateRegex() {
@@ -89,7 +86,7 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateShortestStringOrRandom(minLen: Int): String {
-        val generator = exampleGenerator ?: return randomString(minLen)
+        val generator = regexGenerator ?: return randomString(minLen)
         val shortestExample = generator.generateShortest()
         if (minLen <= shortestExample.length) return shortestExample
         return generator.random(minLen, minLen)
@@ -106,7 +103,7 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
-        val generator = exampleGenerator ?: return randomString(maxLen)
+        val generator = regexGenerator ?: return randomString(maxLen)
         if (generator.isInfinite) return generator.random(maxLen, maxLen)
         return generator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
@@ -121,7 +118,7 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
-        return exampleGenerator?.let {
+        return regexGenerator?.let {
             StringValue(it.random(minLength, maxLength))
         } ?: StringValue(randomString(patternBaseLength(minLength, maxLength)))
     }
