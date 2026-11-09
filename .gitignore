@@ -1,11 +1,10 @@
 .idea/*
 dependency-reduced-pom.xml
-buildSrc/.gradle/
+/buildSrc/
 *.iml
 target/*
 .DS_Store
 .gradle/*
-buildSrc/.gradle/
 **/build/*
 gen/*
 *.class

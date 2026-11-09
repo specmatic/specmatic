@@ -16,6 +16,8 @@ import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class FeatureDecisionMatrixTest {
     private fun featureFromResourceOpenapi(resource: String): Feature {
@@ -507,6 +509,40 @@ class FeatureDecisionMatrixTest {
             val skip = generated.filterIsInstance<Decision.Skip<Scenario>>().single()
             assertThat(skip.context.httpRequestPattern.headersPattern.pattern.getValue(ACCEPT)).isEqualTo(ExactValuePattern(StringValue("application/xml")))
             assertThat(skip.reasoning).isEqualTo(Reasoning(mainReason = TestSkipReason.ACCEPT_MISMATCH))
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = [400, 406])
+        fun `executes an explicit client error example with its incompatible Accept header`(status: Int) {
+            val scenario = Scenario(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                name = "explicit client error",
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/products"),
+                    headersPattern = HttpHeadersPattern(mapOf(ACCEPT to StringPattern())),
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = status,
+                    headersPattern = HttpHeadersPattern(contentType = "application/json"),
+                ),
+                examples = listOf(Examples(columnNames = listOf(ACCEPT), rows = listOf(
+                    Row(columnNames = listOf(ACCEPT), values = listOf("text/plain")),
+                ))),
+            )
+            val feature = Feature(scenarios = listOf(scenario), name = "not-acceptable", protocol = SpecmaticProtocol.HTTP)
+
+            val tests = feature.generateContractTests().toList()
+
+            assertThat(tests).hasSize(1)
+            val result = tests.single().runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("text/plain")
+                    return HttpResponse(status, body = EmptyString, headers = mapOf(CONTENT_TYPE to "application/json"))
+                }
+            })
+            assertThat(result.result).isInstanceOf(Result.Success::class.java)
         }
 
         @Test
