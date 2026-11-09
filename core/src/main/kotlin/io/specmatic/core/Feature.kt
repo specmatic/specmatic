@@ -884,6 +884,11 @@ data class Feature(
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
             }
 
+            // An explicit client-error example can deliberately send an incompatible Accept header.
+            if (originalScenario.isA4xxScenario() && !generatedScenarioReturnValue.value.exampleRow.isNullOrEmpty()) {
+                return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
+            }
+
             val responseContentType = originalScenario.responseContentType
             val generatedHeaders = generatedScenarioReturnValue.value.generateHeaders(flagsBased)
             val isCompatible = isAcceptHeaderCompatibleWithResponse(requestHeaders = generatedHeaders, responseContentType = responseContentType)
