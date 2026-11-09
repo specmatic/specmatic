@@ -226,7 +226,7 @@ open class SpecmaticJUnitSupport {
                     val contractPaths = settings.contractPaths.orEmpty().split(",").filter { File(it).extension in CONTRACT_EXTENSIONS }
                     val loadedContracts = contractPaths.map { contractPath ->
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPath), SpecType.OPENAPI)
-                        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
+                        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readOverlay(overlayFilePath)
                         val loadedTestScenarios = loadTestScenarios(
                             contractPath,
                             specificationPath = contractPath,
@@ -267,7 +267,7 @@ open class SpecmaticJUnitSupport {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)
-                        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
+                        val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readOverlay(overlayFilePath)
                         val loadedTestScenarios = loadTestScenarios(
                             contractPathData.path,
                             contractPathData.provider,
@@ -643,14 +643,16 @@ open class SpecmaticJUnitSupport {
         return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
     }
 
-    private fun readFrom(path: String, fileTag: String = ""): String {
+    private fun readOverlay(path: String): String {
         if (File(path).exists().not()) {
-            throw ContractException("The $fileTag file $path does not exist. Please provide a valid $fileTag file")
+            throw ContractException("The overlay file $path does not exist. Please provide a valid overlay file")
         }
         if (File(path).extension != YAML && File(path).extension != JSON && File(path).extension != YML) {
-            throw ContractException("The $fileTag file does not have a valid extension.")
+            throw ContractException("The overlay file does not have a valid extension.")
         }
-        return File(path).readText()
+        val content = File(path).readText()
+        if (content.isNotBlank()) logger.log("Applying the overlay file specified at: $path")
+        return content
     }
 
     private fun keyDataFor(url: String): KeyData? {
