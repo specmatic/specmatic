@@ -12,6 +12,27 @@ import org.junit.jupiter.api.Test
 import java.util.stream.Stream
 
 class ReadableRegexGenerationTest {
+    @ParameterizedTest
+    @ValueSource(strings = [
+        "^(?=.*[^A-Za-z0-9]).{4}$",
+        "^(?![A-Za-z0-9]{4}).{4}$",
+        "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{4}$",
+    ])
+    fun `lookaround constraints retain their generation choices`(regex: String) {
+        val spec = RegExSpec(regex)
+        val generated = listOf(
+            spec.generateShortestStringOrRandom(0),
+            spec.generateLongestStringOrRandom(4),
+        ) + List(20) { spec.generateRandomString(4, 4).toStringLiteral() }
+
+        assertThat(generated).allSatisfy { value ->
+            assertThat(value).hasSize(4)
+            assertThat(value).matches(regex)
+            assertThat(value.any { it !in 'A'..'Z' && it !in 'a'..'z' && it !in '0'..'9' }).isTrue()
+            assertThat(spec.match(StringValue(value))).isTrue()
+        }
+    }
+
     @Test
     fun `impossible lengths retain the original regex in generation warnings`() {
         val spec = RegExSpec("\\D{2}")

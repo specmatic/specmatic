@@ -89,7 +89,7 @@ internal class RegexLookaroundCompilerTest {
             val inputs = mutableListOf<String>()
             val compiler = RegexLookaroundCompiler(RegexMatchMode.SEARCH) { expression ->
                 inputs += expression
-                RegExSpec(null).cleanRegularRegexContent(expression)
+                RegExSpec(null).translateToAutomatonSyntax(expression)
             }
             val result = compiler.compile("^(?=a)(?<\$id>a)$")
             assertThat(result).isInstanceOf(RegexLookaroundCompilation.Compiled::class.java)
@@ -279,7 +279,7 @@ internal class RegexLookaroundCompilerTest {
         }
     }
 
-    private fun compiler(mode: RegexMatchMode = RegexMatchMode.SEARCH) = RegexLookaroundCompiler(mode, RegExSpec(null)::cleanRegularRegexContent)
+    private fun compiler(mode: RegexMatchMode = RegexMatchMode.SEARCH) = RegexLookaroundCompiler(mode, RegExSpec(null)::translateToAutomatonSyntax)
 
     private fun compile(pattern: String, mode: RegexMatchMode = RegexMatchMode.SEARCH): Automaton {
         val result = compiler(mode).compile(pattern)

@@ -23,7 +23,7 @@ class RegExSpecTest {
             "(?<user_id>ab)→(ab)", "(?<_id>ab)→(ab)", "(?<\$id>ab)→(ab)", "(?<é>ab)→(ab)",
         ])
         fun `normalizes capture prefixes without changing literal parentheses`(source: String, expected: String) {
-            assertThat(RegExSpec(null).cleanRegularRegexContent(source)).isEqualTo(expected)
+            assertThat(RegExSpec(null).translateToAutomatonSyntax(source)).isEqualTo(expected)
         }
 
         @ParameterizedTest
@@ -54,7 +54,7 @@ class RegExSpecTest {
             "a?→a?", "[?*+]→[?*+]", "a\\?→a\\?", "\\Qa+?\\E→a\\+\\?",
         ])
         fun `removes lazy preference modifiers while preserving literal question marks`(source: String, expected: String) {
-            assertThat(RegExSpec(null).cleanRegularRegexContent(source)).isEqualTo(expected)
+            assertThat(RegExSpec(null).translateToAutomatonSyntax(source)).isEqualTo(expected)
         }
 
         @ParameterizedTest

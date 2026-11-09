@@ -1,7 +1,6 @@
 package io.specmatic.core.pattern
 
 import dk.brics.automaton.RegExp
-
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.regex.OpenApiRegexAnchorNormalizer
 import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
