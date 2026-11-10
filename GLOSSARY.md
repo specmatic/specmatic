@@ -1,8 +1,14 @@
 # WSDL contracts
 
-The XML Schema terms used to describe the payloads of WSDL operations.
+The WSDL and XML Schema terms used to describe service operations and their payloads.
 
 ## Language
+
+**WSDL document**:
+A document containing WSDL declarations for a target namespace. Multiple documents can contribute declarations to the same target namespace and reference one another through WSDL imports.
+
+**WSDL definition identity**:
+The combination of a declaration's kind, target namespace URI and local name. A message and a binding with the same namespace and local name have different identities.
 
 **Inline simple type**:
 A simple type defined directly inside an element declaration. It applies to that element and has no reusable schema type name.
