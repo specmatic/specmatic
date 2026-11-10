@@ -10,7 +10,6 @@ import io.specmatic.stub.respondToKtorHttpResponse
 
 class HealthCheckModule {
     companion object {
-        private const val DEPRECATED_HEALTH_ENDPOINT = "/actuator/health"
         private const val HEALTH_ENDPOINT = "/_specmatic/health"
         private const val ROOT_ENDPOINT = "/"
         private const val SPECMATIC_STATUS_HEADER = "X-Specmatic-Status"
@@ -30,7 +29,6 @@ class HealthCheckModule {
                     )
                 }
 
-                get(DEPRECATED_HEALTH_ENDPOINT, healthCheckHandler)
                 get(HEALTH_ENDPOINT, healthCheckHandler)
 
                 head(ROOT_ENDPOINT) {
@@ -46,7 +44,7 @@ class HealthCheckModule {
         }
 
         fun HttpRequest.isHealthCheckRequest(): Boolean {
-            return ((this.path == DEPRECATED_HEALTH_ENDPOINT || this.path == HEALTH_ENDPOINT) && (this.method == "GET")) ||
+            return ((this.path == HEALTH_ENDPOINT) && (this.method == "GET")) ||
                     ((this.path == ROOT_ENDPOINT) && (this.method == "HEAD"))
         }
     }

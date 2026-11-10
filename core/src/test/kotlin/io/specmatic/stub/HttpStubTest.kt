@@ -989,7 +989,38 @@ paths:
     }
 
     @Test
-    fun `should return health status as UP if the actuator health endpoint is hit`() {
+    fun `declared actuator health uses the mock while Specmatic health stays up`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.1
+            info:
+              title: Insights
+              version: 1.0.0
+            paths:
+              /actuator/health:
+                get:
+                  responses:
+                    '503':
+                      description: Insights unavailable
+            """.trimIndent(),
+            "insights.yaml",
+        ).toFeature()
+
+        HttpStub(feature, port = testPort()).use { stub ->
+            stub.setExpectation("""
+                {
+                  "http-request": {"method": "GET", "path": "/actuator/health"},
+                  "http-response": {"status": 503}
+                }
+            """.trimIndent())
+
+            assertThat(stub.client.execute(HttpRequest("GET", "/actuator/health")).status).isEqualTo(503)
+            assertThat(stub.client.execute(HttpRequest("GET", "/_specmatic/health")).status).isEqualTo(200)
+        }
+    }
+
+    @Test
+    fun `built in actuator health endpoint is not supported`() {
         val specification =
             OpenApiSpecification.fromFile("src/test/resources/openapi/spec_with_space_in_path.yaml").toFeature()
 
@@ -1012,13 +1043,7 @@ paths:
 
             val legacyHealthCheckResponse = stub.client.execute(legacyHealthCheckRequest)
 
-            assertThat(legacyHealthCheckResponse.status).isEqualTo(200)
-            legacyHealthCheckResponse.body.let {
-                assertThat(it).isInstanceOf(JSONObjectValue::class.java)
-                it as JSONObjectValue
-
-                assertThat(it.jsonObject["status"]?.toStringLiteral()).isEqualTo("UP")
-            }
+            assertThat(legacyHealthCheckResponse.status).isEqualTo(400)
         }
 
     }
