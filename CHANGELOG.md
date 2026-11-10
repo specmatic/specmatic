@@ -76,6 +76,8 @@ Each release section should stand on its own and describe the behavior shipped i
 
 - WSDL loading retains messages, port types and bindings from imported documents sharing a target namespace. Shared and circular local imports are loaded once, and conflicting declarations report both source files.
 
+- WSDL element references to complex payloads load when their prefix is declared only in the referring schema. Qualification uses the referenced declaration's source schema while preserving its namespace bindings and occurrence rules.
+
 - WSDL payload elements with inline `simpleType` restrictions now load correctly, using existing supported constraints when generating and validating SOAP requests and responses.
 
 - `STATUS` filter equality no longer treats generated negative tests as matching every declared 4xx code on the operation. Exact codes such as `STATUS='429'` select only tests with that expected status, so rate-limit example tests can run without schema-resiliency negatives. Use `STATUS='4xx'` (and other `Nxx` class tokens) to select by status class: `4xx` matches generated negatives and declared 4xx tests when those responses remain in scope after the first filter pass.
