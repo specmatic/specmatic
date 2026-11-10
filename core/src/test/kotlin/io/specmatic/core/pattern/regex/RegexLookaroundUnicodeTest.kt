@@ -54,7 +54,7 @@ internal class RegexLookaroundUnicodeTest {
         @ParameterizedTest
         @ValueSource(strings = ["^(a(?=x)x|..)$", "^(a(?!x)x|..)$", "^(a(?<=a)x|..)$", "^(a(?<!a)x|..)$"])
         fun `consuming wildcards cannot impersonate a marker from another alternative`(pattern: String) {
-            val expected = RegExp(RegExSpec(null).cleanRegularRegexContent(".."), 0).toAutomaton()
+            val expected = RegExp(RegExSpec(null).translateToAutomatonSyntax(".."), 0).toAutomaton()
                 .intersection(RegexCandidateAlphabet(emptyList()).strings)
             assertThat(compile(pattern)).isEqualTo(expected)
         }
@@ -62,7 +62,7 @@ internal class RegexLookaroundUnicodeTest {
         @ParameterizedTest
         @ValueSource(strings = ["^(a(?=x)x|..)((?=z)z|y)$", "^(a(?!x)x|..)((?=z)z|y)$", "^(a(?<=a)x|..)((?=z)z|y)$", "^(a(?<!a)x|..)((?=z)z|y)$"])
         fun `protects wildcard consumption when independent assertions keep alternatives in one automaton`(pattern: String) {
-            val expected = RegExp(RegExSpec(null).cleanRegularRegexContent("..[zy]"), 0).toAutomaton()
+            val expected = RegExp(RegExSpec(null).translateToAutomatonSyntax("..[zy]"), 0).toAutomaton()
                 .intersection(alphabet(pattern).strings)
             assertThat(compile(pattern)).isEqualTo(expected)
         }
@@ -175,7 +175,7 @@ internal class RegexLookaroundUnicodeTest {
     }
 
     private fun compile(pattern: String, mode: RegexMatchMode = RegexMatchMode.SEARCH): Automaton {
-        val result = RegexLookaroundCompiler(mode, RegExSpec(null)::cleanRegularRegexContent).compile(pattern)
+        val result = RegexLookaroundCompiler(mode, RegExSpec(null)::translateToAutomatonSyntax).compile(pattern)
         assertThat(result).describedAs(pattern).isInstanceOf(RegexLookaroundCompilation.Compiled::class.java)
         return (result as RegexLookaroundCompilation.Compiled).automaton
     }

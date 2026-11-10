@@ -50,10 +50,31 @@ private fun prefixToNamespaceMap(wsdlNode: XMLNode): Map<String, String> {
 
 private data class DefinitionDocument(val definition: XMLNode, val file: File)
 
-private fun definitionsFrom(rootDefinitionXML: XMLNode, parentWSDL: File): List<DefinitionDocument> {
+private val definitionTags = setOf("message", "binding", "portType")
+
+private fun checkDefinitionDeclarations(documents: List<DefinitionDocument>, namespace: String) {
+    val sources = mutableMapOf<DefinitionLookupKey, File>()
+    for (document in documents) {
+        for (node in document.definition.childNodes.filterIsInstance<XMLNode>().filter { it.name in definitionTags }) {
+            val name = node.attributes["name"]?.toStringLiteral() ?: continue
+            val key = DefinitionLookupKey(node.name, namespace, name)
+            val previousSource = sources.putIfAbsent(key, document.file)
+            if (previousSource != null && previousSource.canonicalPath != document.file.canonicalPath)
+                throw ContractException("Conflicting ${node.name} {$namespace}$name declarations in ${previousSource.canonicalPath} and ${document.file.canonicalPath}")
+        }
+    }
+}
+
+private fun definitionsFrom(
+    rootDefinitionXML: XMLNode,
+    parentWSDL: File,
+    visitedFiles: MutableSet<String> = mutableSetOf()
+): List<DefinitionDocument> {
+    if (!visitedFiles.add(parentWSDL.canonicalPath)) return emptyList()
+
     val importedDefinitionXMLs = rootDefinitionXML.findChildrenByName("import").filter {
         it.attributes.containsKey("location")
-    }.map { importTag ->
+    }.flatMap { importTag ->
         val wsdlFilename = importTag.getAttributeValue("location")
         val wsdlFile = File(wsdlFilename).let {
             when {
@@ -62,9 +83,11 @@ private fun definitionsFrom(rootDefinitionXML: XMLNode, parentWSDL: File): List<
             }
         }
 
+        if (wsdlFile.canonicalPath in visitedFiles) return@flatMap emptyList()
+
         val definition = toXMLNode(wsdlFile.readText())
-        definitionsFrom(definition, wsdlFile)
-    }.flatten()
+        definitionsFrom(definition, wsdlFile, visitedFiles)
+    }
 
     return listOf(DefinitionDocument(rootDefinitionXML, parentWSDL)).plus(importedDefinitionXMLs)
 }
@@ -170,9 +193,11 @@ private fun collectSchemas(documents: List<SchemaDocument>): Map<String, XMLNode
 
 fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
     val definitionDocuments = definitionsFrom(rootDefinition, File(wsdlPath))
-    val definitions = definitionDocuments.map { it.definition }.associateBy { definition ->
-        definition.getAttributeValue("targetNamespace")
-    }
+    val definitions = definitionDocuments.groupBy { it.definition.getAttributeValue("targetNamespace") }
+        .mapValues { (namespace, documents) ->
+            checkDefinitionDeclarations(documents, namespace)
+            documents.first().definition.copy(childNodes = documents.flatMap { it.definition.childNodes })
+        }
 
     val schemas = collectSchemas(definitionDocuments.flatMap { document ->
         schemaDocumentsFromDefinition(document.definition, document.file)
@@ -572,12 +597,11 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun getQualification(element: XMLNode, wsdlTypeReference: String): NamespaceQualification {
-        val namespace = element.resolveNamespace(wsdlTypeReference)
-
-        val schema = element.schema ?: if (namespace.isNotBlank()) {
+        val schema = element.schema ?: run {
+            val namespace = element.resolveNamespace(wsdlTypeReference)
+            if (namespace.isBlank())
+                throw ContractException("No type reference to indicate the schema, and the element node ${element.oneLineDescription} did not have a schema attached")
             findSchema(namespace, null)
-        } else {
-            throw ContractException("No type reference to indicate the schema, and the element node ${element.oneLineDescription} did not have a schema attached")
         }
 
         val schemaElementFormDefault = schema.attributes["elementFormDefault"]?.toStringLiteral()
@@ -619,7 +643,6 @@ fun namespaceOrSchemaNamespace(namespace: String, schema: XMLNode?) =
     }
 
 private fun indexDefinitions(definitions: Map<String, XMLNode>): Map<DefinitionLookupKey, XMLNode> {
-    val definitionTags = setOf("message", "binding", "portType")
     return definitions.flatMap { (namespace, definition) ->
         definition.childNodes.filterIsInstance<XMLNode>()
             .filter { it.name in definitionTags }

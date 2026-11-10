@@ -512,7 +512,7 @@ data class Scenario(
 
         return runCatching {
             val data = row.scenarioStub?.data ?: JSONObjectValue()
-            val updatedResolver = resolver.copy(isNegative = httpResponsePattern.status in invalidRequestStatuses)
+            val updatedResolver = resolver.copy(isNegative = isA4xxScenario())
             val filledInResolvedRequest = Pipeline.from(row.requestExample)
                 .then { httpRequestPattern.resolveTemplates(updatedResolver, it, data) }
                 .then { HasValue(httpRequestPattern.fillInTheBlanks(it, updatedResolver)) }

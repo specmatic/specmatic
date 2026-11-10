@@ -9,7 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
 internal class RegexLookaroundCorpusTest {
-    private fun compiler() = RegexLookaroundCompiler(RegexMatchMode.SEARCH, RegExSpec(null)::cleanRegularRegexContent)
+    private fun compiler() = RegexLookaroundCompiler(RegexMatchMode.SEARCH, RegExSpec(null)::translateToAutomatonSyntax)
 
     @Nested
     inner class SupportedPatterns {

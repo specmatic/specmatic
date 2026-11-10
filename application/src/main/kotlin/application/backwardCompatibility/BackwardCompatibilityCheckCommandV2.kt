@@ -5,6 +5,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.cleanBOM
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.isolateInstanceForInfoLogModification
 import io.specmatic.license.core.cli.Category
@@ -69,7 +70,7 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
     override fun File.isValidFileFormat(): Boolean {
         if (this.extension !in CONTRACT_EXTENSIONS) return false
 
-        val content = this.readText()
+        val content = this.readText().cleanBOM()
 
         // The current design conflates the collection of changes to specs and examples.
         // This means that we must filter out asyncapi files with a negative check when loading up all files.

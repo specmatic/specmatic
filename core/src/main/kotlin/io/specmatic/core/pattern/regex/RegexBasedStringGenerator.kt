@@ -8,9 +8,11 @@ import io.specmatic.core.log.logger
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
-private val nonControlStrings = RegExp("[^\u0000-\u001F\u007F-\u009F]*", 0).toAutomaton()
-
-class RegexBasedStringGenerator(val regex: String, private val automaton: Automaton) {
+class RegexBasedStringGenerator @JvmOverloads constructor(
+    val regex: String,
+    private val automaton: Automaton,
+    private val diagnosticRegex: String = regex,
+) {
     constructor(regex: String) : this(regex, RegExp(regex, 0).toAutomaton())
 
     init {
@@ -30,13 +32,7 @@ class RegexBasedStringGenerator(val regex: String, private val automaton: Automa
         return generate(executionStack, minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
     }
 
-    fun generateShortest(): String {
-        val shortest = automaton.getShortestExample(true)
-        if (shortest.none(Char::isISOControl)) return shortest
-
-        val withoutControls = automaton.intersection(nonControlStrings).getShortestExample(true)
-        return withoutControls?.takeIf { it.length == shortest.length } ?: shortest
-    }
+    fun generateShortest(): String = automaton.getShortestExample(true)
 
     /**
      * Recursively computes the longest accepted string (using at most [remaining] transitions)
@@ -114,7 +110,7 @@ class RegexBasedStringGenerator(val regex: String, private val automaton: Automa
             constraints.add("maxLength $maxLength")
         }
 
-        val warning = StringBuilder("WARNING: Could not generate a string based on $regex")
+        val warning = StringBuilder("WARNING: Could not generate a string based on $diagnosticRegex")
 
         if (constraints.isNotEmpty()) {
             warning.append(" with ")

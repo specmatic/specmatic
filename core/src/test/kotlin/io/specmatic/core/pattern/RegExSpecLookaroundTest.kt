@@ -123,7 +123,7 @@ internal class RegExSpecLookaroundTest {
         }
     }
 
-    private fun compiler() = RegexLookaroundCompiler(RegexMatchMode.SEARCH, RegExSpec(null)::cleanRegularRegexContent)
+    private fun compiler() = RegexLookaroundCompiler(RegexMatchMode.SEARCH, RegExSpec(null)::translateToAutomatonSyntax)
 
     private fun compile(pattern: String): Automaton {
         val result = compiler().compile(pattern)

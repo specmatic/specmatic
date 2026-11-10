@@ -884,8 +884,9 @@ data class Feature(
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
             }
 
-            // An explicit client-error example can deliberately send an incompatible Accept header.
-            if (originalScenario.isA4xxScenario() && !generatedScenarioReturnValue.value.exampleRow.isNullOrEmpty()) {
+            // Client-error examples and example-derived negative tests can deliberately send incompatible Accept values.
+            val generatedScenario = generatedScenarioReturnValue.value
+            if (!generatedScenario.exampleRow.isNullOrEmpty() && (originalScenario.isA4xxScenario() || generatedScenario.isNegative)) {
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
             }
 
