@@ -26,10 +26,8 @@ class OpenApiSpecCompatibilityChecker : SpecCompatibilityChecker {
     fun isCompatibleExample(file: File): Boolean {
         if (!file.isFile || !file.canRead() || file.extension != JSON) return false
         return try {
-            file.reader().use { reader ->
-                val tree = objectMapper.readTree(reader)
-                tree.contains(MOCK_HTTP_REQUEST) || tree.contains(MOCK_HTTP_RESPONSE) || tree.contains(PARTIAL)
-            }
+            val tree = objectMapper.readTree(file)
+            tree.contains(MOCK_HTTP_REQUEST) || tree.contains(MOCK_HTTP_RESPONSE) || tree.contains(PARTIAL)
         } catch (e: Throwable) {
             logger.debug(e, "Could not parse potential example at ${file.canonicalPath}")
             false
