@@ -597,12 +597,11 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun getQualification(element: XMLNode, wsdlTypeReference: String): NamespaceQualification {
-        val namespace = element.resolveNamespace(wsdlTypeReference)
-
-        val schema = element.schema ?: if (namespace.isNotBlank()) {
+        val schema = element.schema ?: run {
+            val namespace = element.resolveNamespace(wsdlTypeReference)
+            if (namespace.isBlank())
+                throw ContractException("No type reference to indicate the schema, and the element node ${element.oneLineDescription} did not have a schema attached")
             findSchema(namespace, null)
-        } else {
-            throw ContractException("No type reference to indicate the schema, and the element node ${element.oneLineDescription} did not have a schema attached")
         }
 
         val schemaElementFormDefault = schema.attributes["elementFormDefault"]?.toStringLiteral()
