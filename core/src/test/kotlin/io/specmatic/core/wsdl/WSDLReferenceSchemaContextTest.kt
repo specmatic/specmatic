@@ -79,6 +79,46 @@ class WSDLReferenceSchemaContextTest {
         assertThat(result.isSuccess()).describedAs(result.reportString()).isTrue()
     }
 
+    @ParameterizedTest
+    @CsvSource("primitive,false", "primitive,true", "named,false", "named,true", "inline,false", "inline,true")
+    fun `referenced simple elements retain namespace and restrictions without the caller prefix`(kind: String, targetDeclaresPrefix: Boolean) {
+        val file = writeSpecification(targetDeclaresPrefix)
+        val restriction = """<xs:restriction base="xs:string"><xs:minLength value="3"/>
+            <xs:maxLength value="3"/><xs:pattern value="[A-Z]{3}"/></xs:restriction>"""
+        val declaration = when (kind) {
+            "primitive" -> """<xs:element name="Notes" type="xs:string"/>"""
+            "named" -> """<xs:element name="Notes" type="ShortCode"/>
+                <xs:simpleType name="ShortCode">$restriction</xs:simpleType>"""
+            else -> """<xs:element name="Notes"><xs:simpleType>$restriction</xs:simpleType></xs:element>"""
+        }
+        val detail = directory.resolve("detail.xsd")
+        detail.writeText(detail.readText().replace("""<xs:element name="Notes" type="NotesType"/>""", declaration))
+        val scenario = parseContractFileToFeature(file).scenarios.single()
+        val generated = scenario.generateHttpRequest()
+        validatePayload(generated.body.toStringLiteral())
+        val generatedMatch = scenario.httpRequestPattern.matches(generated, scenario.resolver)
+        assertThat(generatedMatch.isSuccess()).describedAs(generatedMatch.reportString()).isTrue()
+
+        fun payload(value: String, namespace: String = "urn:reference:detail") = """
+            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+                xmlns:t="urn:reference:payload" xmlns:d="$namespace">
+                <s:Body><t:Request><t:key>simple-example</t:key><d:Notes>$value</d:Notes></t:Request></s:Body>
+            </s:Envelope>
+        """.trimIndent()
+        val valid = payload("ABC")
+        validatePayload(valid)
+        val validMatch = scenario.httpRequestPattern.matches(generated.copy(body = StringValue(valid)), scenario.resolver)
+        assertThat(validMatch.isSuccess()).describedAs(validMatch.reportString()).isTrue()
+        val wrongNamespace = payload("ABC", "urn:incorrect")
+        assertThrows<SAXException> { validatePayload(wrongNamespace) }
+        assertThat(scenario.httpRequestPattern.matches(generated.copy(body = StringValue(wrongNamespace)), scenario.resolver).isSuccess()).isFalse()
+        if (kind != "primitive") {
+            val invalidValue = payload("a1")
+            assertThrows<SAXException> { validatePayload(invalidValue) }
+            assertThat(scenario.httpRequestPattern.matches(generated.copy(body = StringValue(invalidValue)), scenario.resolver).isSuccess()).isFalse()
+        }
+    }
+
     @Test
     fun `undefined reference prefix in the referring schema is still rejected`() {
         val wsdl = writeSpecification()
