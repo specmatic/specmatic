@@ -98,10 +98,6 @@ Each release section should stand on its own and describe the behavior shipped i
 
 - `STATUS` filter equality no longer treats generated negative tests as matching every declared 4xx code on the operation. Exact codes such as `STATUS='429'` select only tests with that expected status, so rate-limit example tests can run without schema-resiliency negatives. Use `STATUS='4xx'` (and other `Nxx` class tokens) to select by status class: `4xx` matches generated negatives and declared 4xx tests when those responses remain in scope after the first filter pass.
 
-- OpenAPI loading no longer emits security-parameter override warnings.
-
-- Interpolated mock substitutions recognize only known capture types, preserving literal text that resembles an unknown capture.
-
 ### Security
 
 - Updated bundled Guava to address security vulnerabilities.
