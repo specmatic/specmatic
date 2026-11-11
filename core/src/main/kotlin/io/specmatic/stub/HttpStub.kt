@@ -113,6 +113,7 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.Writer
 import java.net.InetAddress
@@ -123,6 +124,7 @@ import java.time.Instant
 import java.util.*
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
+import java.util.zip.GZIPInputStream
 import kotlin.math.max
 import kotlin.text.toCharArray
 
@@ -319,7 +321,9 @@ class HttpStub(
 
     private val environment = applicationEngineEnvironment {
         module {
-            install(DoubleReceive)
+            install(DoubleReceive) {
+                excludeFromCache { call, _ -> call is DecodedGzipCall }
+            }
             configure(CORS)
 
             intercept(ApplicationCallPipeline.Call) {
@@ -336,7 +340,11 @@ class HttpStub(
                     val requestBaseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}"
                     val requestUrlPath = call.request.path()
                     val defaultBaseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
-                    val rawHttpRequest = ktorHttpRequestToHttpRequest(call, preserveGzipBody = requestInterceptors.isNotEmpty()).also {
+                    val rawHttpRequest = (if (requestInterceptors.isNotEmpty()) {
+                        ktorHttpRequestToHttpRequest(call, preserveGzipBody = true)
+                    } else {
+                        mockHttpRequest(call)
+                    }).also {
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
@@ -1271,7 +1279,7 @@ private suspend fun ktorHttpRequestToHttpRequest(call: ApplicationCall, preserve
             formFields = formFields,
             multiPartFormData = multiPartFormData
         )
-    } catch (e: Throwable) {
+    } catch (e: Exception) {
         throw CouldNotParseRequest(e)
     }
 }
@@ -1296,6 +1304,10 @@ private suspend fun bodyFromCall(
         preserveGzipBody && call.request.headers[HttpHeaders.ContentEncoding].equals("gzip", ignoreCase = true) -> {
             // Request adapters receive a JSON document, so carry the compressed bytes as Base64.
             val bytes: ByteArray = call.receive()
+            GZIPInputStream(ByteArrayInputStream(bytes)).use { gzip ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (gzip.read(buffer) >= 0) Unit
+            }
             Triple(StringValue(Base64.getEncoder().encodeToString(bytes)), emptyMap(), emptyList())
         }
 
