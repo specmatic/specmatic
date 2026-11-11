@@ -100,6 +100,30 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     @ParameterizedTest
+    @CsvSource(
+        "ctrf.json, false",
+        "fragment.yaml, false",
+        "swagger2.yaml, false",
+        "openapi30.yaml, true",
+        "openapi31.yaml, true",
+        "invalid-version.yaml, false"
+    )
+    fun `check eligibility requires an OpenAPI document accepted by the V3 parser`(name: String, expected: Boolean) {
+        val documents = mapOf(
+            "ctrf.json" to """{"results":{"tool":{"name":"Specmatic"},"tests":[]}}""",
+            "fragment.yaml" to "type: object\nproperties: { id: { type: string } }",
+            "swagger2.yaml" to "swagger: '2.0'\ninfo: { title: API, version: '1' }\npaths: {}",
+            "openapi30.yaml" to "openapi: 3.0.0\ninfo: { title: API, version: '1' }\npaths: {}",
+            "openapi31.yaml" to "openapi: 3.1.0\ninfo: { title: API, version: '1' }\npaths: {}",
+            "invalid-version.yaml" to "openapi: invalid\ninfo: { title: API, version: '1' }\npaths: {}"
+        )
+        val document = tempDir.resolve(name).apply { writeText(documents.getValue(name)) }
+        val command = BackwardCompatibilityCheckCommandV2()
+
+        assertThat(command.run { document.isCheckableSpec() }).isEqualTo(expected)
+    }
+
+    @ParameterizedTest
     @ValueSource(booleans = [false, true])
     fun `only OpenAPI specs are checked when a transitive schema fragment changes`(licensedReporting: Boolean) {
         tempDir.resolve("A.yaml").writeText("""
