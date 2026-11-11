@@ -319,7 +319,9 @@ class HttpStub(
 
     private val environment = applicationEngineEnvironment {
         module {
-            install(DoubleReceive)
+            install(DoubleReceive) {
+                excludeFromCache { call, _ -> call is DecodedGzipCall }
+            }
             configure(CORS)
 
             intercept(ApplicationCallPipeline.Call) {
@@ -336,7 +338,7 @@ class HttpStub(
                     val requestBaseUrl = "${call.request.local.scheme}://${call.request.local.localHost}:${call.request.local.localPort}"
                     val requestUrlPath = call.request.path()
                     val defaultBaseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
-                    val rawHttpRequest = ktorHttpRequestToHttpRequest(call).also {
+                    val rawHttpRequest = mockHttpRequest(call).also {
                         if (it.isHealthCheckRequest()) return@intercept
                     }
 
@@ -1268,7 +1270,7 @@ suspend fun ktorHttpRequestToHttpRequest(call: ApplicationCall): HttpRequest {
             formFields = formFields,
             multiPartFormData = multiPartFormData
         )
-    } catch (e: Throwable) {
+    } catch (e: Exception) {
         throw CouldNotParseRequest(e)
     }
 }
