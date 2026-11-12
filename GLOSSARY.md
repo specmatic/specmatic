@@ -1,6 +1,6 @@
-# WSDL contracts
+# Specmatic contracts
 
-The WSDL and XML Schema terms used to describe service operations and their payloads.
+Terms used to describe API contracts and their compatibility checks.
 
 ## WSDL contracts
 
