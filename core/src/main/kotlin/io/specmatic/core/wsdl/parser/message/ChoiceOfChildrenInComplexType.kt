@@ -12,8 +12,9 @@ internal class ChoiceOfChildrenInComplexType(
     private val parentTypeName: String
 ) : ComplexTypeChild {
     override fun process(wsdlTypeInfos: List<WSDLTypeInfo>, existingTypes: Map<String, Pattern>, typeStack: Set<String>): List<WSDLTypeInfo> {
+        if (elementOccurrenceRange(child).isZero) return wsdlTypeInfos
         val choiceVariants = child.childNodes.filterIsInstance<XMLNode>().filterNot { it.name == "annotation" }.flatMap { choiceChild ->
-            complexTypeChildNode(choiceChild, wsdl, parentTypeName).process(listOf(WSDLTypeInfo()), existingTypes, typeStack)
+            complexTypeChildNode(choiceChild, wsdl, parentTypeName, allowAllGroup = false).process(listOf(WSDLTypeInfo()), existingTypes, typeStack)
         }
 
         val choiceTypeInfos = choiceTypeInfos(choiceVariants, existingTypes)
@@ -22,17 +23,14 @@ internal class ChoiceOfChildrenInComplexType(
     }
 
     private fun choiceTypeInfos(choiceVariants: List<WSDLTypeInfo>, existingTypes: Map<String, Pattern>): List<WSDLTypeInfo> {
-        val minOccurs = child.attributes["minOccurs"]?.toStringLiteral()?.toIntOrNull() ?: 1
-        val maxOccursLiteral = child.attributes["maxOccurs"]?.toStringLiteral() ?: "1"
+        val range = elementOccurrenceRange(child)
 
         return listOf(
             WSDLTypeInfo(
                 members = listOf(
                     XMLChoiceGroupPattern(
-                        choices = choiceVariants.map { it.effectiveMembers },
-                        minOccurs = minOccurs,
-                        maxOccurs = maxOccursLiteral.takeUnless { it == "unbounded" }?.toInt()
-                    )
+                        choices = choiceVariants.map { it.effectiveMembers }
+                    ).withOccurrenceRange(range)
                 ),
                 types = choiceVariants.fold(existingTypes) { accumulated, variant -> accumulated + variant.types },
                 namespacePrefixes = choiceVariants.flatMap { it.namespacePrefixes }.toSet()

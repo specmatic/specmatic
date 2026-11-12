@@ -1,8 +1,13 @@
 package io.specmatic.core.pattern
 
+import dk.brics.automaton.RegExp
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.regex.OpenApiRegexAnchorNormalizer
 import io.specmatic.core.pattern.regex.RegexBasedStringGenerator
+import io.specmatic.core.pattern.regex.RegexLookaroundCompilation
+import io.specmatic.core.pattern.regex.RegexLookaroundCompiler
+import io.specmatic.core.pattern.regex.RegexScanner
+import io.specmatic.core.pattern.regex.RegexToken
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
@@ -18,11 +23,31 @@ enum class RegexMatchMode {
 
 class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMatchMode.SEARCH) {
     private val originalRegex = regex
-    private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
+    private val regexGenerator = regex?.let(::createRegexGenerator)
     private val regexForRuntimeMatch = originalRegex?.let { Regex(it.toRuntimeRegex(matchMode)) }
 
     init {
         validateRegex()
+    }
+
+    private fun createRegexGenerator(expression: String): RegexBasedStringGenerator {
+        when (val result = RegexLookaroundCompiler(matchMode, ::translateToAutomatonSyntax).compile(expression)) {
+            RegexLookaroundCompilation.NotApplicable -> return createRegularRegexGenerator(expression)
+            is RegexLookaroundCompilation.Compiled -> return RegexBasedStringGenerator(expression, result.automaton)
+            is RegexLookaroundCompilation.Unsupported -> {
+                logger.log("WARNING: Cannot compile lookarounds in regex $expression: ${result.reason}. Using existing regex generation.")
+            }
+        }
+
+        return RegexBasedStringGenerator(translateToAutomatonSyntax(prepareRegexForGeneration(expression)))
+    }
+
+    private fun createRegularRegexGenerator(expression: String): RegexBasedStringGenerator {
+        val preparedRegex = prepareRegexForGeneration(expression)
+        val semanticRegex = translateToAutomatonSyntax(preparedRegex)
+        val readableRegex = translateToAutomatonSyntax(preparedRegex.withReadableCharacterChoices())
+        return if (readableRegex == semanticRegex) RegexBasedStringGenerator(semanticRegex)
+        else RegexBasedStringGenerator(semanticRegex, RegExp(readableRegex, 0).toAutomaton(), diagnosticRegex = expression)
     }
 
     private fun validateRegex() {
@@ -61,10 +86,10 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateShortestStringOrRandom(minLen: Int): String {
-        if (regexGenerator == null) return randomString(minLen)
-        val shortestExample = regexGenerator.generateShortest()
+        val generator = regexGenerator ?: return randomString(minLen)
+        val shortestExample = generator.generateShortest()
         if (minLen <= shortestExample.length) return shortestExample
-        return regexGenerator.random(minLen, minLen)
+        return generator.random(minLen, minLen)
     }
 
     fun negativeBasedOn(minLength: Int?, maxLength: Int?): Triple<String, Int?, Int?>? {
@@ -78,9 +103,9 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
     }
 
     fun generateLongestStringOrRandom(maxLen: Int): String {
-        if (regexGenerator == null) return randomString(maxLen)
-        if (regexGenerator.isInfinite) return regexGenerator.random(maxLen, maxLen)
-        return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
+        val generator = regexGenerator ?: return randomString(maxLen)
+        if (generator.isInfinite) return generator.random(maxLen, maxLen)
+        return generator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
     fun match(sampleData: StringValue) = matchesRuntimeRegex(sampleData.toStringLiteral())
@@ -94,7 +119,7 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
         return regexGenerator?.let {
-            StringValue(regexGenerator.random(minLength, maxLength))
+            StringValue(it.random(minLength, maxLength))
         } ?: StringValue(randomString(patternBaseLength(minLength, maxLength)))
     }
 
@@ -106,16 +131,62 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
         }
     }
 
-    private fun cleanRegex(regex: String): String {
+    private fun prepareRegexForGeneration(regex: String): String {
         return regex
+            .requote()
             .removeOuterAnchors()
-            .removePrefix(WORD_BOUNDARY)
-            .removeSuffix(WORD_BOUNDARY)
+            .removeOuterWordBoundaries()
+            .replaceRegexLowerBounds()
+    }
+
+    private fun String.removeOuterWordBoundaries(): String {
+        val withoutStartBoundary = removePrefix(WORD_BOUNDARY)
+        val trailingBackslashes = withoutStartBoundary.dropLast(1).takeLastWhile { it == '\\' }.length
+        return if (withoutStartBoundary.endsWith(WORD_BOUNDARY) && trailingBackslashes % 2 == 1) {
+            withoutStartBoundary.dropLast(WORD_BOUNDARY.length)
+        } else withoutStartBoundary
+    }
+
+    internal fun translateToAutomatonSyntax(regex: String): String {
+        return regex
             .replaceRegexLowerBounds()
             .replaceShorthandCharacterClasses()
             .requote()
-            .replaceNonCapturingGroups()
+            .normalizeRegularTokens()
             .replaceUnescapedDot()
+    }
+
+    private fun String.withReadableCharacterChoices(): String {
+        val preferredShorthands = mapOf(
+            'S' to "[A-Za-z0-9]",
+            'D' to "[A-Za-z]",
+            'W' to """[!-/:-@\[-\^`{-~]""",
+            's' to "[ ]",
+        )
+        val result = StringBuilder(length)
+        var insideCharClass = false
+        var index = 0
+
+        while (index < length) {
+            val ch = this[index]
+            when {
+                ch == '\\' && index + 1 < length -> {
+                    val escaped = this[index + 1]
+                    val replacement = preferredShorthands[escaped].takeUnless { insideCharClass }
+                    result.append(replacement ?: substring(index, index + 2))
+                    index += 2
+                }
+                else -> {
+                    when (ch) {
+                        '[' -> insideCharClass = true
+                        ']' -> insideCharClass = false
+                    }
+                    result.append(if (ch == '.' && !insideCharClass) "[A-Za-z0-9]" else ch.toString())
+                    index++
+                }
+            }
+        }
+        return result.toString()
     }
 
     private fun String.removeOuterAnchors(): String {
@@ -230,47 +301,17 @@ class RegExSpec(regex: String?, private val matchMode: RegexMatchMode = RegexMat
         }
     }
 
-    private fun String.replaceNonCapturingGroups(): String {
-        val result = StringBuilder(length)
-        var insideCharClass = false
-        var pendingEscape = false
-        var index = 0
-
-        while (index < length) {
-            val ch = this[index]
-            when {
-                pendingEscape -> {
-                    result.append(ch)
-                    pendingEscape = false
-                    index++
-                }
-                ch == '\\' -> {
-                    pendingEscape = true
-                    result.append(ch)
-                    index++
-                }
-                ch == '[' -> {
-                    insideCharClass = true
-                    result.append(ch)
-                    index++
-                }
-                ch == ']' -> {
-                    insideCharClass = false
-                    result.append(ch)
-                    index++
-                }
-                !insideCharClass && ch == '(' && index + 2 < length && this[index + 1] == '?' && this[index + 2] == ':' -> {
-                    result.append('(')
-                    index += 3
-                }
-                else -> {
-                    result.append(ch)
-                    index++
-                }
+    private fun String.normalizeRegularTokens(): String {
+        return RegexScanner().scan(this).tokens.joinToString("") { token ->
+            val text = token.text(this)
+            when (token) {
+                is RegexToken.GroupStart.Named -> "("
+                is RegexToken.GroupStart.Regular -> if (text == "(?:") "(" else text
+                // Preference modifiers do not change repetition counts: a+? -> a+; literal question marks stay intact.
+                is RegexToken.Quantifier -> if (text.length > 1 && text.endsWith('?')) text.dropLast(1) else text
+                else -> text
             }
         }
-
-        return result.toString()
     }
 
     private fun String.replaceEcmaEndAssertions(): String {

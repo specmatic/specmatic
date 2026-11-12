@@ -11999,31 +11999,25 @@ paths:
         val feature = Flags.using("bearerAuth" to "API-SECRET", "apiKeyQuery" to "1234") {
             OpenApiSpecification.fromFile(oasFile.canonicalPath).toFeature()
         }
+
         val (secure, partial, overlap, insecure) = feature.scenarios
+        val apiKey = APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234", schemeName = "apiKeyQuery")
+        val bearer = BearerSecurityScheme(
+            configuredToken = "API-SECRET",
+            authentication = BearerAuthentication.HttpBearer(schemeName = "bearerAuth"),
+        )
 
-        assertThat(secure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            CompositeSecurityScheme(listOf(
-                BearerSecurityScheme(configuredToken = "API-SECRET"),
-                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
-            ))
-        ))
+        assertThat(secure.httpRequestPattern.securitySchemes)
+            .isEqualTo(listOf(CompositeSecurityScheme(listOf(bearer, apiKey))))
 
-        assertThat(overlap.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            CompositeSecurityScheme(listOf(
-                BearerSecurityScheme(configuredToken = "API-SECRET"),
-                APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
-            )),
-            BearerSecurityScheme(configuredToken = "API-SECRET"),
-        ))
+        assertThat(overlap.httpRequestPattern.securitySchemes)
+            .isEqualTo(listOf(CompositeSecurityScheme(listOf(bearer, apiKey)), bearer))
 
-        assertThat(partial.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            BearerSecurityScheme(configuredToken = "API-SECRET"),
-            APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
-        ))
+        assertThat(partial.httpRequestPattern.securitySchemes)
+            .isEqualTo(listOf(bearer, apiKey))
 
-        assertThat(insecure.httpRequestPattern.securitySchemes).isEqualTo(listOf(
-            NoSecurityScheme()
-        ))
+        assertThat(insecure.httpRequestPattern.securitySchemes)
+            .isEqualTo(listOf(NoSecurityScheme()))
     }
 
     @Test
@@ -12153,6 +12147,54 @@ paths:
         assertThat(output).contains("API Paths: 1, API Operations: 1")
         assertThat(output).doesNotContain("attribute components.pathItems is unexpected")
         assertThat(feature.scenarios).hasSize(1)
+    }
+
+    @Test
+    fun `OpenAPI version 3 schema references resolve against the overlaid document`(@TempDir tempDir: File) {
+        val contract = tempDir.resolve("api.yaml")
+        contract.writeText(
+            """
+            openapi: 3.1.0
+            info: { title: Overlay test, version: "1.0" }
+            paths:
+              /message:
+                get:
+                  responses:
+                    '200':
+                      description: Message
+                      content:
+                        application/json:
+                          schema:
+                            ${'$'}ref: '#/components/schemas/Message'
+            components:
+              schemas:
+                Message:
+                  type: object
+                  required: [text, external]
+                  properties:
+                    text: { type: string, minLength: 1 }
+                    external:
+                      ${'$'}ref: './external.yaml'
+            """.trimIndent()
+        )
+        tempDir.resolve("external.yaml").writeText("type: string\nminLength: 2")
+        val overlay = """
+            overlay: 1.0.0
+            actions:
+              - target: $.components.schemas.Message.properties.text.minLength
+                remove: true
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(
+            contract.readText(), contract.absolutePath, overlayContent = overlay
+        ).toFeature()
+        val scenario = feature.scenarios.single()
+        val body = resolvedHop(scenario.httpResponsePattern.body, scenario.resolver) as JSONObjectPattern
+        val text = resolvedHop(body.pattern.getValue("text"), scenario.resolver) as StringPattern
+        val external = resolvedHop(body.pattern.getValue("external"), scenario.resolver) as StringPattern
+
+        assertThat(text.minLength).isNull()
+        assertThat(external.minLength).isEqualTo(2)
     }
 
     @Test

@@ -36,34 +36,77 @@ Each release section should stand on its own and describe the behavior shipped i
 
 - Backward compatibility checks no longer list or check ordinary YAML/JSON files and schema fragments as standalone OpenAPI specifications. Shared fragments still trigger checks of affected specifications, including through transitive references.
 
-### Changed
+## 2.56.1 (2026-11-11)
 
-- Specmatic Core Maven and Gradle artifacts are now downloaded from the Specmatic releases repository instead of Maven Central. Sonatype announced that, from October 1, 2026, publishing artifacts with a commercial nature requires Maven Central Publisher Pro regardless of publishing volume ([policy details](https://central.sonatype.org/news/20260908_publisher_tiers_commercial_use/)). Add the Specmatic releases repository to your build:
+### Added
 
-  Gradle:
-  ```groovy
-  repositories {
-      maven { url = uri("https://repo.specmatic.io/releases/") }
-  }
-  ```
+- Reporting APIs can generate specification metadata directly from OpenAPI, AsyncAPI, GraphQL, and Protobuf content, returning per-specification parsing errors alongside successful entries.
 
-  Maven:
-  ```xml
-  <repositories>
-    <repository>
-      <id>specmatic-releases</id>
-      <url>https://repo.specmatic.io/releases/</url>
-    </repository>
-  </repositories>
-  ```
+- Reporting APIs expose Insights publishing readiness and distinguish typed server metadata from client metadata.
 
 ### Fixed
+
+- HTTP mocks decode gzip request bodies before parsing and schema matching, including JSON, URL-encoded forms, and multipart forms.
+
+- Contract tests preserve intentionally invalid requests in explicit 4xx examples, including incompatible Accept headers, through request construction and default interceptor validation. Example-derived negative tests are no longer skipped solely for incompatible Accept headers.
+
+- Regex-generated examples use readable characters for `.`, `\S`, `\D`, `\W`, and `\s`, including repeated occurrences and generated prefixes or suffixes. Matching and explicit character-class choices retain their existing semantics. Lookaround expressions retain their existing generation behavior.
+
+- WSDL loading retains messages, port types and bindings from imported documents sharing a target namespace. Shared and circular local imports are loaded once, and conflicting declarations report both source files.
+
+- WSDL element references to complex payloads load when their prefix is declared only in the referring schema. Qualification uses the referenced declaration's source schema while preserving its namespace bindings and occurrence rules.
+
+- OpenAPI 3.1 overlays remain applied when resolving references back to the root document; overlay paths are logged for troubleshooting.
+
+- Backward-compatibility checks accept JSON specifications with a UTF-8 byte-order mark (BOM).
+
+### Security
+
+- Updated the bundled GraphQL parser to remove a vulnerable shaded Guava dependency.
+
+## 2.56.0 (2026-11-06)
+
+### Added
+
+- WSDL/SOAP namespace validation, example matching, generation and compatibility checks, including qualified attributes and SOAP 1.2. Accepts equivalent prefixes and rejects missing or incorrect namespaces. Includes namespace error codes `R1004` and `R1005`.
+
+- WSDL contracts preserve and enforce `minOccurs` and `maxOccurs` for elements, wildcards, sequences, choices, and XSD 1.0 `all` groups, including named group references and zero occurrences. Invalid bounds fail during loading with source context. Generated SOAP cases include occurrence boundaries, and compatibility checks retain numeric ranges and group structure.
+
+- Regex constraints now support lookaheads, lookbehinds, named captures, and lazy quantifiers when generating matching values.
+
+- SARIF lint reports can be submitted to Insights as `linter` reports, including arrays of SARIF reports.
+
+- V3 configuration supports Arazzo run options and richer security-scheme details, including JWT and OAuth settings.
+
+- Insights report publishing accepts an optional idempotency key so retries can be recognized as the same submission.
+
+### Changed
+
+- OpenAPI response matching now uses response media types to select compatible response candidates. `oneOf` generation respects variant-specific required fields, and property-bound constraints remain intact when deriving schemas.
+
+- External example matcher references are resolved before mock responses are filled, so referenced values are applied consistently to served responses.
+
+- Reporter metadata discovery skips `.specmatic` directories, including nested directories, so their contents are not reported as API specifications.
+
+- Raw report submissions to Insights are gzip-compressed.
+
+- Insights HTTP clients transparently decompress gzip and deflate responses, and utilization uploads are gzip-compressed.
+
+### Fixed
+
+- Insights report publishing treats all successful HTTP status codes as successful submissions.
+
+- WSDL loading follows local XSD includes, including nested, repeated and cyclic references and namespace-free schemas adopting their includer’s namespace. Invalid includes report their source and cause.
 
 - WSDL loading retains declarations from multiple XSD documents sharing a target namespace, preserves their source schema context, and reports conflicting declarations with source locations.
 
 - WSDL payload elements with inline `simpleType` restrictions now load correctly, using existing supported constraints when generating and validating SOAP requests and responses.
 
 - `STATUS` filter equality no longer treats generated negative tests as matching every declared 4xx code on the operation. Exact codes such as `STATUS='429'` select only tests with that expected status, so rate-limit example tests can run without schema-resiliency negatives. Use `STATUS='4xx'` (and other `Nxx` class tokens) to select by status class: `4xx` matches generated negatives and declared 4xx tests when those responses remain in scope after the first filter pass.
+
+### Security
+
+- Updated bundled Guava to address security vulnerabilities.
 
 ## 2.55.3 (2026-10-05)
 

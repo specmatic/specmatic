@@ -480,6 +480,96 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     @Nested
+    inner class BomJsonCompatibilityTests {
+        @ParameterizedTest
+        @ValueSource(booleans = [false, true])
+        fun `checks breaking changes in JSON OpenAPI specs with and without a BOM`(withBom: Boolean) {
+            val spec = tempDir.resolve("swagger.json").canonicalFile
+            spec.writeText(openApiSpec("string").withOptionalBom(withBom), Charsets.UTF_8)
+            commit(tempDir, "Add baseline OpenAPI JSON")
+
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+            ProcessBuilder("git", "switch", "-c", "breaking-change")
+                .directory(tempDir)
+                .inheritIO()
+                .start()
+                .waitFor()
+
+            spec.writeText(openApiSpec("integer").withOptionalBom(withBom), Charsets.UTF_8)
+            commit(tempDir, "Change response schema type")
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.baseBranch = baseBranch
+                    options.repoDir = tempDir.canonicalPath
+                    options.targetPath = spec.canonicalPath
+                }.call()
+            }
+
+            val specPath = spec.invariantSeparatorsPath
+            val loadedSpecifications = stdOut.lineSequence()
+                .map { it.trim().replace('\\', '/') }
+                .filter { it.startsWith("Loading newer specification ") || it.startsWith("Loading older specification ") }
+                .toList()
+
+            val compatibilityVerdicts = stdOut.lineSequence()
+                .map(String::trim)
+                .filter { it.startsWith("[Compatibility Check] Verdict:") }
+                .toList()
+
+            val incompatibilityVerdicts = stdOut.lineSequence()
+                .map(String::trim)
+                .filter { it.startsWith("(INCOMPATIBLE)") }
+                .toList()
+
+            val checkSummary = stdOut.lineSequence()
+                .map(String::trim)
+                .filter { it.startsWith("Files checked:") }
+                .toList()
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(loadedSpecifications).isEqualTo(
+                listOf(
+                    "Loading newer specification '$specPath' from branch 'breaking-change'",
+                    "Loading older specification '$specPath' from branch '$baseBranch'",
+                )
+            )
+
+            assertThat(checkSummary).isEqualTo(listOf("Files checked: 1 (Passed: 0, Failed: 1)"))
+            assertThat(compatibilityVerdicts).isEqualTo(listOf("[Compatibility Check] Verdict: FAIL"))
+            assertThat(incompatibilityVerdicts)
+                .isEqualTo(listOf("(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from $baseBranch"))
+        }
+
+        private fun openApiSpec(responseType: String) = """
+        {
+          "openapi": "3.0.0",
+          "info": { "title": "BOM regression", "version": "1.0.0" },
+          "paths": {
+            "/items": {
+              "get": {
+                "responses": {
+                  "200": {
+                    "description": "OK",
+                    "content": {
+                      "application/json": {
+                        "schema": { "type": "$responseType" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """.trimIndent()
+
+        private fun String.withOptionalBom(withBom: Boolean): String {
+            return if (withBom) "\uFEFF$this" else this
+        }
+    }
+
+    @Nested
     inner class SystemGitTestsSpecificToBackwardCompatibility {
         @Test
         fun `getFilesChangedInCurrentBranch returns the uncommitted, unstaged changed file`() {
@@ -842,6 +932,54 @@ class BackwardCompatibilityCheckCommandV2Test {
                 .trimEnd()
 
             assertThat(output).isEqualToNormalizingNewlines(expected)
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = [1, 2, 3])
+        fun `compare accepts response media type change regardless of request content type count`(requestContentTypeCount: Int) {
+            val requestContentTypes = listOf(
+                "application/json",
+                "application/*+json",
+                "application/vnd.example+json",
+            ).take(requestContentTypeCount)
+
+            val (output, exitCode, _) = runChange(
+                oldSpec = spec(requestContentTypes, "application/json"),
+                newSpec = spec(requestContentTypes, "application/problem+json"),
+            )
+
+            assertThat(exitCode).isEqualTo(0)
+            val compatibilityVerdicts = output.lineSequence()
+                .map(String::trim)
+                .filter { it.startsWith("[Compatibility Check] Verdict:") }
+                .toList()
+
+            assertThat(compatibilityVerdicts)
+                .withFailMessage("Unexpected compatibility output:\n$output")
+                .isEqualTo(listOf("[Compatibility Check] Verdict: PASS"))
+        }
+
+        private fun spec(requestContentTypes: List<String>, responseContentType: String): String {
+            val template = checkNotNull(javaClass.getResource("/openapi/bcc_content_type_fallback.yaml")).readText()
+            val requestContent = requestContentTypes.joinToString("\n") { contentType ->
+                $$"""
+                "$$contentType":
+                  schema:
+                    $ref: '#/components/schemas/Item'
+                """.trimIndent().prependIndent("          ")
+            }
+
+            val responseContent = $$"""
+                content:
+                  "$$responseContentType":
+                    schema:
+                      $ref: '#/components/schemas/Problem'
+            """.trimIndent().prependIndent("          ")
+
+            return template
+                .replace("          __REQUEST_CONTENT_TYPES__", requestContent)
+                .replace("          __RESPONSE_CONTENT__", responseContent)
+                .replace("__RESPONSE_STATUS__", "503")
         }
 
         @ParameterizedTest

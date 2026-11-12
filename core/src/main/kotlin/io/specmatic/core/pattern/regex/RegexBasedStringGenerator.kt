@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern.regex
 
+import dk.brics.automaton.Automaton
 import dk.brics.automaton.RegExp
 import dk.brics.automaton.State
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
@@ -7,14 +8,19 @@ import io.specmatic.core.log.logger
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
-class RegexBasedStringGenerator(val regex: String) {
+class RegexBasedStringGenerator @JvmOverloads constructor(
+    val regex: String,
+    private val automaton: Automaton,
+    private val diagnosticRegex: String = regex,
+) {
+    constructor(regex: String) : this(regex, RegExp(regex, 0).toAutomaton())
+
     init {
         check(!regex.startsWith("/") && !regex.endsWith("/")) {
             "Invalid regex $regex. OpenAPI follows ECMA-262 regular expressions, which do not support / / delimiters like those used in many programming languages"
         }
     }
 
-    private val automaton = RegExp(regex, 0).toAutomaton()
     val isInfinite: Boolean = !automaton.isFinite
     val isFinite: Boolean = automaton.isFinite
 
@@ -104,7 +110,7 @@ class RegexBasedStringGenerator(val regex: String) {
             constraints.add("maxLength $maxLength")
         }
 
-        val warning = StringBuilder("WARNING: Could not generate a string based on $regex")
+        val warning = StringBuilder("WARNING: Could not generate a string based on $diagnosticRegex")
 
         if (constraints.isNotEmpty()) {
             warning.append(" with ")

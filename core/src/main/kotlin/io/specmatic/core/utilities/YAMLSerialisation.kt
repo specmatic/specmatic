@@ -23,8 +23,7 @@ fun yamlStringToValue(stringContent: String): Value {
     return toValue(raw)
 }
 
-private fun String.cleanBOM(): String = removePrefix(UTF_BYTE_ORDER_MARK)
-
+fun String.cleanBOM(): String = removePrefix(UTF_BYTE_ORDER_MARK)
 private fun <T> convertToMap(data: Map<*, *>, using: (Any?) -> T): Map<String, T> {
     return data.entries.associate { (k, v) -> k.toString() to using(v) }
 }

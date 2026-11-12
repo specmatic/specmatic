@@ -86,6 +86,7 @@ data class RunOptions(
     val asyncapi: AsyncApiRunOptions? = null,
     val graphqlsdl: GraphQLSdlRunOptions? = null,
     val protobuf: ProtobufRunOptions? = null,
+    val arazzo: ArazzoRunOptions? = null,
 ) {
     fun validate(context: ValidationContext): List<ConfigValidationOutput> {
         return listOfNotNull(
@@ -103,6 +104,7 @@ data class RunOptions(
         asyncapi = asyncapi?.mapPaths(mapper.child("asyncapi"), configDirectory),
         protobuf = protobuf?.mapPaths(mapper.child("protobuf"), configDirectory),
         graphqlsdl = graphqlsdl?.mapPaths(mapper.child("graphqlsdl"), configDirectory),
+        arazzo = arazzo?.mapPaths(mapper.child("arazzo"), configDirectory),
     )
 }
 
@@ -112,6 +114,7 @@ data class TestRunOptions(
     val asyncapi: AsyncApiTestConfig? = null,
     val graphqlsdl: GraphQLSdlTestConfig? = null,
     val protobuf: ProtobufTestConfig? = null,
+    val arazzo: ArazzoTestConfig? = null,
 ) {
     fun validate(context: ValidationContext): List<ConfigValidationOutput> {
         return listOfNotNull(
@@ -129,6 +132,7 @@ data class TestRunOptions(
         asyncapi = asyncapi?.mapPaths(mapper.child("asyncapi"), configDirectory),
         protobuf = protobuf?.mapPaths(mapper.child("protobuf"), configDirectory),
         graphqlsdl = graphqlsdl?.mapPaths(mapper.child("graphqlsdl"), configDirectory),
+        arazzo = arazzo?.mapPaths(mapper.child("arazzo"), configDirectory),
     )
 
     @JsonIgnore
@@ -144,6 +148,7 @@ data class TestRunOptions(
             protobuf = protobuf?.copy(specs = protobuf.specs.filterOverrides()),
             asyncapi = asyncapi?.copy(specs = asyncapi.specs.filterOverrides()),
             graphqlsdl = graphqlsdl?.copy(specs = graphqlsdl.specs.filterOverrides()),
+            arazzo = arazzo?.copy(specs = arazzo.specs.filterOverrides()),
         )
     }
 
@@ -155,6 +160,7 @@ data class TestRunOptions(
             addAll(asyncapi?.specs.collectSpecIds())
             addAll(protobuf?.specs.collectSpecIds())
             addAll(graphqlsdl?.specs.collectSpecIds())
+            addAll(arazzo?.specs.collectSpecIds())
         }
     }
 
@@ -166,6 +172,7 @@ data class TestRunOptions(
             SpecType.ASYNCAPI -> asyncapi
             SpecType.PROTOBUF -> protobuf
             SpecType.GRAPHQL -> graphqlsdl
+            SpecType.ARAZZO -> arazzo
         }
     }
 
@@ -177,6 +184,7 @@ data class TestRunOptions(
             SpecType.ASYNCAPI -> AsyncApiTestConfig()
             SpecType.GRAPHQL -> GraphQLSdlTestConfig()
             SpecType.PROTOBUF -> ProtobufTestConfig()
+            SpecType.ARAZZO -> ArazzoTestConfig()
         }
     }
 }
@@ -187,6 +195,7 @@ data class MockRunOptions(
     val asyncapi: AsyncApiMockConfig? = null,
     val graphqlsdl: GraphQLSdlMockConfig? = null,
     val protobuf: ProtobufMockConfig? = null,
+    val arazzo: ArazzoMockConfig? = null,
 ) {
     fun validate(context: ValidationContext): List<ConfigValidationOutput> {
         return listOfNotNull(
@@ -204,6 +213,7 @@ data class MockRunOptions(
         protobuf = protobuf?.mapPaths(mapper.child("protobuf"), configDirectory),
         asyncapi = asyncapi?.mapPaths(mapper.child("asyncapi"), configDirectory),
         graphqlsdl = graphqlsdl?.mapPaths(mapper.child("graphqlsdl"), configDirectory),
+        arazzo = arazzo?.mapPaths(mapper.child("arazzo"), configDirectory),
     )
 
     @JsonIgnore
@@ -219,6 +229,7 @@ data class MockRunOptions(
             protobuf = protobuf?.copy(specs = protobuf.specs.filterOverrides()),
             asyncapi = asyncapi?.copy(specs = asyncapi.specs.filterOverrides()),
             graphqlsdl = graphqlsdl?.copy(specs = graphqlsdl.specs.filterOverrides()),
+            arazzo = arazzo?.copy(specs = arazzo.specs.filterOverrides()),
         )
     }
 
@@ -230,6 +241,7 @@ data class MockRunOptions(
             addAll(asyncapi?.specs.collectSpecIds())
             addAll(protobuf?.specs.collectSpecIds())
             addAll(graphqlsdl?.specs.collectSpecIds())
+            addAll(arazzo?.specs.collectSpecIds())
         }
     }
 
@@ -241,6 +253,7 @@ data class MockRunOptions(
             SpecType.ASYNCAPI -> asyncapi
             SpecType.PROTOBUF -> protobuf
             SpecType.GRAPHQL -> graphqlsdl
+            SpecType.ARAZZO -> arazzo
         }
     }
 
@@ -252,6 +265,7 @@ data class MockRunOptions(
             SpecType.ASYNCAPI -> AsyncApiMockConfig()
             SpecType.GRAPHQL -> GraphQLSdlMockConfig()
             SpecType.PROTOBUF -> ProtobufMockConfig()
+            SpecType.ARAZZO -> ArazzoMockConfig()
         }
     }
 }

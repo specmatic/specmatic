@@ -1,11 +1,8 @@
 package io.specmatic.core.wsdl.parser.message
 
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.localName
-import io.specmatic.core.value.namespacePrefix
 import io.specmatic.core.wsdl.parser.WSDL
-import io.specmatic.core.wsdl.parser.namespaceOrSchemaNamespace
 
 class QualifiedNamespace(
     val element: XMLNode,
@@ -15,32 +12,16 @@ class QualifiedNamespace(
 ) :
     NamespaceQualification {
 
-    override val namespacePrefix: List<String>
-        get() {
-            return if(wsdlTypeReference.namespacePrefix().isNotBlank()) {
-                val fullyQualifiedName = element.fullyQualifiedNameFromQName(wsdlTypeReference)
+    private val namespace: String
+        get() = schema.attributes["targetNamespace"]?.toStringLiteral()
+            ?: element.fullyQualifiedNameFromQName(wsdlTypeReference).namespace
 
-                listOf(wsdl.mapNamespaceToPrefix(fullyQualifiedName.namespace))
-            }
-            else {
-                val targetNamespace = schema.getAttributeValue("targetNamespace")
-                listOf(wsdl.mapNamespaceToPrefix(targetNamespace))
-            }
-        }
+    private val prefix: String
+        get() = wsdl.mapNamespaceToPrefix(namespace).ifBlank { wsdl.getSchemaNamespacePrefix(namespace) }
+
+    override val namespacePrefix: List<String>
+        get() = listOf(prefix)
 
     override val nodeName: String
-        get() {
-            val nodeName = element.getAttributeValue("name")
-
-            val fullyQualifiedName = if(wsdlTypeReference.isNotBlank()) {
-                element.fullyQualifiedNameFromQName(wsdlTypeReference)
-            }
-            else {
-                element.fullyQualifiedName(wsdl)
-            }
-
-            val mappedPrefix = wsdl.mapNamespaceToPrefix(namespaceOrSchemaNamespace(fullyQualifiedName.namespace, schema) ?: throw ContractException("Could not find namespace prefix for $nodeName"))
-
-            return "${mappedPrefix}:${nodeName.localName()}"
-        }
+        get() = "$prefix:${element.getAttributeValue("name").localName()}"
 }

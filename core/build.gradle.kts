@@ -8,14 +8,14 @@ plugins {
 dependencies {
     // Being explicitly added due a HIGH vulnerability GHSA-rwm7-x88c-3g2p, being pulled transitively
     // Remove and upgrade io.ktor:ktor-server-netty-jvm:2.3.13 once it has been updated
-    implementation("io.netty:netty-transport-native-epoll:4.2.16.Final")
-    implementation("io.netty:netty-codec-http:4.2.17.Final")
-    implementation("io.netty:netty-codec-http2:4.2.16.Final")
+    implementation("io.netty:netty-transport-native-epoll:4.2.19.Final")
+    implementation("io.netty:netty-codec-http:4.2.19.Final")
+    implementation("io.netty:netty-codec-http2:4.2.19.Final")
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
-    implementation("joda-time:joda-time:2.14.3")
+    implementation("joda-time:joda-time:2.15.1")
     implementation("net.minidev:json-smart:2.6.0")
 
     implementation("com.ezylang:EvalEx:3.8.0")
@@ -36,7 +36,7 @@ dependencies {
     implementation("com.networknt:json-schema-validator:2.0.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.4.21")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
     implementation("com.fasterxml.jackson.core:jackson-core:2.22.4")

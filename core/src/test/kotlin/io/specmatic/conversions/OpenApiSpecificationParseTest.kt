@@ -50,6 +50,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
@@ -58,6 +59,143 @@ import java.math.BigDecimal
 import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
+    @Nested
+    inner class AllOfRequiredDiscriminatorProperties {
+        @ParameterizedTest
+        @ValueSource(strings = ["3.0.2", "3.1.0"])
+        fun inheritedRequiredDiscriminatorPropertyRemainsRequiredWhenRedeclared(openApiVersion: String) {
+            val specification = OpenApiSpecification.fromYAML(
+                yamlContent = $$"""
+                openapi: $$openApiVersion
+                info:
+                  title: Pet Shelter API
+                  version: '1.0'
+                paths:
+                  /pets:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              $ref: '#/components/schemas/Pet'
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  schemas:
+                    Pet:
+                      oneOf:
+                        - $ref: '#/components/schemas/Dog'
+                      discriminator:
+                        propertyName: type
+                        mapping:
+                          Dog: '#/components/schemas/Dog'
+                    PetDetails:
+                      type: object
+                      properties:
+                        weightKg:
+                          type: number
+                          minimum: 0
+                        type:
+                          type: string
+                      required:
+                        - weightKg
+                        - type
+                    Dog:
+                      allOf:
+                        - $ref: '#/components/schemas/PetDetails'
+                        - type: object
+                          properties:
+                            type:
+                              type: string
+                              enum: ['Dog']
+                """.trimIndent(),
+                openApiFilePath = "issue-2771.yaml"
+            )
+
+            val patterns = specification.parseUnreferencedSchemas()
+            assertThat(patterns.keys).containsExactlyInAnyOrder("(Pet)", "(PetDetails)", "(Dog)")
+
+            val resolver = Resolver(newPatterns = specification.patterns)
+            val dogPattern = resolvedHop(patterns.getValue("(Dog)"), resolver) as JSONObjectPattern
+            assertThat(dogPattern.pattern.keys).containsExactlyInAnyOrder("weightKg", "type")
+            assertThat(dogPattern.pattern).doesNotContainKey("type?")
+            assertThat(dogPattern.pattern.getValue("type")).isInstanceOf(EnumPattern::class.java)
+            assertThat(dogPattern.matches(parsedJSONObject("""{"weightKg":20.0,"type":"Dog"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(dogPattern.matches(parsedJSONObject("""{"weightKg":20.0}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+            assertThat(dogPattern.matches(parsedJSONObject("""{"weightKg":20.0,"type":"Cat"}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+
+            val petPattern = patterns.getValue("(Pet)")
+            assertThat(petPattern.matches(parsedJSONObject("""{"weightKg":20.0,"type":"Dog"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(petPattern.matches(parsedJSONObject("""{"weightKg":20.0}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["3.0.2", "3.1.0"])
+        fun `a property required by one branch remains optional in another`(openApiVersion: String) {
+            val specification = OpenApiSpecification.fromYAML(
+                yamlContent = $$"""
+                openapi: $$openApiVersion
+                info:
+                  title: Payment API
+                  version: '1.0'
+                paths:
+                  /payments:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              $ref: '#/components/schemas/Payment'
+                      responses:
+                        '200':
+                          description: OK
+                components:
+                  schemas:
+                    Payment:
+                      allOf:
+                        - type: object
+                          properties:
+                            id:
+                              type: string
+                        - oneOf:
+                            - type: object
+                              required: [kind, id]
+                              properties:
+                                kind:
+                                  type: string
+                                  enum: [card]
+                            - type: object
+                              required: [kind]
+                              properties:
+                                kind:
+                                  type: string
+                                  enum: [bank]
+                """.trimIndent(),
+                openApiFilePath = "one-of-branch-requiredness.yaml"
+            )
+
+            val scenario = specification.toFeature().scenarios.single()
+            val (requestBodyPattern, resolver) = resolvedHop(scenario.httpRequestPattern.body, scenario.resolver) to scenario.resolver
+
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"card"}"""), resolver))
+                .isInstanceOf(Result.Failure::class.java)
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"card","id":"123"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"bank"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+            assertThat(requestBodyPattern.matches(parsedJSONObject("""{"kind":"bank","id":"123"}"""), resolver))
+                .isInstanceOf(Result.Success::class.java)
+        }
+    }
+
     @Nested
     inner class ResponseStatusPatterns {
         @ParameterizedTest
@@ -2168,7 +2306,6 @@ $parameters
         """.trimIndent()
     }
 
-
     @Nested
     inner class InlineExampleSourceMetadata {
         @Test
@@ -3039,6 +3176,571 @@ $parameters
                 )
             )
         }
+    }
+
+    @Nested
+    inner class SecuritySchemes {
+        @Nested
+        @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+        inner class OAuth2MetadataTests {
+            private fun versions(): List<OpenApiVersion> = openApiVersionsProviders()
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `retains client credentials endpoint and only operation required scopes`(version: OpenApiVersion) {
+                val securitySchemes = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf("OrdersOAuth" to oauth2Scheme()),
+                    operationSecurityScheme = listOf(mapOf("OrdersOAuth" to listOf("orders:read"))),
+                ).scenarios.single().httpRequestPattern.securitySchemes
+
+                assertThat(securitySchemes)
+                    .containsExactly(oauth2Bearer(requiredScopes = listOf("orders:read")),)
+            }
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `does not treat authorization code flow as client credentials`(version: OpenApiVersion) {
+                val feature = featureWith(
+                    version = version,
+                    operationSecurityScheme = listOf(mapOf("UserOAuth" to listOf("profile:read"))),
+                    globalSecurityScheme = mapOf(
+                        "UserOAuth" to oauth2Scheme(
+                            flows = mapOf(
+                                "authorizationCode" to mapOf(
+                                    "tokenUrl" to "https://auth.example.com/token",
+                                    "authorizationUrl" to "https://auth.example.com/authorize",
+                                    "scopes" to mapOf("profile:read" to "Read profile"),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+
+                val scheme = feature.scenarios.single().httpRequestPattern.securitySchemes.single()
+                assertThat(scheme).isEqualTo(
+                    oauth2Bearer(
+                        schemeName = "UserOAuth",
+                        requiredScopes = listOf("profile:read"),
+                        flows = oauth2Flows(
+                            clientCredentials = null,
+                            authorizationCode = OpenApiOAuthFlow(
+                                refreshUrl = null,
+                                extensions = null,
+                                tokenUrl = "https://auth.example.com/token",
+                                scopes = mapOf("profile:read" to "Read profile"),
+                                authorizationUrl = "https://auth.example.com/authorize",
+                            ),
+                        ),
+                    ),
+                )
+            }
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `preserves all OAuth2 flow metadata and scheme extensions`(version: OpenApiVersion) {
+                val securityScheme = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf(
+                        "OrdersOAuth" to oauth2Scheme(
+                            description = "OAuth scheme description",
+                            extensions = mapOf("x-provider" to "auth.example.com"),
+                            flows = mapOf(
+                                "implicit" to mapOf(
+                                    "authorizationUrl" to "https://auth.example.com/implicit",
+                                    "refreshUrl" to "https://auth.example.com/implicit-refresh",
+                                    "scopes" to mapOf("profile:read" to "Read profile"),
+                                    "x-flow" to "implicit",
+                                ),
+                                "password" to mapOf(
+                                    "tokenUrl" to "https://auth.example.com/password",
+                                    "refreshUrl" to "https://auth.example.com/password-refresh",
+                                    "scopes" to mapOf("profile:write" to "Update profile"),
+                                    "x-flow" to "password",
+                                ),
+                                "clientCredentials" to mapOf(
+                                    "tokenUrl" to "https://auth.example.com/client",
+                                    "refreshUrl" to "https://auth.example.com/client-refresh",
+                                    "scopes" to mapOf("orders:read" to "Read orders"),
+                                    "x-flow" to "client-credentials",
+                                ),
+                                "authorizationCode" to mapOf(
+                                    "authorizationUrl" to "https://auth.example.com/authorize",
+                                    "tokenUrl" to "https://auth.example.com/code",
+                                    "refreshUrl" to "https://auth.example.com/code-refresh",
+                                    "scopes" to mapOf("orders:write" to "Update orders"),
+                                    "x-flow" to "authorization-code",
+                                ),
+                                "x-flows" to "provider metadata",
+                            ),
+                        ),
+                    ),
+                    operationSecurityScheme = listOf(mapOf("OrdersOAuth" to listOf("orders:read"))),
+                ).scenarios.single().httpRequestPattern.securitySchemes.single()
+
+                assertThat(securityScheme).isEqualTo(
+                    oauth2Bearer(
+                        requiredScopes = listOf("orders:read"),
+                        description = "OAuth scheme description",
+                        extensions = mapOf("x-provider" to "auth.example.com"),
+                        flows = OpenApiOAuthFlows(
+                            implicit = OpenApiOAuthFlow(
+                                tokenUrl = null,
+                                extensions = mapOf("x-flow" to "implicit"),
+                                scopes = mapOf("profile:read" to "Read profile"),
+                                authorizationUrl = "https://auth.example.com/implicit",
+                                refreshUrl = "https://auth.example.com/implicit-refresh",
+                            ),
+                            password = OpenApiOAuthFlow(
+                                authorizationUrl = null,
+                                extensions = mapOf("x-flow" to "password"),
+                                tokenUrl = "https://auth.example.com/password",
+                                scopes = mapOf("profile:write" to "Update profile"),
+                                refreshUrl = "https://auth.example.com/password-refresh",
+                            ),
+                            clientCredentials = OpenApiOAuthFlow(
+                                authorizationUrl = null,
+                                tokenUrl = "https://auth.example.com/client",
+                                scopes = mapOf("orders:read" to "Read orders"),
+                                extensions = mapOf("x-flow" to "client-credentials"),
+                                refreshUrl = "https://auth.example.com/client-refresh",
+                            ),
+                            authorizationCode = OpenApiOAuthFlow(
+                                tokenUrl = "https://auth.example.com/code",
+                                scopes = mapOf("orders:write" to "Update orders"),
+                                refreshUrl = "https://auth.example.com/code-refresh",
+                                extensions = mapOf("x-flow" to "authorization-code"),
+                                authorizationUrl = "https://auth.example.com/authorize",
+                            ),
+                            extensions = mapOf("x-flows" to "provider metadata"),
+                        ),
+                    ),
+                )
+            }
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `inherits global scopes and honors operation overrides and explicit unsecured operations`(version: OpenApiVersion) {
+                val feature = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf("OrdersOAuth" to oauth2Scheme()),
+                    globalSecurityRequirement = listOf(mapOf("OrdersOAuth" to listOf("orders:read"))),
+                    operations = mapOf(
+                        "/inherited" to emptyMap(),
+                        "/unsecured" to mapOf("security" to emptyList<Any>()),
+                        "/overridden" to mapOf("security" to listOf(mapOf("OrdersOAuth" to listOf("orders:write")))),
+                    ),
+                )
+
+                assertThat(feature.scenarios.single { it.path == "/inherited" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(oauth2Bearer(requiredScopes = listOf("orders:read")))
+
+                assertThat(feature.scenarios.single { it.path == "/overridden" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(oauth2Bearer(requiredScopes = listOf("orders:write")))
+
+                assertThat(feature.scenarios.single { it.path == "/unsecured" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(NoSecurityScheme())
+            }
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `preserves OR alternatives AND composites and anonymous alternatives`(version: OpenApiVersion) {
+                val feature = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf(
+                        "OrdersOAuth" to oauth2Scheme(),
+                        "ApiKey" to mapOf("type" to "apiKey", "in" to "query", "name" to "api_key"),
+                    ),
+                    operations = mapOf(
+                        "/or" to mapOf(
+                            "security" to listOf(
+                                mapOf("OrdersOAuth" to listOf("orders:read")),
+                                mapOf("ApiKey" to emptyList()),
+                            ),
+                        ),
+                        "/and" to mapOf(
+                            "security" to listOf(
+                                mapOf(
+                                    "OrdersOAuth" to listOf("orders:write"),
+                                    "ApiKey" to emptyList(),
+                                ),
+                            ),
+                        ),
+                        "/anonymous" to mapOf(
+                            "security" to listOf(
+                                emptyMap(),
+                                mapOf("OrdersOAuth" to listOf("orders:read")),
+                            ),
+                        ),
+                    ),
+                )
+
+                assertThat(feature.scenarios.single { it.path == "/or" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(
+                        oauth2Bearer(requiredScopes = listOf("orders:read")),
+                        APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "ApiKey"),
+                    )
+
+                assertThat(feature.scenarios.single { it.path == "/and" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(
+                        CompositeSecurityScheme(
+                            listOf(
+                                oauth2Bearer(requiredScopes = listOf("orders:write")),
+                                APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "ApiKey"),
+                            ),
+                        ),
+                    )
+
+                assertThat(feature.scenarios.single { it.path == "/anonymous" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(
+                        NoSecurityScheme(),
+                        oauth2Bearer(requiredScopes = listOf("orders:read")),
+                    )
+            }
+        }
+
+        @Nested
+        @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+        inner class OpenIdConnectMetadataTests {
+            private fun versions(): List<OpenApiVersion> = openApiVersionsProviders()
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `retains discovery URL and operation required scopes`(version: OpenApiVersion) {
+                val securitySchemes = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf("OrdersOIDC" to oidcScheme()),
+                    operationSecurityScheme = listOf(mapOf("OrdersOIDC" to listOf("orders:read"))),
+                ).scenarios.single().httpRequestPattern.securitySchemes
+
+                assertThat(securitySchemes)
+                    .containsExactly(oidcBearer(requiredScopes = listOf("orders:read")),)
+            }
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `keeps OIDC and HTTP bearer as distinct mechanisms`(version: OpenApiVersion) {
+                val schemes = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf(
+                        "OrdersOIDC" to oidcScheme(
+                            description = "OIDC scheme description",
+                            extensions = mapOf("x-provider" to "auth.example.com"),
+                        ),
+                        "Bearer" to mapOf("type" to "http", "scheme" to "bearer"),
+                    ),
+                    operationSecurityScheme = listOf(
+                        mapOf("OrdersOIDC" to listOf("orders:read")),
+                        mapOf("Bearer" to emptyList()),
+                    ),
+                ).scenarios.single().httpRequestPattern.securitySchemes
+
+                assertThat(schemes).containsExactly(
+                    oidcBearer(
+                        requiredScopes = listOf("orders:read"),
+                        description = "OIDC scheme description",
+                        extensions = mapOf("x-provider" to "auth.example.com"),
+                    ),
+                    BearerSecurityScheme(
+                        authentication = BearerAuthentication.HttpBearer(schemeName = "Bearer"),
+                    ),
+                )
+            }
+        }
+
+        @Nested
+        @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+        inner class HttpAndApiKeySchemes {
+            private fun versions(): List<OpenApiVersion> = openApiVersionsProviders()
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `retains HTTP bearer basic and API key request destinations`(version: OpenApiVersion) {
+                val feature = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf(
+                        "HttpBearer" to mapOf("type" to "http", "scheme" to "bearer"),
+                        "HttpBasic" to mapOf("type" to "http", "scheme" to "basic"),
+                        "HeaderKey" to mapOf("type" to "apiKey", "in" to "header", "name" to "X-API-Key"),
+                        "QueryKey" to mapOf("type" to "apiKey", "in" to "query", "name" to "api_key"),
+                    ),
+                    operations = mapOf(
+                        "/bearer" to mapOf("security" to listOf(mapOf("HttpBearer" to emptyList()))),
+                        "/basic" to mapOf("security" to listOf(mapOf("HttpBasic" to emptyList()))),
+                        "/header-key" to mapOf("security" to listOf(mapOf("HeaderKey" to emptyList()))),
+                        "/query-key" to mapOf("security" to listOf(mapOf("QueryKey" to emptyList<String>()))),
+                    ),
+                )
+
+                assertThat(feature.scenarios.single { it.path == "/bearer" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(
+                        BearerSecurityScheme(
+                            authentication = BearerAuthentication.HttpBearer(schemeName = "HttpBearer"),
+                        ),
+                    )
+                assertThat(feature.scenarios.single { it.path == "/basic" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(BasicAuthSecurityScheme(schemeName = "HttpBasic"))
+                assertThat(feature.scenarios.single { it.path == "/header-key" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(APIKeyInHeaderSecurityScheme("X-API-Key", null, schemeName = "HeaderKey"))
+                assertThat(feature.scenarios.single { it.path == "/query-key" }.httpRequestPattern.securitySchemes)
+                    .containsExactly(APIKeyInQueryParamSecurityScheme("api_key", null, schemeName = "QueryKey"))
+            }
+        }
+
+        @Nested
+        @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+        inner class AuthorizationHeaderOverrides {
+            private fun versions(): List<OpenApiVersion> = openApiVersionsProviders()
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `unconstrained authorization headers retain OAuth security and are removed as ordinary headers`(version: OpenApiVersion) {
+                val requestPattern = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf("OrdersOAuth" to oauth2SchemeWithNoScopes()),
+                    operations = mapOf(
+                        "/resource" to mapOf(
+                            "security" to listOf(mapOf("OrdersOAuth" to emptyList<String>())),
+                            "parameters" to listOf(authorizationHeaderParameter()),
+                        ),
+                    ),
+                ).scenarios.single().httpRequestPattern
+
+                assertThat(requestPattern.securitySchemes)
+                    .containsExactly(
+                        oauth2Bearer(
+                            flows = oauth2Flows(
+                                clientCredentials = OpenApiOAuthFlow(
+                                    refreshUrl = null,
+                                    extensions = null,
+                                    scopes = emptyMap(),
+                                    authorizationUrl = null,
+                                    tokenUrl = "https://auth.example.com/token",
+                                ),
+                            ),
+                        ),
+                    )
+                assertThat(requestPattern.headersPattern.pattern.keys.map { it.removeSuffix("?") })
+                    .doesNotContain("Authorization")
+            }
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `constrained authorization header overrides OAuth security`(version: OpenApiVersion) {
+                val requestPattern = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf("OrdersOAuth" to oauth2SchemeWithNoScopes()),
+                    operations = mapOf(
+                        "/resource" to mapOf(
+                            "security" to listOf(mapOf("OrdersOAuth" to emptyList<String>())),
+                            "parameters" to listOf(
+                                authorizationHeaderParameter(enum = listOf("CustomCredential")),
+                            ),
+                        ),
+                    ),
+                ).scenarios.single().httpRequestPattern
+
+                assertThat(requestPattern.securitySchemes).containsExactly(NoSecurityScheme())
+                assertThat(requestPattern.headersPattern.pattern.keys.map { it.removeSuffix("?") })
+                    .containsExactly("Authorization")
+            }
+        }
+
+        @Nested
+        @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+        inner class ExistingMatchingBehaviorTests {
+            private fun versions(): List<OpenApiVersion> = openApiVersionsProviders()
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `request presence identifies destination while matches validates its value`(version: OpenApiVersion) {
+                val feature = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf(
+                        "Bearer" to mapOf("type" to "http", "scheme" to "bearer"),
+                        "Basic" to mapOf("type" to "http", "scheme" to "basic"),
+                        "OAuth2" to oauth2Scheme(),
+                        "OIDC" to oidcScheme(),
+                    ),
+                    operations = mapOf(
+                        "/bearer" to mapOf("security" to listOf(mapOf("Bearer" to emptyList()))),
+                        "/basic" to mapOf("security" to listOf(mapOf("Basic" to emptyList()))),
+                        "/oauth2" to mapOf("security" to listOf(mapOf("OAuth2" to emptyList()))),
+                        "/oidc" to mapOf("security" to listOf(mapOf("OIDC" to emptyList<String>()))),
+                    ),
+                )
+
+                val securityByPath = feature.scenarios.associate { scenario ->
+                    scenario.path to scenario.httpRequestPattern.securitySchemes.single()
+                }
+                val bearer = securityByPath.getValue("/bearer")
+                val basic = securityByPath.getValue("/basic")
+                val oauth2 = securityByPath.getValue("/oauth2")
+                val oidc = securityByPath.getValue("/oidc")
+                val placeholder = HttpRequest(headers = mapOf("Authorization" to $$"$specmatic.auth"))
+
+                assertThat(oidc.isInRequest(placeholder, complete = true)).isTrue()
+                assertThat(basic.isInRequest(placeholder, complete = true)).isTrue()
+                assertThat(bearer.isInRequest(placeholder, complete = true)).isTrue()
+                assertThat(oauth2.isInRequest(placeholder, complete = true)).isTrue()
+                assertThat(oidc.matches(placeholder, Resolver())).isInstanceOf(Result.Failure::class.java)
+                assertThat(basic.matches(placeholder, Resolver())).isInstanceOf(Result.Failure::class.java)
+                assertThat(bearer.matches(placeholder, Resolver())).isInstanceOf(Result.Failure::class.java)
+                assertThat(oauth2.matches(placeholder, Resolver())).isInstanceOf(Result.Failure::class.java)
+
+                val bearerValue = HttpRequest(headers = mapOf("Authorization" to "Bearer token"))
+                assertThat(oidc.matches(bearerValue, Resolver())).isInstanceOf(Result.Success::class.java)
+                assertThat(basic.matches(bearerValue, Resolver())).isInstanceOf(Result.Failure::class.java)
+                assertThat(bearer.matches(bearerValue, Resolver())).isInstanceOf(Result.Success::class.java)
+                assertThat(oauth2.matches(bearerValue, Resolver())).isInstanceOf(Result.Success::class.java)
+            }
+
+            @ParameterizedTest
+            @MethodSource("versions")
+            fun `composite presence reports partial and complete destination sets`(version: OpenApiVersion) {
+                val composite = featureWith(
+                    version = version,
+                    globalSecurityScheme = mapOf(
+                        "Bearer" to mapOf("type" to "http", "scheme" to "bearer"),
+                        "ApiKey" to mapOf("type" to "apiKey", "in" to "query", "name" to "api_key"),
+                    ),
+                    operationSecurityScheme = listOf(
+                        mapOf("Bearer" to emptyList(), "ApiKey" to emptyList()),
+                    ),
+                ).scenarios.single().httpRequestPattern.securitySchemes.single()
+
+                val request = HttpRequest(headers = mapOf("Authorization" to "Bearer token"))
+                assertThat(composite.isInRequest(request, complete = false)).isTrue()
+                assertThat(composite.isInRequest(request, complete = true)).isFalse()
+            }
+        }
+
+        private fun featureWith(
+            version: OpenApiVersion,
+            globalSecurityScheme: Map<String, Map<String, Any>> = emptyMap(),
+            operationSecurityScheme: List<Map<String, List<String>>>? = null,
+            globalSecurityRequirement: List<Map<String, List<String>>>? = null,
+            operations: Map<String, Map<String, Any>> = mapOf(
+                "/resource" to buildMap {
+                    if (operationSecurityScheme != null) put("security", operationSecurityScheme)
+                },
+            ),
+        ): Feature {
+            val specification = buildMap {
+                put("openapi", version.value)
+                put("info", mapOf("title" to "Security metadata", "version" to "1.0.0"))
+                put("paths", operations.mapValues { (_, operation) ->
+                    mapOf(
+                        "get" to operation + mapOf(
+                            "responses" to mapOf("200" to mapOf("description" to "OK")),
+                        ),
+                    )
+                })
+                put("components", mapOf("securitySchemes" to globalSecurityScheme))
+                if (globalSecurityRequirement != null) put("security", globalSecurityRequirement)
+            }
+
+            return OpenApiSpecification
+                .fromYAML(yamlMapper.writeValueAsString(specification), "./openapi.yaml")
+                .toFeature()
+        }
+
+        private fun oauth2Scheme(
+            flows: Map<String, Any> = mapOf(
+                "clientCredentials" to mapOf(
+                    "tokenUrl" to "https://auth.example.com/token",
+                    "scopes" to mapOf(
+                        "orders:read" to "Read orders",
+                        "orders:write" to "Write orders",
+                    ),
+                ),
+            ),
+            description: String? = null,
+            extensions: Map<String, Any> = emptyMap(),
+        ): Map<String, Any> = buildMap {
+            put("type", "oauth2")
+            put("flows", flows)
+            if (description != null) put("description", description)
+            putAll(extensions)
+        }
+
+        private fun oauth2SchemeWithNoScopes(): Map<String, Any> = oauth2Scheme(
+            flows = mapOf(
+                "clientCredentials" to mapOf(
+                    "tokenUrl" to "https://auth.example.com/token",
+                    "scopes" to emptyMap<String, String>(),
+                ),
+            ),
+        )
+
+        private fun oidcScheme(
+            description: String? = null,
+            extensions: Map<String, Any> = emptyMap(),
+        ): Map<String, Any> = buildMap {
+            put("type", "openIdConnect")
+            put("openIdConnectUrl", "https://auth.example.com/.well-known/openid-configuration")
+            if (description != null) put("description", description)
+            putAll(extensions)
+        }
+
+        private fun authorizationHeaderParameter(enum: List<String>? = null): Map<String, Any> = mapOf(
+            "name" to "Authorization",
+            "in" to "header",
+            "required" to true,
+            "schema" to buildMap {
+                put("type", "string")
+                if (enum != null) put("enum", enum)
+            },
+        )
+
+        private fun oauth2Bearer(
+            description: String? = null,
+            schemeName: String = "OrdersOAuth",
+            extensions: Map<String, Any?>? = null,
+            flows: OpenApiOAuthFlows = oauth2Flows(),
+            requiredScopes: List<String> = emptyList(),
+        ) = BearerSecurityScheme(
+            authentication = BearerAuthentication.OAuth2(
+                flows = flows,
+                schemeName = schemeName,
+                extensions = extensions,
+                description = description,
+                requiredScopes = requiredScopes,
+            ),
+        )
+
+        private fun oauth2Flows(
+            authorizationCode: OpenApiOAuthFlow? = null,
+            clientCredentials: OpenApiOAuthFlow? = OpenApiOAuthFlow(
+                refreshUrl = null,
+                extensions = null,
+                authorizationUrl = null,
+                tokenUrl = "https://auth.example.com/token",
+                scopes = mapOf("orders:read" to "Read orders", "orders:write" to "Write orders"),
+            ),
+        ) = OpenApiOAuthFlows(
+            implicit = null,
+            password = null,
+            extensions = null,
+            clientCredentials = clientCredentials,
+            authorizationCode = authorizationCode,
+        )
+
+        private fun oidcBearer(
+            description: String? = null,
+            schemeName: String = "OrdersOIDC",
+            extensions: Map<String, Any?>? = null,
+            requiredScopes: List<String> = emptyList(),
+            openIdConnectUrl: String? = "https://auth.example.com/.well-known/openid-configuration",
+        ) = BearerSecurityScheme(
+            authentication = BearerAuthentication.OpenIdConnect(
+                schemeName = schemeName,
+                extensions = extensions,
+                description = description,
+                requiredScopes = requiredScopes,
+                openIdConnectUrl = openIdConnectUrl,
+            ),
+        )
     }
 
     @Suppress("SameParameterValue")

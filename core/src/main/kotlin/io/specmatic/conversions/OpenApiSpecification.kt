@@ -54,11 +54,18 @@ import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.*
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
+import io.swagger.v3.oas.models.security.OAuthFlow
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
+import io.swagger.v3.parser.reference.DereferencerContext
+import io.swagger.v3.parser.reference.OpenAPIDereferencer31
+import io.swagger.v3.parser.reference.Reference
+import io.swagger.v3.parser.reference.ReferenceVisitor
+import io.swagger.v3.parser.reference.ReferenceUtils
+import io.swagger.v3.parser.reference.Traverser
 import io.swagger.v3.parser.util.ClasspathHelper
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.io.File
@@ -369,13 +376,11 @@ class OpenApiSpecification(
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
             val preprocessedYaml = preprocessYamlForParser(mergedYaml, collectorContext)
 
-            val parseResult: SwaggerParseResult =
-                OpenAPIV3Parser().readContents(
-                    preprocessedYaml,
-                    null,
-                    resolveExternalReferences(),
-                    openApiFilePath.replace("\\", "/")
-                )
+            val parseResult = parseWithReferences(
+                preprocessedYaml,
+                openApiFilePath.replace("\\", "/"),
+                hasOverlay = mergedYaml != yamlContent,
+            )
             val parsedOpenApi: OpenAPI? = parseResult.openAPI
 
             if (parsedOpenApi == null) {
@@ -470,6 +475,37 @@ class OpenApiSpecification(
                     loggerForErrors.log(parserMessages)
                 }
             }
+        }
+
+        private fun parseWithReferences(yaml: String, location: String, hasOverlay: Boolean): SwaggerParseResult {
+            val parser = OpenAPIV3Parser()
+            val options = resolveExternalReferences()
+            if (hasOverlay && location.isNotBlank() && System.getenv("disableOas31Resolve").isNullOrBlank()) {
+                val root = yamlPreprocessorMapper.readTree(yaml)
+                if (root?.path("openapi")?.asText()?.startsWith("3.1") == true) {
+                    val parsed = parser.readContents(yaml, null, ParseOptions(), location)
+                    if (parsed.openAPI != null) {
+                        val dereferencer = object : OpenAPIDereferencer31() {
+                            override fun buildReferenceVisitorWithContext(
+                                context: DereferencerContext,
+                                reference: Reference,
+                                traverser: Traverser,
+                            ): ReferenceVisitor {
+                                // Swagger otherwise reloads the original file for references to the root document.
+                                reference.jsonNode(root)
+                                reference.referenceSet[ReferenceUtils.toBaseURI(reference.uri)] = reference
+                                return super.buildReferenceVisitorWithContext(context, reference, traverser)
+                            }
+                        }
+                        dereferencer.dereference(
+                            DereferencerContext(parsed, null, location, options, null, null, true),
+                            emptyList<OpenAPIDereferencer31>().iterator(),
+                        )
+                    }
+                    return parsed
+                }
+            }
+            return parser.readContents(yaml, null, options, location)
         }
 
         private fun resolveExternalReferences(): ParseOptions {
@@ -1844,22 +1880,39 @@ class OpenApiSpecification(
         }
 
         if (securitySchemes.isNullOrEmpty()) return listOf(NoSecurityScheme())
-        fun getSecurityScheme(name: String, collectorContext: CollectorContext): OpenAPISecurityScheme? {
+        fun getSecurityScheme(name: String, requiredScopes: List<String>, collectorContext: CollectorContext): OpenAPISecurityScheme? {
             return collectorContext.checkOptional<OpenAPISecurityScheme?>(name = name, value = securitySchemeComponents[name], isValid = { it != null })
                 .violation { OpenApiLintViolations.SECURITY_SCHEME_MISSING }
                 .message { "Didn't find Security schema with name $name, ignoring this scheme" }
                 .orUse { null }
                 .build()
+                ?.withRequiredScopes(requiredScopes)
         }
 
         return securitySchemes.withIndex().mapNotNull { (index, securityScheme) ->
             val indexedCollectorContext = baseCollectorContext.at(index)
             when (securityScheme.keys.size) {
                 0 -> NoSecurityScheme()
-                1 -> getSecurityScheme(securityScheme.keys.single(), indexedCollectorContext)
-                else -> CompositeSecurityScheme(securityScheme.keys.mapNotNull { getSecurityScheme(it, indexedCollectorContext) })
+                1 -> {
+                    val name = securityScheme.keys.single()
+                    getSecurityScheme(name, securityScheme[name].orEmpty(), indexedCollectorContext)
+                }
+                else -> CompositeSecurityScheme(securityScheme.keys.mapNotNull { name ->
+                    getSecurityScheme(name, securityScheme[name].orEmpty(), indexedCollectorContext)
+                })
             }
         }
+    }
+
+    private fun OpenAPISecurityScheme.withRequiredScopes(scopes: List<String>): OpenAPISecurityScheme {
+        if (this !is BearerSecurityScheme) return this
+        val updatedAuthentication = when (val authentication = this.authentication) {
+            is BearerAuthentication.HttpBearer -> authentication
+            is BearerAuthentication.OAuth2 -> authentication.copy(requiredScopes = scopes.toList())
+            is BearerAuthentication.OpenIdConnect -> authentication.copy(requiredScopes = scopes.toList())
+        }
+
+        return copy(authentication = updatedAuthentication)
     }
 
     private fun toHttpRequestPatterns(
@@ -2693,18 +2746,57 @@ class OpenApiSpecification(
         val securitySchemeConfiguration = securityConfiguration?.getOpenAPISecurityScheme(schemeName)
         val normalizedScheme = securityScheme.scheme?.lowercase()
 
-        if (normalizedScheme == BEARER_SECURITY_SCHEME) {
-            return toBearerSecurityScheme(securitySchemeConfiguration, schemeName)
+        if (securityScheme.type == SecurityScheme.Type.OAUTH2) {
+            return BearerSecurityScheme(
+                configuredToken = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName),
+                authentication = BearerAuthentication.OAuth2(
+                    schemeName = schemeName,
+                    reference = securityScheme.`get$ref`(),
+                    description = securityScheme.description,
+                    extensions = securityScheme.extensions?.toMap(),
+                    flows = securityScheme.flows?.let { flows ->
+                        OpenApiOAuthFlows(
+                            extensions = flows.extensions?.toMap(),
+                            implicit = flows.implicit?.toOpenApiMetadata(),
+                            password = flows.password?.toOpenApiMetadata(),
+                            clientCredentials = flows.clientCredentials?.toOpenApiMetadata(),
+                            authorizationCode = flows.authorizationCode?.toOpenApiMetadata(),
+                        )
+                    },
+                ),
+            )
         }
 
-        if (securityScheme.type == SecurityScheme.Type.OAUTH2 || securityScheme.type == SecurityScheme.Type.OPENIDCONNECT) {
+        if (securityScheme.type == SecurityScheme.Type.OPENIDCONNECT) {
+            return BearerSecurityScheme(
+                configuredToken = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName),
+                authentication = BearerAuthentication.OpenIdConnect(
+                    schemeName = schemeName,
+                    reference = securityScheme.`get$ref`(),
+                    description = securityScheme.description,
+                    extensions = securityScheme.extensions?.toMap(),
+                    openIdConnectUrl = securityScheme.openIdConnectUrl,
+                ),
+            )
+        }
+
+        if (normalizedScheme == BEARER_SECURITY_SCHEME) {
             return toBearerSecurityScheme(securitySchemeConfiguration, schemeName)
         }
 
         if (securityScheme.type == SecurityScheme.Type.APIKEY) {
             val apiKey = getSecurityTokenForApiKeyScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-            if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(securityScheme.name, apiKey)
-            if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(securityScheme.name, apiKey)
+            if (securityScheme.`in` == SecurityScheme.In.HEADER) return APIKeyInHeaderSecurityScheme(
+                apiKey = apiKey,
+                name = securityScheme.name,
+                schemeName = schemeName,
+            )
+
+            if (securityScheme.`in` == SecurityScheme.In.QUERY) return APIKeyInQueryParamSecurityScheme(
+                apiKey = apiKey,
+                name = securityScheme.name,
+                schemeName = schemeName,
+            )
         }
 
         if (securityScheme.type == SecurityScheme.Type.HTTP && normalizedScheme == BASIC_SECURITY_SCHEME) {
@@ -2723,15 +2815,26 @@ class OpenApiSpecification(
         schemeName: String,
     ): BearerSecurityScheme {
         val token = getSecurityTokenForBearerScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-        return BearerSecurityScheme(token)
+        return BearerSecurityScheme(
+            configuredToken = token,
+            authentication = BearerAuthentication.HttpBearer(schemeName),
+        )
     }
+
+    private fun OAuthFlow.toOpenApiMetadata() = OpenApiOAuthFlow(
+        tokenUrl = tokenUrl,
+        refreshUrl = refreshUrl,
+        scopes = scopes?.toMap(),
+        extensions = extensions?.toMap(),
+        authorizationUrl = authorizationUrl,
+    )
 
     private fun toBasicAuthSecurityScheme(
         securitySchemeConfiguration: SecuritySchemeConfiguration?,
         schemeName: String,
     ): BasicAuthSecurityScheme {
         val token = getSecurityTokenForBasicAuthScheme(specmaticConfig, securitySchemeConfiguration, schemeName)
-        return BasicAuthSecurityScheme(token)
+        return BasicAuthSecurityScheme(token = token, schemeName = schemeName)
     }
 
     private fun toFormFields(mediaType: MediaType, collectorContext: CollectorContext): Map<String, Pattern> {
@@ -2931,21 +3034,26 @@ class OpenApiSpecification(
 
         val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true, collectorContext = collectorContext)
         val explodedDiscriminators = allDiscriminators.explode()
-        val topLevelRequired = schema.required.orEmpty()
+        val allOfRequiredFields = deepListOfAllOfs.flatMap { it.schema.required.orEmpty() }.distinct()
+        val allOfPropertyNames = deepListOfAllOfs.flatMap { it.schema.properties.orEmpty().keys }.toSet()
 
         val schemaProperties = explodedDiscriminators.map { discriminator ->
             val schemasFromDiscriminator = discriminator.schemas
-            (deepListOfAllOfs + schemasFromDiscriminator).map { (schemaToProcess, schemaPatternName, schemaCollectorContext) ->
-                val requiredFields = topLevelRequired.plus(schemaToProcess.required.orEmpty())
+            val schemasToProcess = deepListOfAllOfs + schemasFromDiscriminator
+            val propertyNamesInComposition = allOfPropertyNames + schemasFromDiscriminator.flatMap { it.schema.properties.orEmpty().keys }
+            val requiredFieldsInComposition = (allOfRequiredFields + schemasFromDiscriminator.flatMap { it.schema.required.orEmpty() }).distinct()
+
+            schemasToProcess.map { (schemaToProcess, schemaPatternName, schemaCollectorContext) ->
                 SchemaProperty(
                     extensions = schemaToProcess.extensions.orEmpty(),
                     properties = toSchemaProperties(
                         schema = schemaToProcess,
-                        requiredFields = requiredFields.distinct(),
+                        requiredFields = requiredFieldsInComposition,
                         patternName = schemaPatternName ?: patternName,
                         typeStack = typeStack,
                         discriminatorDetails = discriminator,
                         collectorContext = schemaCollectorContext,
+                        requiredFieldPropertyNames = propertyNamesInComposition,
                     )
                 )
             }.fold(SchemaProperty(extensions = schema.extensions.orEmpty(), properties = emptyMap())) { propertiesAcc, propertiesEntry ->
@@ -2962,21 +3070,28 @@ class OpenApiSpecification(
             schemaToProcess.oneOf.mapIndexed { index, schema ->
                 val indexContext = schemaCollectorContext.at("oneOf").at(index)
                 val resolvedRef = resolveSchemaIfRef(schema, schemaPatternName ?: patternName, indexContext)
-                val requiredFields = resolvedRef.resolvedSchema.required.orEmpty().plus(topLevelRequired)
-                resolvedRef.componentName to SchemaProperty(
+                val propertyNamesInComposition = allOfPropertyNames + resolvedRef.resolvedSchema.properties.orEmpty().keys
+                val requiredFieldsInComposition = (allOfRequiredFields + resolvedRef.resolvedSchema.required.orEmpty()).distinct()
+
+                Triple(resolvedRef.componentName, SchemaProperty(
                     resolvedRef.resolvedSchema.extensions.orEmpty(), toSchemaProperties(
                         schema = resolvedRef.resolvedSchema,
-                        requiredFields = requiredFields,
+                        requiredFields = requiredFieldsInComposition,
                         patternName = resolvedRef.componentName,
                         typeStack = typeStack,
                         collectorContext = resolvedRef.collectorContext,
+                        requiredFieldPropertyNames = propertyNamesInComposition,
                     )
-                )
-            }.flatMap { (componentName, schemaProperty) ->
+                ), requiredFieldsInComposition.toSet())
+            }.flatMap { (componentName, schemaProperty, requiredFields) ->
                 schemaProperties.map {
                     componentName to SchemaProperty(
                         extensions = it.extensions.plus(schemaProperty.extensions),
                         properties = combine(it.properties, schemaProperty.properties)
+                            .mapKeys { (name, _) ->
+                                val propertyName = withoutOptionality(name)
+                                if (propertyName in requiredFields) propertyName else name
+                            }
                     )
                 }
             }
@@ -3535,12 +3650,12 @@ class OpenApiSpecification(
         patternName: String,
         typeStack: List<String>,
         discriminatorDetails: DiscriminatorDetails = DiscriminatorDetails(),
-        collectorContext: CollectorContext
+        collectorContext: CollectorContext,
+        requiredFieldPropertyNames: Set<String> = schema.properties.orEmpty().keys
     ): Map<String, Pattern> {
         val propertiesContext = collectorContext.at("properties")
-        val properties = schema.properties.orEmpty()
         val fixedRequiredFields = requiredFields.map { field ->
-            collectorContext.at("required").check<String?>(value = field, isValid = { properties.contains(field) })
+            collectorContext.at("required").check<String?>(value = field, isValid = { requiredFieldPropertyNames.contains(field) })
             .message { "Required property \"$field\" is not defined in properties, ignoring this requirement" }
             .orUse { null }
             .build(isWarning = true)

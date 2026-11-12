@@ -50,10 +50,31 @@ private fun prefixToNamespaceMap(wsdlNode: XMLNode): Map<String, String> {
 
 private data class DefinitionDocument(val definition: XMLNode, val file: File)
 
-private fun definitionsFrom(rootDefinitionXML: XMLNode, parentWSDL: File): List<DefinitionDocument> {
+private val definitionTags = setOf("message", "binding", "portType")
+
+private fun checkDefinitionDeclarations(documents: List<DefinitionDocument>, namespace: String) {
+    val sources = mutableMapOf<DefinitionLookupKey, File>()
+    for (document in documents) {
+        for (node in document.definition.childNodes.filterIsInstance<XMLNode>().filter { it.name in definitionTags }) {
+            val name = node.attributes["name"]?.toStringLiteral() ?: continue
+            val key = DefinitionLookupKey(node.name, namespace, name)
+            val previousSource = sources.putIfAbsent(key, document.file)
+            if (previousSource != null && previousSource.canonicalPath != document.file.canonicalPath)
+                throw ContractException("Conflicting ${node.name} {$namespace}$name declarations in ${previousSource.canonicalPath} and ${document.file.canonicalPath}")
+        }
+    }
+}
+
+private fun definitionsFrom(
+    rootDefinitionXML: XMLNode,
+    parentWSDL: File,
+    visitedFiles: MutableSet<String> = mutableSetOf()
+): List<DefinitionDocument> {
+    if (!visitedFiles.add(parentWSDL.canonicalPath)) return emptyList()
+
     val importedDefinitionXMLs = rootDefinitionXML.findChildrenByName("import").filter {
         it.attributes.containsKey("location")
-    }.map { importTag ->
+    }.flatMap { importTag ->
         val wsdlFilename = importTag.getAttributeValue("location")
         val wsdlFile = File(wsdlFilename).let {
             when {
@@ -62,14 +83,21 @@ private fun definitionsFrom(rootDefinitionXML: XMLNode, parentWSDL: File): List<
             }
         }
 
+        if (wsdlFile.canonicalPath in visitedFiles) return@flatMap emptyList()
+
         val definition = toXMLNode(wsdlFile.readText())
-        definitionsFrom(definition, wsdlFile)
-    }.flatten()
+        definitionsFrom(definition, wsdlFile, visitedFiles)
+    }
 
     return listOf(DefinitionDocument(rootDefinitionXML, parentWSDL)).plus(importedDefinitionXMLs)
 }
 
-private data class SchemaDocument(val schema: XMLNode, val source: String)
+private data class SchemaDocumentIdentity(val source: String, val namespace: String)
+
+private data class SchemaDocument(val schema: XMLNode, val source: String) {
+    val identity: SchemaDocumentIdentity
+        get() = SchemaDocumentIdentity(source, schema.attributes["targetNamespace"]?.toStringLiteral().orEmpty())
+}
 
 fun getSchemaNodesFromDefinition(definition: XMLNode, parentFile: File): List<XMLNode> =
     schemaDocumentsFromDefinition(definition, parentFile).map { it.schema }
@@ -78,29 +106,62 @@ private fun schemaDocumentsFromDefinition(definition: XMLNode, parentFile: File)
     val schemas = definition.findFirstChildByName("types")?.findChildrenByName("schema").orEmpty()
     return schemas.flatMapIndexed { index, schema ->
         listOf(SchemaDocument(schema, "${parentFile.canonicalPath}#schema-${index + 1}")) +
-            importedSchemaDocuments(schema, parentFile, definition, emptySet())
+            referencedSchemaDocuments(schema, parentFile, definition, emptySet())
     }
 }
 
 fun loadSchemaImports(schema: XMLNode, parentFile: File, definition: XMLNode): List<XMLNode> =
-    importedSchemaDocuments(schema, parentFile, definition, emptySet()).map { it.schema }
+    referencedSchemaDocuments(schema.copy(childNodes = schema.findChildrenByName("import")), parentFile, definition, emptySet()).map { it.schema }
 
-private fun importedSchemaDocuments(
+private fun referencedSchemaDocuments(
     schema: XMLNode,
     parentFile: File,
     definition: XMLNode,
-    importingFiles: Set<String>
+    activeDocuments: Set<SchemaDocumentIdentity>
 ): List<SchemaDocument> =
-    schema.findChildrenByName("import").filter { it.attributes.containsKey("schemaLocation") }.flatMap { importNode ->
-        val filename = importNode.getAttributeValue("schemaLocation")
-        val schemaFile = File(filename).let { if (it.isAbsolute) it else parentFile.absoluteFile.parentFile.resolve(it) }
-        val source = schemaFile.canonicalPath
-        if (source in importingFiles) emptyList() else {
-            val importedSchema = toXMLNode(schemaFile.readText(), definition.namespaces)
-            listOf(SchemaDocument(importedSchema, source)) +
-                importedSchemaDocuments(importedSchema, schemaFile, definition, importingFiles + source)
+    schema.childNodes.filterIsInstance<XMLNode>()
+        .filter { it.name == "include" || (it.name == "import" && it.attributes.containsKey("schemaLocation")) }
+        .flatMap { reference -> loadSchemaReference(reference, schema, parentFile, definition, activeDocuments) }
+
+private fun loadSchemaReference(
+    reference: XMLNode,
+    includingSchema: XMLNode,
+    parentFile: File,
+    definition: XMLNode,
+    activeDocuments: Set<SchemaDocumentIdentity>
+): List<SchemaDocument> {
+    if (reference.name == "include" && reference.attributes["schemaLocation"]?.toStringLiteral().isNullOrBlank())
+        throw ContractException("Invalid include in ${parentFile.canonicalPath}: schemaLocation must not be missing or blank")
+    val filename = reference.getAttributeValue("schemaLocation")
+    val schemaFile = File(filename).let { if (it.isAbsolute) it else parentFile.absoluteFile.parentFile.resolve(it) }
+    val source = schemaFile.canonicalPath
+    return try {
+        val parsedSchema = toXMLNode(schemaFile.readText(), definition.namespaces)
+        val effectiveSchema = when (reference.name) {
+            "include" -> includedSchemaNamespace(parsedSchema, includingSchema, source)
+            else -> parsedSchema
         }
+        val document = SchemaDocument(effectiveSchema, source)
+        if (document.identity in activeDocuments) emptyList() else
+            listOf(document) + referencedSchemaDocuments(effectiveSchema, schemaFile, definition, activeDocuments + document.identity)
+    } catch (e: Exception) {
+        if (reference.name == "include")
+            throw ContractException("Could not include $source from ${parentFile.canonicalPath}: ${e.message}", exceptionCause = e)
+        throw e
     }
+}
+
+private fun includedSchemaNamespace(included: XMLNode, including: XMLNode, source: String): XMLNode {
+    val includingNamespace = including.attributes["targetNamespace"]
+    val declaredNamespace = included.attributes["targetNamespace"]?.toStringLiteral()
+    return when {
+        declaredNamespace != null && declaredNamespace != includingNamespace?.toStringLiteral().orEmpty() ->
+            throw ContractException("Cannot include $source: targetNamespace $declaredNamespace differs from including namespace ${includingNamespace?.toStringLiteral().orEmpty()}")
+        declaredNamespace == null && includingNamespace != null ->
+            included.copy(attributes = included.attributes + mapOf("targetNamespace" to includingNamespace))
+        else -> included
+    }
+}
 
 private data class SchemaDeclaration(val symbolSpace: String, val name: String, val source: String)
 
@@ -121,7 +182,7 @@ private fun checkSchemaDeclarations(documents: List<SchemaDocument>, namespace: 
 }
 
 private fun collectSchemas(documents: List<SchemaDocument>): Map<String, XMLNode> =
-    documents.distinctBy { it.source }.filter { it.schema.attributes.containsKey("targetNamespace") }
+    documents.onEach { validateSchemaOccurrenceRanges(it.schema, it.source) }.distinctBy { it.identity }.filter { it.schema.attributes.containsKey("targetNamespace") }
         .groupBy { it.schema.getAttributeValue("targetNamespace") }
         .mapValues { (namespace, documentsInNamespace) ->
             checkSchemaDeclarations(documentsInNamespace, namespace)
@@ -132,9 +193,11 @@ private fun collectSchemas(documents: List<SchemaDocument>): Map<String, XMLNode
 
 fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
     val definitionDocuments = definitionsFrom(rootDefinition, File(wsdlPath))
-    val definitions = definitionDocuments.map { it.definition }.associateBy { definition ->
-        definition.getAttributeValue("targetNamespace")
-    }
+    val definitions = definitionDocuments.groupBy { it.definition.getAttributeValue("targetNamespace") }
+        .mapValues { (namespace, documents) ->
+            checkDefinitionDeclarations(documents, namespace)
+            documents.first().definition.copy(childNodes = documents.flatMap { it.definition.childNodes })
+        }
 
     val schemas = collectSchemas(definitionDocuments.flatMap { document ->
         schemaDocumentsFromDefinition(document.definition, document.file)
@@ -142,21 +205,41 @@ fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
 
     val typesNode = rootDefinition.findFirstChildByName("types") ?: toXMLNode("<types/>")
 
-    val schemaPrefixes: Map<String, String> = schemaPrefixesFrom(schemas)
-    val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
     val rootPrefixes: Map<String, String> = prefixToNamespaceMap(rootDefinition)
+    val schemaPrefixes: Map<String, String> = schemaPrefixesFrom(schemas, rootPrefixes)
+    val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
 
     return WSDL(rootDefinition, definitions, schemas, typesNode, schemaPrefixes.plus(namespaceToPrefixMap(rootDefinition)), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
 }
 
-fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> {
+fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> =
+    schemaPrefixesFrom(schemas, emptyMap())
+
+private fun schemaPrefixesFrom(schemas: Map<String, XMLNode>, reservedBindings: Map<String, String>): Map<String, String> {
     if (schemas.isEmpty()) {
         return emptyMap()
     }
 
     val namespaces = schemas.keys.toSet().toList()
 
-    return toURLPrefixMap(namespaces, MappedURLType.INCLUDES_DOMAIN)
+    return toURLPrefixMap(namespaces, MappedURLType.INCLUDES_DOMAIN).entries.fold(emptyMap()) { prefixes, (namespace, suggestedPrefix) ->
+        val basePrefix = xmlNamespacePrefix(suggestedPrefix)
+        val candidates = sequenceOf(basePrefix) + generateSequence(1) { it + 1 }.map { "${basePrefix}_$it" }
+        val prefix = candidates.first { candidate ->
+            candidate !in prefixes.values && (reservedBindings[candidate] == null || reservedBindings[candidate] == namespace)
+        }
+        prefixes + (namespace to prefix)
+    }
+}
+
+private fun xmlNamespacePrefix(suggestedPrefix: String): String {
+    val prefix = suggestedPrefix.replace(Regex("[^A-Za-z0-9_.-]"), "_")
+    return when {
+        prefix.isEmpty() -> "ns"
+        !prefix.first().isLetter() && prefix.first() != '_' -> "_$prefix"
+        prefix.startsWith("xml", ignoreCase = true) -> "_$prefix"
+        else -> prefix
+    }
 }
 
 enum class MappedURLType(val index: Int) {
@@ -175,13 +258,13 @@ fun toURLPrefixMap(urls: List<String>, mappedURLType: MappedURLType): Map<String
     }
         ?: throw ContractException("No schema namespaces found")
 
-    val segmentCount = 1.until(minLength + 1).first { length ->
+    val segmentCount = 1.until(minLength + 1).firstOrNull { length ->
         val segments = normalisedURL.map { url ->
             url.split("/").filterNot { it.isEmpty() }.takeLast(length).joinToString("_")
         }
 
         segments.toSet().size == urls.size
-    }
+    } ?: minLength
 
     val prefixes = normalisedURL.map { url ->
         url.split("/").filterNot { it.isEmpty() }.takeLast(segmentCount).joinToString("_") { it.capitalizeFirstChar() }
@@ -296,15 +379,19 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun toFeature(path: String, specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Feature {
-        return Feature(
-            scenarios = toScenarioInfos(specmaticConfig).map { scenarioInfo ->
-                Scenario(scenarioInfo.copy(specification = path))
-            },
-            name = getServiceName().toStringLiteral(),
-            path = path,
-            specmaticConfig = specmaticConfig,
-            protocol = SpecmaticProtocol.SOAP,
-        )
+        return try {
+            Feature(
+                scenarios = toScenarioInfos(specmaticConfig).map { scenarioInfo ->
+                    Scenario(scenarioInfo.copy(specification = path))
+                },
+                name = getServiceName().toStringLiteral(),
+                path = path,
+                specmaticConfig = specmaticConfig,
+                protocol = SpecmaticProtocol.SOAP,
+            )
+        } catch (e: ContractException) {
+            throw ContractException("${e.message} in $path", exceptionCause = e)
+        }
     }
 
     fun toScenarioInfos(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): List<ScenarioInfo> {
@@ -383,7 +470,10 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             declaration.addSchema(findSchema(fullyQualifiedName.namespace, localSchema))
         else
             declaration
-        val node = contextualDeclaration.copy(attributes = contextualDeclaration.attributes.plus(otherRefAttributes))
+        val form = if (schemaTargetNamespace(contextualDeclaration).isNullOrBlank()) "unqualified" else "qualified"
+        val node = contextualDeclaration.copy(
+            attributes = contextualDeclaration.attributes.plus(otherRefAttributes).plus("form" to StringValue(form))
+        )
 
         return if(hasSimpleTypeAttribute(node)) {
             SimpleElement(fullyQualifiedName.qName, node, this)
@@ -411,6 +501,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             typeNode.name == "complexType" || typeNode.name == "simpleType"
         }
     }
+
+    fun findGroup(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode =
+        findSchemaNode("group", fullyQualifiedName.namespace, fullyQualifiedName.localName, localSchema)
 
     fun findAttributeGroup(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode {
         return findSchemaNode("attributeGroup", fullyQualifiedName.namespace, fullyQualifiedName.localName, localSchema)
@@ -504,12 +597,11 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun getQualification(element: XMLNode, wsdlTypeReference: String): NamespaceQualification {
-        val namespace = element.resolveNamespace(wsdlTypeReference)
-
-        val schema = element.schema ?: if (namespace.isNotBlank()) {
+        val schema = element.schema ?: run {
+            val namespace = element.resolveNamespace(wsdlTypeReference)
+            if (namespace.isBlank())
+                throw ContractException("No type reference to indicate the schema, and the element node ${element.oneLineDescription} did not have a schema attached")
             findSchema(namespace, null)
-        } else {
-            throw ContractException("No type reference to indicate the schema, and the element node ${element.oneLineDescription} did not have a schema attached")
         }
 
         val schemaElementFormDefault = schema.attributes["elementFormDefault"]?.toStringLiteral()
@@ -522,7 +614,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun getSchemaNamespacePrefix(namespace: String): String {
-        return namespaceToPrefix[namespace] ?: throw ContractException("Tried to lookup a prefix for the namespace $namespace but could not find one")
+        return namespaceToPrefix[namespace]?.takeIf { it.isNotBlank() }
+            ?: prefixToNamespace.entries.firstOrNull { it.key.isNotBlank() && it.value == namespace }?.key
+            ?: throw ContractException("Tried to lookup a prefix for the namespace $namespace but could not find one")
     }
 
     fun getSOAPVersion(): SOAPVersion {
@@ -549,7 +643,6 @@ fun namespaceOrSchemaNamespace(namespace: String, schema: XMLNode?) =
     }
 
 private fun indexDefinitions(definitions: Map<String, XMLNode>): Map<DefinitionLookupKey, XMLNode> {
-    val definitionTags = setOf("message", "binding", "portType")
     return definitions.flatMap { (namespace, definition) ->
         definition.childNodes.filterIsInstance<XMLNode>()
             .filter { it.name in definitionTags }
@@ -562,7 +655,7 @@ private fun indexDefinitions(definitions: Map<String, XMLNode>): Map<DefinitionL
 }
 
 private fun indexSchemas(schemas: Map<String, XMLNode>): Map<SchemaLookupKey, XMLNode> {
-    val schemaTags = setOf("element", "complexType", "simpleType", "attribute", "attributeGroup")
+    val schemaTags = setOf("element", "complexType", "simpleType", "attribute", "attributeGroup", "group")
     return schemas.flatMap { (namespace, schema) ->
         schema.childNodes.filterIsInstance<XMLNode>()
             .filter { it.name in schemaTags }

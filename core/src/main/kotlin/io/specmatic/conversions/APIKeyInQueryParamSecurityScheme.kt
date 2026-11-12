@@ -6,7 +6,11 @@ import io.specmatic.core.value.StringValue
 
 const val apiKeyParamName = "API-Key"
 
-data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
+data class APIKeyInQueryParamSecurityScheme(
+    val name: String,
+    private val apiKey: String?,
+    override val schemeName: String? = null,
+) : OpenAPISecurityScheme {
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         if (!httpRequest.hasQueryParam(name)) return Result.Success()
         return Result.Failure(

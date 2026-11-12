@@ -8,6 +8,7 @@ import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SchemaRegistryConfig
 import com.networknt.schema.SpecificationVersion
 import com.networknt.schema.output.OutputUnit
+import com.networknt.schema.path.NodePath
 import com.networknt.schema.path.PathType
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.objectMapper
@@ -27,13 +28,42 @@ class ConfigSchemaValidator {
         tree: JsonNode,
         outputFormat: ConfigSchemaOutputFormat = ConfigSchemaOutputFormat.HIERARCHICAL,
     ): List<ConfigValidationOutput> {
-        val schema = schemas.getValue(version)
+        return validate(
+            tree = tree,
+            outputFormat = outputFormat,
+            schema = schemas.getValue(version),
+            rootSchema = schemas.getValue(version),
+        )
+    }
+
+    fun validateDefinition(
+        version: SpecmaticConfigVersion,
+        tree: JsonNode,
+        definitionName: String,
+        outputFormat: ConfigSchemaOutputFormat = ConfigSchemaOutputFormat.HIERARCHICAL,
+    ): List<ConfigValidationOutput> {
+        val rootSchema = schemas.getValue(version)
+        val definition = rootSchema.getRefSchema(
+            /* fragment = */ NodePath(PathType.JSON_POINTER)
+                .append("definitions")
+                .append(definitionName),
+        )
+
+        return validate(rootSchema, definition, tree, outputFormat)
+    }
+
+    private fun validate(
+        rootSchema: Schema,
+        schema: Schema,
+        tree: JsonNode,
+        outputFormat: ConfigSchemaOutputFormat,
+    ): List<ConfigValidationOutput> {
         val output = schema.validate(tree, outputFormat.networkOutputFormat)
         val details = output.details.orEmpty()
         return when {
             output.isValid -> emptyList()
-            details.isNotEmpty() -> details.map { toStandardOutput(it, schema) }
-            else -> listOf(toStandardOutput(output, schema))
+            details.isNotEmpty() -> details.map { toStandardOutput(it, rootSchema) }
+            else -> listOf(toStandardOutput(output, rootSchema))
         }
     }
 

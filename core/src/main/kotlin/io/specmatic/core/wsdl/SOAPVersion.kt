@@ -14,6 +14,12 @@ enum class SOAPVersion {
 
     abstract val contentType: String
 
+    val envelopeNamespace: String
+        get() = when (this) {
+            SOAP11 -> "http://schemas.xmlsoap.org/soap/envelope/"
+            SOAP12 -> "http://www.w3.org/2003/05/soap-envelope"
+        }
+
     fun header(soapPayload: SOAPPayload): String? {
         return when (soapPayload) {
             !is EmptyHTTPBodyPayload -> contentType

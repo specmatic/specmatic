@@ -18,22 +18,16 @@ internal class AnyElementInComplexType(private val anyNode: XMLNode) : ComplexTy
     }
 }
 
-internal fun xmlWildcardPattern(anyNode: XMLNode): XMLWildcardPattern {
+internal fun xmlWildcardPattern(anyNode: XMLNode): Pattern {
     val targetNamespace = schemaTargetNamespace(anyNode)
+    val range = elementOccurrenceRange(anyNode)
 
     return XMLWildcardPattern(
         namespaceConstraint = xmlNamespaceConstraint(anyNode.attributes["namespace"]?.toStringLiteral(), targetNamespace),
         processContents = XMLProcessContents.from(anyNode.attributes["processContents"]?.toStringLiteral()),
-        minOccurs = anyNode.attributes["minOccurs"]?.toStringLiteral()?.toIntOrNull() ?: 1,
-        maxOccurs = maxOccurs(anyNode),
         targetNamespace = targetNamespace
-    )
+    ).withOccurrenceRange(range)
 }
 
 internal fun schemaTargetNamespace(node: XMLNode): String? =
     node.schema?.attributes?.get("targetNamespace")?.toStringLiteral()
-
-private fun maxOccurs(node: XMLNode): Int? {
-    val value = node.attributes["maxOccurs"]?.toStringLiteral() ?: return 1
-    return if (value == "unbounded") null else value.toInt()
-}

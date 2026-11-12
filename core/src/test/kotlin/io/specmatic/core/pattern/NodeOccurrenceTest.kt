@@ -19,7 +19,7 @@ internal class NodeOccurrenceTest {
         fun params(): Stream<Arguments> = Stream.of(
             Arguments.of(NodeOccurrence.Multiple, NodeOccurrence.Optional, SuccessResult),
             Arguments.of(NodeOccurrence.Multiple, NodeOccurrence.Multiple, SuccessResult),
-            Arguments.of(NodeOccurrence.Multiple, NodeOccurrence.Once, FailureResult),
+            Arguments.of(NodeOccurrence.Multiple, NodeOccurrence.Once, SuccessResult),
             Arguments.of(NodeOccurrence.Optional, NodeOccurrence.Multiple, FailureResult),
             Arguments.of(NodeOccurrence.Optional, NodeOccurrence.Optional, SuccessResult),
             Arguments.of(NodeOccurrence.Optional, NodeOccurrence.Once, SuccessResult),

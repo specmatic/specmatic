@@ -10,7 +10,7 @@ dependencies {
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
 
-    implementation("joda-time:joda-time:2.14.3")
+    implementation("joda-time:joda-time:2.15.1")
     implementation("net.minidev:json-smart:2.6.0")
 
     implementation("com.ezylang:EvalEx:3.8.0")
@@ -46,7 +46,7 @@ dependencies {
     implementation("io.modelcontextprotocol.sdk:mcp-core:1.1.3")
     implementation("io.modelcontextprotocol.sdk:mcp-json-jackson2:1.1.3")
 
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.4.21")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
 
