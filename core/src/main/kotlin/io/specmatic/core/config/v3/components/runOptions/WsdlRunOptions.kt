@@ -16,6 +16,16 @@ import java.io.File
 sealed interface WsdlRunOptions : IRunOptions {
     val type: RunOptionType?
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): WsdlRunOptions
+
+    @JsonIgnore
+    override fun getServerOrigin(specId: String?): ServerOrigin? {
+        val defaultHost = if (this is WsdlTestConfig) "localhost" else "0.0.0.0"
+        val specOverride = specId?.let(::getMatchingSpecification) as? WsdlRunOptionsSpecifications
+        return specOverride?.getServerOrigin(defaultHost) ?: when (this) {
+            is WsdlTestConfig -> getServerOrigin()
+            is WsdlMockConfig -> getServerOrigin()
+        }
+    }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
@@ -33,7 +43,7 @@ data class WsdlTestConfig(
     )
 
     @JsonIgnore
-    override fun gerServerOrigin(): ServerOrigin? {
+    fun getServerOrigin(): ServerOrigin? {
         if (baseUrl != null) return ServerOrigin.from(baseUrl)
         if (port == null) return null
         return ServerOrigin.from("http", host ?: "localhost", port)
@@ -78,7 +88,7 @@ data class WsdlMockConfig(
     )
 
     @JsonIgnore
-    override fun gerServerOrigin(): ServerOrigin? {
+    fun getServerOrigin(): ServerOrigin? {
         if (baseUrl != null) return ServerOrigin.from(baseUrl)
         if (port == null) return null
         val scheme = if (cert == null) "http" else "https"

@@ -10,17 +10,9 @@ import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 
 interface IRunOptionSpecification {
     fun getId(): String?
-    fun getServerOrigin(defaultHost: String): ServerOrigin?
     fun getConfig(): Map<String, Any>
     fun getOverlayFilePath(): String?
     fun isNoOpOverride(): Boolean
-
-    @JsonIgnore
-    fun extractServerOriginFromMap(map: Map<*, *>?, defaultHost: String): ServerOrigin? {
-        val host = map?.get("host")?.toString() ?: defaultHost
-        val port = map?.get("port")?.toString()?.toIntOrNull() ?: return null
-        return ServerOrigin.from(host = host, port = port)
-    }
 }
 
 data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
@@ -36,12 +28,6 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     @JsonIgnore
     override fun getOverlayFilePath(): String? {
         return spec.overlayFilePath
-    }
-
-    @JsonIgnore
-    override fun getServerOrigin(defaultHost: String): ServerOrigin? {
-        if (spec.port == null) return extractServerOriginFromMap(spec.config["inMemoryBroker"] as? Map<*, *>, defaultHost)
-        return ServerOrigin.from(host = spec.host ?: defaultHost, port = spec.port)
     }
 
     @JsonIgnore
@@ -104,7 +90,7 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
     }
 
     @JsonIgnore
-    override fun getServerOrigin(defaultHost: String): ServerOrigin? {
+    fun getServerOrigin(defaultHost: String): ServerOrigin? {
         if (spec.baseUrl != null) return ServerOrigin.from(spec.baseUrl)
         if (spec.port == null) return null
         return ServerOrigin.from("http", spec.host ?: defaultHost, spec.port)
@@ -156,7 +142,7 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     }
 
     @JsonIgnore
-    override fun getServerOrigin(defaultHost: String): ServerOrigin? {
+    fun getServerOrigin(defaultHost: String): ServerOrigin? {
         if (spec.baseUrl != null) return ServerOrigin.from(spec.baseUrl)
         if (spec.port == null) return null
         return ServerOrigin.from("http", spec.host ?: defaultHost, spec.port)

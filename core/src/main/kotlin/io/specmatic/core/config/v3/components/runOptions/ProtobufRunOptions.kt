@@ -9,6 +9,8 @@ import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.spi.ProtocolConfig
+import io.specmatic.core.config.v3.spi.ProtocolConfigServerExtractor
 import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
@@ -19,9 +21,23 @@ sealed interface ProtobufRunOptions : IRunOptions {
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ProtobufRunOptions
 
     @JsonIgnore
-    override fun gerServerOrigin(): ServerOrigin? {
-        val defaultHost = if (this is ProtobufTestConfig) "localhost" else "0.0.0.0"
-        return extractServerOriginFromMap(config, defaultHost)
+    override fun getServerOrigin(specId: String?): ServerOrigin? {
+        val specOverride = specId?.let(::getMatchingSpecification)
+        val runOptionsType = type ?: when (this) {
+            is ProtobufTestConfig -> RunOptionType.TEST
+            is ProtobufMockConfig -> RunOptionType.MOCK
+        }
+
+        return ProtocolConfigServerExtractor.extractNetworkOrigin(
+            configuration = when (specOverride) {
+                null -> ProtocolConfig.Global(runOptions = this, runOptionType = runOptionsType)
+                else -> ProtocolConfig.Override(
+                    runOptions = this,
+                    spec = specOverride,
+                    runOptionType = runOptionsType,
+                )
+            }
+        )
     }
 }
 

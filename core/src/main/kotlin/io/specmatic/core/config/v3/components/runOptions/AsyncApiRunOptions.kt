@@ -5,6 +5,8 @@ import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.ValidationContext
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.spi.ProtocolConfig
+import io.specmatic.core.config.v3.spi.ProtocolConfigServerExtractor
 import io.specmatic.core.config.validation.ConfigValidationOutput
 import java.io.File
 
@@ -15,9 +17,23 @@ sealed interface AsyncApiRunOptions : IRunOptions {
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiRunOptions
 
     @JsonIgnore
-    override fun gerServerOrigin(): ServerOrigin? {
-        val brokerConfig = config["inMemoryBroker"] as? Map<*, *> ?: return null
-        return extractServerOriginFromMap(brokerConfig, defaultHost = "localhost")
+    override fun getServerOrigin(specId: String?): ServerOrigin? {
+        val specOverride = specId?.let(::getMatchingSpecification)
+        val runOptionsType = type ?: when (this) {
+            is AsyncApiTestConfig -> RunOptionType.TEST
+            is AsyncApiMockConfig -> RunOptionType.MOCK
+        }
+
+        return ProtocolConfigServerExtractor.extractNetworkOrigin(
+            configuration = when (specOverride) {
+                null -> ProtocolConfig.Global(runOptions = this, runOptionType = runOptionsType)
+                else -> ProtocolConfig.Override(
+                    runOptions = this,
+                    spec = specOverride,
+                    runOptionType = runOptionsType,
+                )
+            }
+        )
     }
 }
 
