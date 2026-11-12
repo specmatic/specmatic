@@ -196,8 +196,8 @@ data class ScenarioAsTest(
 
     private fun matchResponseHeadersFromExample(
         scenario: Scenario,
-        request: HttpRequest,
-        response: HttpResponse,
+        generatedRequest: HttpRequest,
+        actualResponse: HttpResponse,
     ): Result? {
         if (scenario.isNegative) return null
 
@@ -205,21 +205,22 @@ data class ScenarioAsTest(
         val matcherEngine = matcherEngine ?: return null
         val exampleRequest = example.requestElsePartialRequest()
 
-        for ((name, expected) in example.response().headers) {
-            val exampleRequestValue = exampleRequest.headers.getCaseInsensitive(name)?.value
-            val expectedHeaderValue = if (exampleRequestValue == expected) {
-                request.headers.getCaseInsensitive(name)?.value ?: continue
-            } else {
-                expected
+        for ((headerName, exampleResponseHeaderValue) in example.response().headers) {
+            val exampleRequestHeaderValue = exampleRequest.headers.getCaseInsensitive(headerName)?.value
+            val responseEchoesExampleRequestHeader = exampleRequestHeaderValue == exampleResponseHeaderValue
+            val expectedResponseHeaderValue = when {
+                responseEchoesExampleRequestHeader -> generatedRequest.headers.getCaseInsensitive(headerName)?.value ?: continue
+                else -> exampleResponseHeaderValue
             }
-            val actual = response.headers.getCaseInsensitive(name)?.value?.let(::StringValue) ?: NullValue
-            val result = matcherEngine.matchResponseValue(
-                StringValue(expectedHeaderValue),
-                actual,
+            val actualResponseHeaderValue = actualResponse.headers.getCaseInsensitive(headerName)
+                ?.value?.let(::StringValue) ?: NullValue
+            val matchResult = matcherEngine.matchResponseValue(
+                StringValue(expectedResponseHeaderValue),
+                actualResponseHeaderValue,
                 scenario.resolver,
                 example.data,
             )
-            if (result is Result.Failure) return result.breadCrumb("RESPONSE.HEADERS.$name")
+            if (matchResult is Result.Failure) return matchResult.breadCrumb("RESPONSE.HEADERS.$headerName")
         }
 
         return null
