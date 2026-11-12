@@ -310,6 +310,13 @@ class OpenApiSpecification(
             return OpenAPIV3Parser().read(openApiFilePath, null, resolveExternalReferences()) != null
         }
 
+        fun isParsableOpenApiDocument(openApiFilePath: String): Boolean {
+            // Unlike read(), readLocation() does not fall back to parser extensions
+            // that can convert ordinary YAML/JSON into an apparent OpenAPI model.
+            return OpenAPIV3Parser().readLocation(openApiFilePath, null, resolveExternalReferences())
+                .openAPI?.openapi != null
+        }
+
         fun getImplicitOverlayContent(openApiFilePath: String): String {
             return File(openApiFilePath).let { openApiFile ->
                 if (!openApiFile.isFile) {

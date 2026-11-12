@@ -1,8 +1,8 @@
-# WSDL contracts
+# Specmatic contracts
 
-The WSDL and XML Schema terms used to describe service operations and their payloads.
+Terms used to describe API contracts and their compatibility checks.
 
-## Language
+## WSDL contracts
 
 **WSDL document**:
 A document containing WSDL declarations for a target namespace. Multiple documents can contribute declarations to the same target namespace and reference one another through WSDL imports.
@@ -46,3 +46,14 @@ A payload element declared directly in an XML Schema, identified by its declarat
 
 **Local element qualification**:
 Whether an element declared within a schema type belongs to its schema namespace or has no namespace. An explicit `form` setting takes precedence over that declaration's source schema default.
+
+## Backward compatibility
+
+**Discovery candidate**:
+A document considered when finding specifications affected by a changed file. It may be a complete specification or a schema fragment.
+
+**Checked specification**:
+An API specification selected for a backward compatibility check. Schema fragments and ordinary configuration or report files are not checked specifications.
+
+**Schema fragment**:
+A document containing reusable schema definitions referenced by a specification or another fragment, without itself being a complete API specification.

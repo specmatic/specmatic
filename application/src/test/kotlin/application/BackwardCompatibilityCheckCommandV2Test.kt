@@ -6,6 +6,9 @@ import application.backwardCompatibility.BackwardCompatibilityCheckHook
 import application.backwardCompatibility.CompatibilityResult
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.every
 import io.mockk.spyk
 import io.specmatic.core.IFeature
@@ -13,6 +16,8 @@ import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
+import io.specmatic.license.core.LicenseType
+import io.specmatic.license.core.LicenseV3
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
@@ -92,6 +97,143 @@ class BackwardCompatibilityCheckCommandV2Test {
             .inheritIO()
             .start()
             .waitFor()
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "ctrf.json, false",
+        "fragment.yaml, false",
+        "swagger2.yaml, false",
+        "openapi30.yaml, true",
+        "openapi31.yaml, true",
+        "invalid-version.yaml, false"
+    )
+    fun `check eligibility requires an OpenAPI document accepted by the V3 parser`(name: String, expected: Boolean) {
+        val documents = mapOf(
+            "ctrf.json" to """{"results":{"tool":{"name":"Specmatic"},"tests":[]}}""",
+            "fragment.yaml" to "type: object\nproperties: { id: { type: string } }",
+            "swagger2.yaml" to "swagger: '2.0'\ninfo: { title: API, version: '1' }\npaths: {}",
+            "openapi30.yaml" to "openapi: 3.0.0\ninfo: { title: API, version: '1' }\npaths: {}",
+            "openapi31.yaml" to "openapi: 3.1.0\ninfo: { title: API, version: '1' }\npaths: {}",
+            "invalid-version.yaml" to "openapi: invalid\ninfo: { title: API, version: '1' }\npaths: {}"
+        )
+        val document = tempDir.resolve(name).apply { writeText(documents.getValue(name)) }
+        val command = BackwardCompatibilityCheckCommandV2()
+
+        assertThat(command.run { document.isCheckableSpec() }).isEqualTo(expected)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `only OpenAPI specs are checked when a transitive schema fragment changes`(licensedReporting: Boolean) {
+        tempDir.resolve("A.yaml").writeText("""
+            openapi: 3.0.0
+            info: {title: Orders, version: '1'}
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${'$'}ref: './B.yaml'
+        """.trimIndent())
+        tempDir.resolve("B.yaml").writeText("""
+            type: object
+            required: [id]
+            properties:
+              id:
+                ${'$'}ref: './C.yaml'
+        """.trimIndent())
+        tempDir.resolve("C.yaml").writeText("type: string")
+        tempDir.resolve("ctrf.json").writeText("""{"source": "C.yaml"}""")
+        tempDir.resolve("config.yaml").writeText("source: C.yaml")
+        commit(tempDir, "Initial contracts and reports")
+        val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+        ProcessBuilder("git", "switch", "-c", "change-fragment").directory(tempDir).start().waitFor()
+        tempDir.resolve("C.yaml").writeText("type: integer")
+        commit(tempDir, "Break response schema")
+        val reportDir = tempDir.resolve("reports/backward_compatibility")
+        val config = remoteDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.resolve("reports").invariantSeparatorsPath}\n")
+        }
+
+        if (licensedReporting) {
+            mockkObject(LicenseResolver)
+            every { LicenseResolver.license() } returns mockk<LicenseV3>(relaxed = true) {
+                every { licenseType } returns LicenseType.TRIAL
+                every { isExpired(any()) } returns false
+            }
+            every { LicenseResolver.utilize(any(), any(), any(), any(), any()) } returns Unit
+        }
+        val (output, exitCode) = try {
+            captureStandardOutput {
+                using(CONFIG_FILE_PATH to config.canonicalPath) {
+                    BackwardCompatibilityCheckCommandV2().apply {
+                        options.repoDir = tempDir.canonicalPath
+                        options.baseBranch = baseBranch
+                        options.targetPath = "C.yaml"
+                    }.call()
+                }
+            }
+        } finally {
+            if (licensedReporting) unmockkObject(LicenseResolver)
+        }
+
+        assertThat(exitCode).isEqualTo(1)
+        assertThat(output).contains("Verdict for spec ${tempDir.resolve("A.yaml").canonicalPath}:")
+        assertThat(output).contains("Files checked: 1 (Passed: 0, Failed: 1)")
+        assertThat(output).contains("B.yaml:4:3") // Preserve the actual breakage location.
+        assertThat(output).doesNotContain("Specs that have changed:")
+        listOf("B.yaml", "C.yaml", "ctrf.json", "config.yaml").forEach { name ->
+            assertThat(output).doesNotContain(tempDir.resolve(name).canonicalPath)
+        }
+        val reports = mutableListOf(bccReportJson(reportDir))
+        val ctrfFiles = reportDir.resolve("ctrf").walkTopDown().filter { it.isFile && it.extension == "json" }.toList()
+        if (licensedReporting) {
+            assertThat(ctrfFiles).hasSize(1)
+            reports.add(objectMapper.readTree(ctrfFiles.single()))
+        } else {
+            assertThat(ctrfFiles).isEmpty()
+        }
+        reports.forEach { report ->
+            val specs = report.path("results").path("summary").path("extra").path("executionDetails")
+                .map { it.path("specification").asText() }.toSet()
+            assertThat(specs).containsExactly("A.yaml")
+            val tests = report.path("results").path("tests")
+            assertThat(tests).hasSize(2)
+            assertThat(tests.map { it.path("suite").asText() }.toSet()).containsExactly("A.yaml")
+            assertThat(tests.map { it.path("rawStatus").asText() }).contains("incompatible")
+            assertThat(report.toString()).contains("B.yaml")
+        }
+    }
+
+    @Test
+    fun `changed fragments and ordinary files without an affected spec are not listed`() {
+        tempDir.resolve("fragment.yaml").writeText("type: string")
+        tempDir.resolve("bridge.yaml").writeText("${'$'}ref: './fragment.yaml'")
+        tempDir.resolve("config.yaml").writeText("source: fragment.yaml")
+        tempDir.resolve("ctrf.json").writeText("""{"source": "fragment.yaml"}""")
+        commit(tempDir, "Initial fragments and ordinary files")
+        val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+        ProcessBuilder("git", "switch", "-c", "change-without-spec").directory(tempDir).start().waitFor()
+        tempDir.resolve("fragment.yaml").writeText("type: integer")
+        tempDir.resolve("config.yaml").appendText("\nchanged: true")
+        tempDir.resolve("ctrf.json").writeText("""{"source": "fragment.yaml", "changed": true}""")
+        commit(tempDir, "Change files without an affected API")
+        tempDir.resolve("untracked-fragment.yaml").writeText("type: string")
+
+        val (output, exitCode) = captureStandardOutput {
+            BackwardCompatibilityCheckCommandV2().apply {
+                options.repoDir = tempDir.canonicalPath
+                options.baseBranch = baseBranch
+            }.call()
+        }
+
+        assertThat(exitCode).isZero()
+        assertThat(output.trim()).isEqualTo("Files checked: 0 (Passed: 0, Failed: 0)")
     }
 
     @Nested

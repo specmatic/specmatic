@@ -32,6 +32,10 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Fixed
+
+- Backward compatibility checks no longer list or check ordinary YAML/JSON files and schema fragments as standalone OpenAPI specifications. Shared fragments still trigger checks of affected specifications, including through transitive references.
+
 ## 2.56.1 (2026-11-11)
 
 ### Added

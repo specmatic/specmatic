@@ -53,6 +53,9 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult
     abstract fun File.isValidFileFormat(): Boolean
     abstract fun File.isValidSpec(): Boolean
+
+    // Discovery may need schema fragments that are not standalone specifications.
+    open fun File.isCheckableSpec(): Boolean = isValidSpec()
     abstract fun File.isExternalisedExample(): Boolean
     abstract fun getFeatureFromSpecPath(path: String): IFeature
     protected open fun getFeatureLoadOutcome(path: String): FeatureLoadOutcome {
@@ -100,7 +103,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val changedFiles = getChangedFilesInCurrentBranch()
 
         val untrackedFiles = gitCommand.getUntrackedFiles().filter {
-            it.contains(Path(effectiveTargetPath).toString()) && File(it).isValidSpec() && getSpecsReferringTo(setOf(it)).isEmpty()
+            it.contains(Path(effectiveTargetPath).toString()) && File(it).isCheckableSpec() && getSpecsReferringTo(setOf(it)).isEmpty()
         }.toSet()
 
         if (changedFiles.all.isEmpty() && untrackedFiles.isEmpty()) {
@@ -110,23 +113,28 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         }
 
         val specsReferringToChangedFiles = getSpecsReferringTo(changedFiles.specs)
-            .filter { File(it).isValidSpec() }
+            .filter { File(it).isCheckableSpec() }
             .toSet()
 
         val specsAssociatedWithChangedExternalisedExamples =
             getSpecsOfChangedExternalisedExamples(changedFiles.externalisedExamples)
-                .filter { !File(it).exists() || File(it).isValidSpec() }
+                .filter { !File(it).exists() || File(it).isCheckableSpec() }
                 .toSet()
 
+        val checkableChangedFiles = changedFiles.copy(specs = changedFiles.specs.filter {
+            File(it).isCheckableSpec()
+        }.toSet())
+        val specsToCheck =
+            checkableChangedFiles.specs + specsReferringToChangedFiles + specsAssociatedWithChangedExternalisedExamples
+
+        if (specsToCheck.isEmpty() && untrackedFiles.isEmpty()) return emptySet()
+
         backwardCompatibilityLogger.logFilesToBeCheckedForBackwardCompatibility(
-            changedFiles,
+            checkableChangedFiles,
             specsReferringToChangedFiles,
             specsAssociatedWithChangedExternalisedExamples,
             untrackedFiles
         )
-
-        val specsToCheck =
-            changedFiles.specs + specsReferringToChangedFiles + specsAssociatedWithChangedExternalisedExamples
 
         return specsToCheck.map { path -> File(path).canonicalPath }.toSet()
     }
@@ -269,7 +277,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         treeishWithChanges: String
     ): ProcessedSpec? {
         try {
-            if (with(File(specFilePath)) { exists() && isValidSpec().not() }) {
+            if (with(File(specFilePath)) { exists() && isCheckableSpec().not() }) {
                 // skip non-spec files
                 return null
             }
