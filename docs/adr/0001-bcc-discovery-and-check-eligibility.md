@@ -4,4 +4,4 @@ Backward compatibility discovery traverses schema fragments as well as complete 
 
 OpenAPI check eligibility belongs in the OSS OpenAPI command. The shared base supplies a default that preserves Enterprise protocol eligibility and discovery overrides. CTRF and HTML continue to describe checked specifications and their operations, without separate records for fragments or unrelated configuration files.
 
-Final OpenAPI eligibility uses the V3 parser’s `readLocation()` result and requires a non-null OpenAPI version. This retains Swagger parsing without a separate YAML/JSON identity parse or the `read()` extension fallback that can admit ordinary reports. Swagger 2 conversion is outside this eligibility check. Discovery continues using its existing permissive parser path so headerless fragments remain traversable.
+Final OpenAPI eligibility uses the V3 parser’s `readLocation()` result and requires a non-null OpenAPI version. This retains Swagger parsing without a separate YAML/JSON identity parse or the `read()` extension fallback that can admit ordinary reports. Discovery continues using its parser path so headerless fragments remain traversable.
