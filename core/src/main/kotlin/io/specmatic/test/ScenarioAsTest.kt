@@ -21,6 +21,8 @@ import io.specmatic.core.pattern.ReturnFailure
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 import io.specmatic.test.fixtures.FixtureExecutionMetadata
 import io.specmatic.test.interceptor.ContractTestInterceptor
@@ -192,6 +194,38 @@ data class ScenarioAsTest(
         }
     }
 
+    private fun matchResponseHeadersFromExample(
+        scenario: Scenario,
+        generatedRequest: HttpRequest,
+        actualResponse: HttpResponse,
+    ): Result? {
+        if (scenario.isNegative) return null
+
+        val example = scenario.exampleRow?.scenarioStub ?: return null
+        val matcherEngine = matcherEngine ?: return null
+        val exampleRequest = example.requestElsePartialRequest()
+
+        for ((headerName, exampleResponseHeaderValue) in example.response().headers) {
+            val exampleRequestHeaderValue = exampleRequest.headers.getCaseInsensitive(headerName)?.value
+            val responseEchoesExampleRequestHeader = exampleRequestHeaderValue == exampleResponseHeaderValue
+            val expectedResponseHeaderValue = when {
+                responseEchoesExampleRequestHeader -> generatedRequest.headers.getCaseInsensitive(headerName)?.value ?: continue
+                else -> exampleResponseHeaderValue
+            }
+            val actualResponseHeaderValue = actualResponse.headers.getCaseInsensitive(headerName)
+                ?.value?.let(::StringValue) ?: NullValue
+            val matchResult = matcherEngine.matchResponseValue(
+                StringValue(expectedResponseHeaderValue),
+                actualResponseHeaderValue,
+                scenario.resolver,
+                example.data,
+            )
+            if (matchResult is Result.Failure) return matchResult.breadCrumb("RESPONSE.HEADERS.$headerName")
+        }
+
+        return null
+    }
+
     private fun executeTestAndReturnResultAndResponse(
         testScenario: Scenario,
         testExecutor: TestExecutor,
@@ -305,6 +339,16 @@ data class ScenarioAsTest(
             }.firstOrNull() ?: Result.Success()
 
             if(result !is Result.Failure) {
+                val headerMatchFailure = matchResponseHeadersFromExample(testScenario, request, responseForTestResult)
+                if (headerMatchFailure is Result.Failure) {
+                    return ContractTestExecutionResult(
+                        result = headerMatchFailure,
+                        request = request,
+                        response = responseForTestResult,
+                        beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults,
+                    )
+                }
+
                 val updatedSubstitution = updateSubstitutionWithResponse(
                     substitution = requestSubstitution,
                     scenario = testScenario,
