@@ -7,6 +7,9 @@ import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.ResourceDetails
+import io.specmatic.core.config.ResourceOperationDetails
+import io.specmatic.core.config.ResourceOperationProperties
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
@@ -1387,6 +1390,17 @@ class SpecmaticConfigV3ImplTest {
             val paymentsFile = tempDir.resolve("contracts/payments.yaml")
             assertThat(resourceNames(ordersFile)).containsExactly("order")
             assertThat(resourceNames(paymentsFile)).containsExactly("payment")
+            assertThat(config.resourceDetailsFor(ordersFile)).containsExactly(
+                ResourceDetails(
+                    name = "order",
+                    basePath = "/api/orders",
+                    commonOperationProperties = ResourceOperationProperties(identifier = "request.path.id"),
+                    operations = listOf(
+                        ResourceOperationDetails(id = "getOrders", action = "read", identifier = "none")
+                    )
+                )
+            )
+            assertThat(config.resourceDetailsFor(paymentsFile).single().name).isEqualTo("payment")
 
             val serializedConfigFile = tempDir.resolve("round-trip.yaml").apply { writeText(config.toYaml()) }
             val reloadedConfig = serializedConfigFile.toSpecmaticConfig()
@@ -1419,7 +1433,9 @@ class SpecmaticConfigV3ImplTest {
                         type: stateful-mock
             """.trimIndent())
 
-            assertThat(config.stubConfigFor(tempDir.resolve("contracts/orders.yaml"), SpecType.OPENAPI)).isNull()
+            val specFile = tempDir.resolve("contracts/orders.yaml")
+            assertThat(config.stubConfigFor(specFile, SpecType.OPENAPI)).isNull()
+            assertThat(config.resourceDetailsFor(specFile)).isEmpty()
         }
 
         @Test

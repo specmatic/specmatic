@@ -6,6 +6,8 @@ import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.MockMode
+import io.specmatic.core.config.ResourceDetails
+import io.specmatic.core.config.resourceDetailsFrom
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
@@ -105,6 +107,10 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig?
+
+    @JsonIgnore
+    fun resourceDetailsFor(file: File): List<ResourceDetails> =
+        stubConfigFor(file, SpecType.OPENAPI)?.resolvedConfig()?.let(::resourceDetailsFrom).orEmpty()
 
     @JsonIgnore
     fun getCtrfSpecConfig(
