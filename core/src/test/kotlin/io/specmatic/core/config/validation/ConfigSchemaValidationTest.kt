@@ -261,6 +261,37 @@ class ConfigSchemaValidationTest {
         }
 
         @Test
+        fun `accepts stateful resource metadata on a specification`() {
+            assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem: {}
+                          specs:
+                            - spec:
+                                path: orders.yaml
+                                resources:
+                                  - resource:
+                                      name: order
+                                      basePath: /api/orders
+                                      commonOperationProperties:
+                                        identifier: request.path.id
+                                        idempotencyKey: request.header.Idempotency-Key
+                                      operations:
+                                        - operation:
+                                            id: createOrder
+                                            action: create
+                                        - operation:
+                                            id: getOrder
+                                            action: read
+            """.trimIndent())).isEqualTo(validOutput)
+        }
+
+        @Test
         fun `rejects an adapter hook outside the closed adapter shape`() {
             assertThat(schema(SpecmaticConfigVersion.VERSION_3, """
             version: 3

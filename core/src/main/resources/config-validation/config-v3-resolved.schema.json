@@ -446,6 +446,11 @@
           "type": "string",
           "title": "URL path prefix",
           "description": "Optional URL path prefix applied to this specification."
+        },
+        "resources": {
+          "$ref": "#/definitions/StatefulResourceDeclarations",
+          "title": "Stateful resources",
+          "description": "Resource identities and operation behavior declarations for stateful mocking."
         }
       },
       "examples": [
@@ -458,6 +463,116 @@
           "path": "orders.yaml",
           "x-team": "payments"
         }
+      ]
+    },
+    "StatefulResourceDeclarations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/StatefulResourceEntry"
+      }
+    },
+    "StatefulResourceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource"
+      ],
+      "properties": {
+        "resource": {
+          "$ref": "#/definitions/StatefulResource"
+        }
+      }
+    },
+    "StatefulResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "basePath",
+        "operations"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basePath": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "commonOperationProperties": {
+          "$ref": "#/definitions/StatefulResourceOperationProperties"
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/StatefulResourceOperationEntry"
+          }
+        }
+      }
+    },
+    "StatefulResourceOperationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "$ref": "#/definitions/StatefulResourceOperation"
+        }
+      }
+    },
+    "StatefulResourceOperationProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/StatefulResourceAction"
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "StatefulResourceOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "$ref": "#/definitions/StatefulResourceAction"
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "StatefulResourceAction": {
+      "type": "string",
+      "enum": [
+        "create",
+        "read",
+        "update",
+        "delete",
+        "upsert"
       ]
     },
     "Components": {

@@ -1475,6 +1475,41 @@ class SpecmaticConfigV3ImplTest {
         }
 
         @Test
+        fun `v3 config validation should report malformed resource config with its spec location`() {
+            writeSpec("contracts/orders.yaml")
+            val config = v3Config("""
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./contracts
+                          specs:
+                            - spec:
+                                id: orders
+                                path: orders.yaml
+                                resources:
+                                  - resource:
+                                      basePath: /orders
+                                      operations:
+                                        - operation:
+                                            id: getOrders
+            """.trimIndent()).withCanonicalizedDefinitionFilesystemSources(tempDir)
+
+            val validationErrors = (config as SpecmaticConfigV3Impl)
+                .specmaticConfig
+                .validate(tempDir.toPath())
+                .mapNotNull { it.error }
+
+            assertThat(validationErrors).anyMatch {
+                it.contains("spec '") && it.contains("#/resources/0/resource/name") && it.contains("non-empty string")
+            }
+        }
+
+        @Test
         fun `resourceDetailsFor should be empty for v1 and v2 configs`() {
             val legacyConfig = SpecmaticConfigV1V2Common()
             assertThat(legacyConfig.resourceDetailsFor(tempDir.resolve("orders.yaml"))).isEmpty()

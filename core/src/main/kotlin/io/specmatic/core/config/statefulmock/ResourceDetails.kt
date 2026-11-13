@@ -129,7 +129,9 @@ private fun Map<String, Any?>.requiredString(key: String, location: String): Str
 private fun Map<String, Any?>.optionalString(key: String, location: String): String? {
     if (key !in this) return null
     val value = this[key] ?: invalid("$location/$key", "must be a string")
-    return value as? String ?: invalid("$location/$key", "must be a string")
+    val stringValue = value as? String ?: invalid("$location/$key", "must be a string")
+    if (stringValue.isBlank()) invalid("$location/$key", "must be a non-empty string")
+    return stringValue
 }
 
 private fun rejectUnknownKeys(values: Map<String, Any?>, allowed: Set<String>, location: String) {
