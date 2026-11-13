@@ -14,6 +14,7 @@ import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.ValidationContext
+import io.specmatic.core.config.statefulmock.resourceDetailsFrom
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.validation.ConfigValidationOutput
@@ -39,8 +40,20 @@ sealed interface SpecificationDefinition {
             )
         }
 
+        val resourceConfigValidation = runCatching {
+            resourceDetailsFrom(getConfig(), specFile.path)
+        }.fold(
+            onSuccess = { emptyList() },
+            onFailure = { failure ->
+                listOf(validationContext.child("resources").error(
+                    severity = ConfigValidationSeverity.ERROR,
+                    message = failure.message ?: "Invalid stateful mock resource configuration",
+                ))
+            }
+        )
+
         val runOptions = determineSpecTypeFor(specFile).mapNotNull { specType -> getRunOpts(specType) }
-        return runOptions.flatMap { runOptions ->
+        return resourceConfigValidation + runOptions.flatMap { runOptions ->
             runOptions.validateForSpecFile(
                 definition = this,
                 specFile = specFile,

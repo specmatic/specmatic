@@ -58,6 +58,8 @@ import io.specmatic.core.config.MockMode
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
+import io.specmatic.core.config.statefulmock.ResourceDetails
+import io.specmatic.core.config.statefulmock.resourceDetailsFrom
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiRunOptions
 import io.specmatic.core.config.v3.components.runOptions.ArazzoMockConfig
@@ -251,6 +253,13 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     override fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
         val specType = SpecType.entries.firstOrNull { it.value.equals(specType, ignoreCase = true) } ?: return null
         return stubConfigFor(File(specPath), specType)
+    }
+
+    override fun resourceDetailsFor(file: File): List<ResourceDetails> {
+        val dependencies = specmaticConfig.dependencies ?: return emptyList()
+        val service = dependencies.getService(file, resolver) ?: return emptyList()
+        val definition = dependencies.getSpecDefinitionFor(file, service, resolver) ?: return emptyList()
+        return resourceDetailsFrom(definition.getConfig(), file.path)
     }
 
     override fun getCtrfSpecConfig(specFile: File, testType: String, protocol: String, specType: String): CtrfSpecConfig {

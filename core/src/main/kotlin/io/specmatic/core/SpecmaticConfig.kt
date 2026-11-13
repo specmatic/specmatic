@@ -6,11 +6,10 @@ import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.MockMode
-import io.specmatic.core.config.ResourceDetails
-import io.specmatic.core.config.resourceDetailsFrom
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
+import io.specmatic.core.config.statefulmock.ResourceDetails
 import io.specmatic.core.config.Switch
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractSourceEntry
@@ -109,8 +108,9 @@ interface SpecmaticConfig {
     fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig?
 
     @JsonIgnore
-    fun resourceDetailsFor(file: File): List<ResourceDetails> =
-        stubConfigFor(file, SpecType.OPENAPI)?.resolvedConfig()?.let(::resourceDetailsFrom).orEmpty()
+    /** Returns v3 stateful resource declarations for [file], independent of its mock run mode. */
+    @Suppress("UNUSED_PARAMETER")
+    fun resourceDetailsFor(file: File): List<ResourceDetails> = emptyList()
 
     @JsonIgnore
     fun getCtrfSpecConfig(

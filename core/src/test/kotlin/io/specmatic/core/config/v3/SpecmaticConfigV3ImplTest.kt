@@ -7,9 +7,11 @@ import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.config.ResourceDetails
-import io.specmatic.core.config.ResourceOperationDetails
-import io.specmatic.core.config.ResourceOperationProperties
+import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.config.statefulmock.ResourceDetails
+import io.specmatic.core.config.statefulmock.ResourceOperationDetails
+import io.specmatic.core.config.statefulmock.ResourceOperationProperties
+import io.specmatic.core.config.statefulmock.StatefulMockAction
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
@@ -1353,6 +1355,7 @@ class SpecmaticConfigV3ImplTest {
                                       basePath: /api/orders
                                       commonOperationProperties:
                                         identifier: request.path.id
+                                        idempotencyKey: request.header.Idempotency-Key
                                       operations:
                                         - operation:
                                             id: getOrders
@@ -1394,13 +1397,17 @@ class SpecmaticConfigV3ImplTest {
                 ResourceDetails(
                     name = "order",
                     basePath = "/api/orders",
-                    commonOperationProperties = ResourceOperationProperties(identifier = "request.path.id"),
+                    commonOperationProperties = ResourceOperationProperties(
+                        identifier = "request.path.id",
+                        idempotencyKey = "request.header.Idempotency-Key"
+                    ),
                     operations = listOf(
-                        ResourceOperationDetails(id = "getOrders", action = "read", identifier = "none")
+                        ResourceOperationDetails(id = "getOrders", action = StatefulMockAction.READ, identifier = "none")
                     )
                 )
             )
             assertThat(config.resourceDetailsFor(paymentsFile).single().name).isEqualTo("payment")
+            assertThat(config.resourceDetailsFor(File("orders.yaml"))).isEqualTo(config.resourceDetailsFor(ordersFile))
 
             val serializedConfigFile = tempDir.resolve("round-trip.yaml").apply { writeText(config.toYaml()) }
             val reloadedConfig = serializedConfigFile.toSpecmaticConfig()
@@ -1436,6 +1443,41 @@ class SpecmaticConfigV3ImplTest {
             val specFile = tempDir.resolve("contracts/orders.yaml")
             assertThat(config.stubConfigFor(specFile, SpecType.OPENAPI)).isNull()
             assertThat(config.resourceDetailsFor(specFile)).isEmpty()
+        }
+
+        @Test
+        fun `resourceDetailsFor should read resource config even when OpenAPI is not configured for stateful mock`() {
+            writeSpec("contracts/orders.yaml")
+            val config = v3Config("""
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./contracts
+                          specs:
+                            - spec:
+                                id: orders
+                                path: orders.yaml
+                                resources:
+                                  - resource:
+                                      name: order
+                                      basePath: /orders
+                                      operations:
+                                        - operation:
+                                            id: getOrders
+            """.trimIndent()).withCanonicalizedDefinitionFilesystemSources(tempDir)
+
+            assertThat(config.resourceDetailsFor(tempDir.resolve("contracts/orders.yaml")).single().name).isEqualTo("order")
+        }
+
+        @Test
+        fun `resourceDetailsFor should be empty for v1 and v2 configs`() {
+            val legacyConfig = SpecmaticConfigV1V2Common()
+            assertThat(legacyConfig.resourceDetailsFor(tempDir.resolve("orders.yaml"))).isEmpty()
         }
 
         @Test
