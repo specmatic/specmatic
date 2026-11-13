@@ -18,7 +18,7 @@ sealed interface ArazzoRunOptions : IRunOptions {
     val type: RunOptionType?
 
     @JsonIgnore
-    override fun gerServerOrigin(): ServerOrigin? = null
+    override fun getServerOrigin(specId: String?): ServerOrigin? = null
 
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ArazzoRunOptions
 }

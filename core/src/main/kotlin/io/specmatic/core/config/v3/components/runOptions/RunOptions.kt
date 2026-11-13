@@ -26,7 +26,7 @@ interface IRunOptions {
     fun validateForSpecFile(specFile: File, definition: SpecificationDefinition, validationContext: ValidationContext): List<ConfigValidationOutput> = emptyList()
 
     @JsonIgnore
-    fun gerServerOrigin(): ServerOrigin?
+    fun getServerOrigin(specId: String? = null): ServerOrigin?
 
     @JsonIgnore
     fun getMatchingSpecification(id: String): IRunOptionSpecification? {
@@ -40,13 +40,7 @@ interface IRunOptions {
 
     fun toSpecmaticSpecConfig(specId: String?): SpecmaticSpecConfig {
         val matching = if (specId != null) getMatchingSpecification(specId) else null
-        return SpecmaticSpecConfig(gerServerOrigin()?.baseUrl, matching, config)
-    }
-
-    fun extractServerOriginFromMap(map: Map<*, *>, defaultHost: String): ServerOrigin? {
-        val host = map["host"]?.toString() ?: defaultHost
-        val port = map["port"]?.toString()?.toIntOrNull() ?: return null
-        return ServerOrigin.from(host = host, port = port)
+        return SpecmaticSpecConfig(getServerOrigin(specId)?.baseUrl, matching, config)
     }
 }
 
