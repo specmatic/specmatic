@@ -220,14 +220,32 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun stubConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
         val service = specmaticConfig.dependencies?.getService(file, resolver) ?: return null
-        val specId = specmaticConfig.dependencies.getSpecDefinitionFor(file, service, resolver)?.getSpecificationId()
-        return when (val runOptions = specmaticConfig.dependencies.getRunOptions(service, resolver, specType)) {
+        val definition = specmaticConfig.dependencies.getSpecDefinitionFor(file, service, resolver)
+        val specId = definition?.getSpecificationId()
+        val runOptions = specmaticConfig.dependencies.getRunOptions(service, resolver, specType)
+        val existingRunOptionsConfig = when (runOptions) {
             is AsyncApiRunOptions -> runOptions
             is GraphQLSdlRunOptions -> runOptions
             is ProtobufRunOptions -> runOptions
             is ArazzoMockConfig -> runOptions
             else -> null
         }?.toSpecmaticSpecConfig(specId)
+
+        val specificationConfig = definition?.getConfig()
+            ?.filterValues { it != null }
+            ?.mapValues { (_, value) -> requireNotNull(value) }
+            .orEmpty()
+
+        if (specificationConfig.isEmpty()) return existingRunOptionsConfig
+
+        val openApiConfig = (runOptions as? OpenApiMockConfig)?.toSpecmaticSpecConfig(specId)
+        val baseUrl = existingRunOptionsConfig?.baseUrl ?: openApiConfig?.baseUrl
+        val runConfig = existingRunOptionsConfig?.resolvedConfig().orEmpty() + openApiConfig?.resolvedConfig().orEmpty()
+
+        return SpecmaticSpecConfig(
+            baseUrl = baseUrl,
+            config = runConfig + specificationConfig,
+        )
     }
 
     override fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {

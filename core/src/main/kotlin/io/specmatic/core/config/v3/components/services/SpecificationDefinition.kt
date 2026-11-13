@@ -26,6 +26,9 @@ import java.io.File
 sealed interface SpecificationDefinition {
     fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): SpecificationDefinition
 
+    @JsonIgnore
+    fun getConfig(): Map<String, Any?>
+
     fun validate(source: SourceV3, validationContext: ValidationContext, runOptionsContext: ValidationContext, getRunOpts: (SpecType) -> IRunOptions?): List<ConfigValidationOutput> {
         val specFile = runCatching { source.resolveSpecification(File(getSpecificationPath())) }.getOrElse { failure ->
             return listOf(
@@ -63,6 +66,9 @@ sealed interface SpecificationDefinition {
 
     @JsonFormat(shape = JsonFormat.Shape.OBJECT)
     data class ObjectValue(val spec: Specification): SpecificationDefinition {
+        @JsonIgnore
+        override fun getConfig(): Map<String, Any?> = spec.config
+
         override fun toSpecificationSource(
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
@@ -90,6 +96,9 @@ sealed interface SpecificationDefinition {
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     data class StringValue(val specification: String) : SpecificationDefinition {
+        @JsonIgnore
+        override fun getConfig(): Map<String, Any?> = emptyMap()
+
         @Suppress("unused")
         @JsonValue
         fun asValue() = specification

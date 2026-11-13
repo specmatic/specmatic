@@ -1327,6 +1327,102 @@ class SpecmaticConfigV3ImplTest {
         }
 
         @Test
+        fun `stubConfigFor should expose nested config for the matching OpenAPI dependency spec and preserve it through yaml round trip`() {
+            writeSpec("contracts/orders.yaml")
+            writeSpec("contracts/payments.yaml")
+            val config = v3Config("""
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./contracts
+                          specs:
+                            - spec:
+                                id: orders
+                                path: orders.yaml
+                                resources:
+                                  - resource:
+                                      name: order
+                                      basePath: /api/orders
+                                      commonOperationProperties:
+                                        identifier: request.path.id
+                                      operations:
+                                        - operation:
+                                            id: getOrders
+                                            action: read
+                                            identifier: none
+                            - spec:
+                                id: payments
+                                path: payments.yaml
+                                resources:
+                                  - resource:
+                                      name: payment
+                                      basePath: /api/payments
+                                      operations:
+                                        - operation:
+                                            id: createPayment
+                                            action: create
+                                            identifier: response.body#/responseData/paymentId
+                    runOptions:
+                      openapi:
+                        type: stateful-mock
+            """.trimIndent()).withCanonicalizedDefinitionFilesystemSources(tempDir)
+
+            fun resourceNames(specFile: File): List<String> {
+                val resources = config.stubConfigFor(specFile, SpecType.OPENAPI)
+                    ?.resolvedConfig()
+                    ?.get("resources") as? List<*> ?: emptyList<Any>()
+
+                return resources.mapNotNull { resourceEntry ->
+                    val resource = (resourceEntry as? Map<*, *>)?.get("resource") as? Map<*, *>
+                    resource?.get("name") as? String
+                }
+            }
+
+            val ordersFile = tempDir.resolve("contracts/orders.yaml")
+            val paymentsFile = tempDir.resolve("contracts/payments.yaml")
+            assertThat(resourceNames(ordersFile)).containsExactly("order")
+            assertThat(resourceNames(paymentsFile)).containsExactly("payment")
+
+            val serializedConfigFile = tempDir.resolve("round-trip.yaml").apply { writeText(config.toYaml()) }
+            val reloadedConfig = serializedConfigFile.toSpecmaticConfig()
+            val orderConfig = reloadedConfig.stubConfigFor(ordersFile, SpecType.OPENAPI)?.resolvedConfig().orEmpty()
+            val resource = ((orderConfig["resources"] as List<*>).single() as Map<*, *>)["resource"] as Map<*, *>
+            val operations = resource["operations"] as List<*>
+            val operation = (operations.single() as Map<*, *>)["operation"] as Map<*, *>
+
+            assertThat(resource["commonOperationProperties"]).isInstanceOf(Map::class.java)
+            assertThat(operation["identifier"]).isEqualTo("none")
+        }
+
+        @Test
+        fun `stubConfigFor should keep returning null for OpenAPI specs with no per-spec config`() {
+            writeSpec("contracts/orders.yaml")
+            val config = v3Config("""
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./contracts
+                          specs:
+                            - orders.yaml
+                    runOptions:
+                      openapi:
+                        type: stateful-mock
+            """.trimIndent())
+
+            assertThat(config.stubConfigFor(tempDir.resolve("contracts/orders.yaml"), SpecType.OPENAPI)).isNull()
+        }
+
+        @Test
         fun `should fail to load v3 config when service definitions are missing`() {
             assertThatThrownBy {
                 v3Config("""

@@ -14,6 +14,8 @@ class SpecificationDefinitionTest {
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
         val definition = SpecificationDefinition.StringValue("contracts/orders.yaml")
 
+        assertThat(definition.getConfig()).isEmpty()
+
         val relativeInputPath = File("contracts/orders.yaml")
 
         assertThat(definition.matchesFile(source, relativeInputPath)).isTrue()
