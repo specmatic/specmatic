@@ -36,10 +36,10 @@ class ResourceDetailsTest {
                 operations = listOf(
                     ResourceOperationDetails(
                         id = "initiateApplication",
-                        action = StatefulMockAction.CREATE,
+                        action = Action.CREATE,
                         identifier = "response.body#/responseData/applicationId"
                     ),
-                    ResourceOperationDetails(id = "confirmApplication", action = StatefulMockAction.UPDATE)
+                    ResourceOperationDetails(id = "confirmApplication", action = Action.UPDATE)
                 )
             )
         )

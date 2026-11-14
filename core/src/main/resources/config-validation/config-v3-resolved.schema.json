@@ -529,7 +529,7 @@
       "additionalProperties": false,
       "properties": {
         "action": {
-          "$ref": "#/definitions/StatefulResourceAction"
+          "$ref": "#/definitions/Action"
         },
         "identifier": {
           "type": "string",
@@ -553,7 +553,7 @@
           "minLength": 1
         },
         "action": {
-          "$ref": "#/definitions/StatefulResourceAction"
+          "$ref": "#/definitions/Action"
         },
         "identifier": {
           "type": "string",
@@ -565,7 +565,7 @@
         }
       }
     },
-    "StatefulResourceAction": {
+    "Action": {
       "type": "string",
       "enum": [
         "create",

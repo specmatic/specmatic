@@ -11,7 +11,7 @@ import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.statefulmock.ResourceDetails
 import io.specmatic.core.config.statefulmock.ResourceOperationDetails
 import io.specmatic.core.config.statefulmock.ResourceOperationProperties
-import io.specmatic.core.config.statefulmock.StatefulMockAction
+import io.specmatic.core.config.statefulmock.Action
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
@@ -1402,7 +1402,7 @@ class SpecmaticConfigV3ImplTest {
                         idempotencyKey = "request.header.Idempotency-Key"
                     ),
                     operations = listOf(
-                        ResourceOperationDetails(id = "getOrders", action = StatefulMockAction.READ, identifier = "none")
+                        ResourceOperationDetails(id = "getOrders", action = Action.READ, identifier = "none")
                     )
                 )
             )
