@@ -557,7 +557,7 @@
     },
     "StatefulResourceOperation": {
       "type": "object",
-      "description": "References an API operation by its operationId or JSON Pointer and defines its stateful behavior. Exactly one of 'id' or 'path' must be provided.",
+      "description": "References an API operation by its operationId and defines its stateful behavior.",
       "additionalProperties": false,
       "required": [
         "id"
@@ -566,7 +566,7 @@
         "id": {
           "type": "string",
           "minLength": 1,
-          "description": "The operationId of an operation defined in the API specification. Mutually exclusive with 'path'."
+          "description": "The operationId of an operation defined in the API specification."
         },
         "action": {
           "$ref": "#/definitions/StatefulResourceAction",
