@@ -18,7 +18,7 @@ class HealthCheckModule {
 
         fun Application.configureHealthCheckModule() {
             routing {
-                val healthCheckHandler: suspend PipelineContext<Unit, ApplicationCall>.(Unit) -> Unit = {
+                val healthCheckHandler: suspend RoutingContext.() -> Unit = {
                     val healthStatus = mapOf("status" to "UP")
                     respondToKtorHttpResponse(
                         call,

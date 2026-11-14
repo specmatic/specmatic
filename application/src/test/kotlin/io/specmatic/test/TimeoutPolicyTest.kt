@@ -2,7 +2,7 @@ package io.specmatic.test
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import io.ktor.client.plugins.HttpTimeout.HttpTimeoutCapabilityConfiguration
+import io.ktor.client.plugins.HttpTimeoutConfig
 
 private const val ONE_SECOND_IN_MILLISECONDS = 1000L
 
@@ -21,7 +21,7 @@ class TimeoutPolicyTest {
     fun `timeout policy should set the socket and request timeouts in the TimeoutPolicy ktor plugin as configured` () {
         val timeoutPolicy = TimeoutPolicy(ONE_SECOND_IN_MILLISECONDS)
 
-        val pluginTimeoutConfiguration = HttpTimeoutCapabilityConfiguration()
+        val pluginTimeoutConfiguration = HttpTimeoutConfig()
 
         timeoutPolicy.configure(pluginTimeoutConfiguration)
 

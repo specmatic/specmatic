@@ -136,7 +136,7 @@ class Proxy(
         }
 
     private val environment =
-        applicationEngineEnvironment {
+        serverConfig {
             module {
                 intercept(ApplicationCallPipeline.Call) {
                     try {
@@ -316,25 +316,6 @@ class Proxy(
                     post(DUMP_ENDPOINT) { handleDumpRequest(call) }
                 }
             }
-
-            when (keyData) {
-                null ->
-                    connector {
-                        this.host = host
-                        this.port = port
-                    }
-
-                else ->
-                    sslConnector(
-                        keyStore = keyData.keyStore,
-                        keyAlias = keyData.keyAlias,
-                        privateKeyPassword = { keyData.keyPassword.toCharArray() },
-                        keyStorePassword = { keyData.keyPassword.toCharArray() },
-                    ) {
-                        this.host = host
-                        this.port = port
-                    }
-            }
         }
 
     private fun toQueryString(queryParams: Map<String, String>): String =
@@ -360,9 +341,26 @@ class Proxy(
         }
     }
 
-    private val server: ApplicationEngine =
+    private val server =
         embeddedServer(Netty, environment, configure = {
-            this.requestQueueLimit = 1000
+            when (keyData) {
+                null ->
+                    connector {
+                        this.host = host
+                        this.port = port
+                    }
+
+                else ->
+                    sslConnector(
+                        keyStore = keyData.keyStore,
+                        keyAlias = keyData.keyAlias,
+                        privateKeyPassword = { keyData.keyPassword.toCharArray() },
+                        keyStorePassword = { keyData.keyPassword.toCharArray() },
+                    ) {
+                        this.host = host
+                        this.port = port
+                    }
+            }
             this.callGroupSize = 5
             this.connectionGroupSize = 20
             this.workerGroupSize = 20

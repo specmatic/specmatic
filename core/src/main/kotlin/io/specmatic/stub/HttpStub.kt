@@ -7,10 +7,11 @@ import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.plugins.cors.*
+import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.doublereceive.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import io.ktor.utils.io.jvm.javaio.toInputStream
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import io.specmatic.conversions.OpenApiSpecification
@@ -106,11 +107,9 @@ import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.license.core.Executor
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -291,7 +290,7 @@ class HttpStub(
 
     private val sseBuffer: SSEBuffer = SSEBuffer()
 
-    private val broadcastChannels: Vector<BroadcastChannel<SseEvent>> = Vector(50, 10)
+    private val broadcastChannels: Vector<Channel<SseEvent>> = Vector(50, 10)
 
     private val requestInterceptors: MutableList<FileAssociation<RequestInterceptor>> = mutableListOf()
 
@@ -317,12 +316,12 @@ class HttpStub(
         }
     }
 
-    private val environment = applicationEngineEnvironment {
+    private val environment = serverConfig {
         module {
             install(DoubleReceive) {
                 excludeFromCache { call, _ -> call is DecodedGzipCall }
             }
-            configure(CORS)
+            configureCors()
 
             intercept(ApplicationCallPipeline.Call) {
                 val httpLogMessage = HttpLogMessage(
@@ -511,12 +510,10 @@ class HttpStub(
 
             configureHealthCheckModule()
         }
-
-        configureHostPorts()
     }
 
     fun getServerBinds(): Set<Pair<String, Int>> {
-        return environment.connectors.map { it.host to it.port }.toSet()
+        return server.engineConfig.connectors.map { it.host to it.port }.toSet()
     }
 
     private fun addCtrfTestResultRecord(
@@ -579,19 +576,18 @@ class HttpStub(
     private suspend fun handleSse(
         httpRequest: HttpRequest,
         httpStub: HttpStub,
-        pipelineContext: PipelineContext<Unit, ApplicationCall>
+        pipelineContext: PipelineContext<Unit, PipelineCall>
     ) {
         logger.log("Incoming subscription on URL path ${httpRequest.path} ")
         val channel: Channel<SseEvent> = Channel(10, BufferOverflow.DROP_OLDEST)
-        val broadcastChannel: BroadcastChannel<SseEvent> = channel.broadcast()
-        httpStub.broadcastChannels.add(broadcastChannel)
+        httpStub.broadcastChannels.add(channel)
 
-        val events: ReceiveChannel<SseEvent> = broadcastChannel.openSubscription()
+        val events: ReceiveChannel<SseEvent> = channel
 
         try {
             pipelineContext.call.respondSse(events, sseBuffer, httpRequest)
 
-            httpStub.broadcastChannels.remove(broadcastChannel)
+            httpStub.broadcastChannels.remove(channel)
 
             close(
                 events,
@@ -602,7 +598,7 @@ class HttpStub(
         } catch (e: Throwable) {
             logger.log(e, "Exception in the SSE module")
 
-            httpStub.broadcastChannels.remove(broadcastChannel)
+            httpStub.broadcastChannels.remove(channel)
 
             close(
                 events,
@@ -613,7 +609,7 @@ class HttpStub(
         }
     }
 
-    private fun ApplicationEngineEnvironmentBuilder.configureHostPorts() {
+    private fun ApplicationEngine.Configuration.configureHostPorts() {
         val hostPortList = getHostAndPortList()
         mtlsEnabledByPort.clear()
         validateTlsConfigurationByPort(hostPortList)
@@ -779,7 +775,7 @@ class HttpStub(
         }
     }
 
-    private fun Application.configure(CORS: ApplicationPlugin<CORSConfig>) {
+    private fun Application.configureCors() {
         install(CORS) {
             allowMethod(HttpMethod.Options)
             allowMethod(HttpMethod.Get)
@@ -953,7 +949,8 @@ class HttpStub(
         return request
     }
 
-    private val server: ApplicationEngine = embeddedServer(Netty, environment, configure = {
+    private val server = embeddedServer(Netty, environment, configure = {
+        configureHostPorts()
         this.callGroupSize = 20
         this.channelPipelineConfig = {
             val localAddress = channel().localAddress() as? InetSocketAddress
@@ -1305,44 +1302,49 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
             val multiPartData = call.receiveMultipart()
             val boundary = call.request.contentType().parameter("boundary") ?: "boundary"
 
-            val parts = multiPartData.readAllParts().map {
-                when (it) {
-                    is PartData.FileItem -> {
-                        MultiPartContentValue(
-                            name = it.name ?: "",
-                            content = it.provider().asStream().use { inputStream ->
-                                BinaryValue(inputStream.readBytes())
-                            },
-                            boundary = boundary,
-                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
-                            contentEncoding = it.headers[HttpHeaders.ContentEncoding],
-                            filename = it.originalFileName,
-                        )
-                    }
+            val parts = mutableListOf<MultiPartFormDataValue>()
+            multiPartData.forEachPart { part ->
+                try {
+                    parts.add(when (val it = part) {
+                        is PartData.FileItem -> {
+                            MultiPartContentValue(
+                                name = it.name ?: "",
+                                content = it.provider().toInputStream().use { inputStream ->
+                                    BinaryValue(inputStream.readBytes())
+                                },
+                                boundary = boundary,
+                                specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                                contentEncoding = it.headers[HttpHeaders.ContentEncoding],
+                                filename = it.originalFileName,
+                            )
+                        }
 
-                    is PartData.FormItem -> {
-                        MultiPartContentValue(
-                            it.name ?: "",
-                            StringValue(it.value),
-                            boundary,
-                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
-                            contentEncoding = it.headers[HttpHeaders.ContentEncoding]
-                        )
-                    }
+                        is PartData.FormItem -> {
+                            MultiPartContentValue(
+                                it.name ?: "",
+                                StringValue(it.value),
+                                boundary,
+                                specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                                contentEncoding = it.headers[HttpHeaders.ContentEncoding]
+                            )
+                        }
 
-                    is PartData.BinaryItem -> {
-                        MultiPartContentValue(
-                            name = it.name ?: "",
-                            content = it.provider().asStream().use { input -> BinaryValue(input.readBytes()) },
-                            boundary = boundary,
-                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
-                            contentEncoding = it.headers[HttpHeaders.ContentEncoding],
-                        )
-                    }
+                        is PartData.BinaryItem -> {
+                            MultiPartContentValue(
+                                name = it.name ?: "",
+                                content = it.provider().asStream().use { input -> BinaryValue(input.readBytes()) },
+                                boundary = boundary,
+                                specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                                contentEncoding = it.headers[HttpHeaders.ContentEncoding],
+                            )
+                        }
 
-                    else -> {
-                        throw UnsupportedOperationException("Unhandled PartData")
-                    }
+                        else -> {
+                            throw UnsupportedOperationException("Unhandled PartData")
+                        }
+                    })
+                } finally {
+                    part.dispose()
                 }
             }
 
