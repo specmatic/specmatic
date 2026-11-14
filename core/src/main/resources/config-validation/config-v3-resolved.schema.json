@@ -446,6 +446,11 @@
           "type": "string",
           "title": "URL path prefix",
           "description": "Optional URL path prefix applied to this specification."
+        },
+        "resources": {
+          "$ref": "#/definitions/StatefulResourceDeclarations",
+          "title": "Stateful resources",
+          "description": "Resource identities and operation behavior declarations for stateful mocking."
         }
       },
       "examples": [
@@ -458,6 +463,136 @@
           "path": "orders.yaml",
           "x-team": "payments"
         }
+      ]
+    },
+    "StatefulResourceDeclarations": {
+      "type": "array",
+      "description": "Declares resources whose state is maintained by the mock server.",
+      "items": {
+        "$ref": "#/definitions/StatefulResourceEntry"
+      }
+    },
+    "StatefulResourceEntry": {
+      "type": "object",
+      "description": "A stateful resource declaration.",
+      "additionalProperties": false,
+      "required": [
+        "resource"
+      ],
+      "properties": {
+        "resource": {
+          "$ref": "#/definitions/StatefulResource",
+          "description": "Defines a resource and its associated operations."
+        }
+      }
+    },
+    "StatefulResource": {
+      "type": "object",
+      "description": "Defines a resource whose instances are managed by the mock server, along with the operations that interact with its state.",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "basePath",
+        "operations"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name identifying the resource, such as 'orders' or 'products'."
+        },
+        "basePath": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Base URL path associated with the resource, such as '/orders'."
+        },
+        "commonOperationProperties": {
+          "$ref": "#/definitions/StatefulResourceOperationProperties",
+          "description": "Default properties shared by operations of this resource. Individual operations may override these properties."
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Operations that interact with this resource's state. At least one operation must be declared.",
+          "items": {
+            "$ref": "#/definitions/StatefulResourceOperationEntry"
+          }
+        }
+      }
+    },
+    "StatefulResourceOperationEntry": {
+      "type": "object",
+      "description": "An operation associated with a stateful resource.",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "$ref": "#/definitions/StatefulResourceOperation",
+          "description": "References an API operation and declares its stateful behavior."
+        }
+      }
+    },
+    "StatefulResourceOperationProperties": {
+      "type": "object",
+      "description": "Default properties defining how operations interact with resource state.",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/StatefulResourceAction",
+          "description": "The action performed on resource state."
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A runtime expression used to identify a resource instance from the operation's request or response. Supports JSON Pointer fragments for body fields and references to headers, path parameters, and query parameters. For example, '$response.body#/order/id' or '$request.path.orderId'."
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A runtime expression used to extract an idempotency key for recognizing repeated requests. For example, '$request.header.Idempotency-Key' or '$request.body#/metadata/requestId'."
+        }
+      }
+    },
+    "StatefulResourceOperation": {
+      "type": "object",
+      "description": "References an API operation by its operationId or JSON Pointer and defines its stateful behavior. Exactly one of 'id' or 'path' must be provided.",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The operationId of an operation defined in the API specification. Mutually exclusive with 'path'."
+        },
+        "action": {
+          "$ref": "#/definitions/StatefulResourceAction",
+          "description": "The action performed on resource state. Overrides the common action when specified."
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A runtime expression used to identify a resource instance from the operation's request or response. Supports JSON Pointer fragments for body fields and references to headers, path parameters, and query parameters. For example, '$response.body#/order/id' or '$request.path.orderId'. Overrides the common identifier when specified."
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A runtime expression used to extract an idempotency key for recognizing repeated requests. For example, '$request.header.Idempotency-Key' or '$request.body#/metadata/requestId'. Overrides the common idempotency key when specified."
+        }
+      }
+    },
+    "StatefulResourceAction": {
+      "type": "string",
+      "description": "Defines how an operation affects resource state: create adds a new instance, read retrieves an existing instance, update modifies an existing instance, delete removes an instance, and upsert creates or updates an instance.",
+      "enum": [
+        "create",
+        "read",
+        "update",
+        "delete",
+        "upsert"
       ]
     },
     "Components": {
