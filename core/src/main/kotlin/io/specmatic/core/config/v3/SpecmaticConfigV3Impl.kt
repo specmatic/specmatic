@@ -72,6 +72,7 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufRunOptions
 import io.specmatic.core.config.v3.components.runOptions.RunOptionType
 import io.specmatic.core.config.v3.components.services.MockServiceConfig
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.TestSettings
@@ -233,6 +234,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     override fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
         val specType = SpecType.entries.firstOrNull { it.value.equals(specType, ignoreCase = true) } ?: return null
         return stubConfigFor(File(specPath), specType)
+    }
+
+    override fun mockSpecDefinitionFor(file: File): SpecificationDefinition? {
+        val dependencies = specmaticConfig.dependencies ?: return null
+        val service = dependencies.getService(file, resolver) ?: return null
+        return dependencies.getSpecDefinitionFor(file, service, resolver)
     }
 
     override fun getCtrfSpecConfig(specFile: File, testType: String, protocol: String, specType: String): CtrfSpecConfig {
