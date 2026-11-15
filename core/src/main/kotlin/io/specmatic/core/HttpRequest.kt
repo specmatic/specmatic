@@ -89,7 +89,7 @@ data class HttpRequest(
     }
 
     fun isRequestExpectingAcceptedResponse(): Boolean {
-        return headers[SPECMATIC_RESPONSE_CODE_HEADER] == HttpStatusCode.Accepted.value.toString()
+        return expectedResponseCode() == HttpStatusCode.Accepted.value
     }
 
     fun updateQueryParams(otherQueryParams: Map<String, String>): HttpRequest = copy(queryParams = queryParams.plus(otherQueryParams))
@@ -425,7 +425,7 @@ data class HttpRequest(
     }
 
     fun expectedResponseCode(): Int? {
-        return headers[SPECMATIC_RESPONSE_CODE_HEADER]?.toIntOrNull()
+        return getHeader(SPECMATIC_RESPONSE_CODE_HEADER)?.toIntOrNull()
     }
 
     fun hasHeader(name: String): Boolean {
