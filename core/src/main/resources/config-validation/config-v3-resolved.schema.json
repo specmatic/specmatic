@@ -557,6 +557,10 @@
           "type": "string",
           "minLength": 1,
           "description": "A response body JSON Pointer where stateful mock diagnostics are placed in configured error responses. For example, '$response.body#/errors/0/message'."
+        },
+        "update": {
+          "$ref": "#/definitions/StatefulResourceUpdates",
+          "description": "Values to apply to an existing resource before generating the operation response."
         }
       }
     },
@@ -591,6 +595,33 @@
           "type": "string",
           "minLength": 1,
           "description": "A response body JSON Pointer where stateful mock diagnostics are placed in configured error responses. For example, '$response.body#/errors/0/message'. Overrides the common error message path when specified."
+        },
+        "update": {
+          "$ref": "#/definitions/StatefulResourceUpdates",
+          "description": "Values to apply to an existing resource before generating the operation response."
+        }
+      }
+    },
+    "StatefulResourceUpdates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/StatefulResourceUpdate"
+      }
+    },
+    "StatefulResourceUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "for": {
+          "type": "string",
+          "description": "JSON Pointer relative to the resource root."
+        },
+        "usingRequest": {
+          "type": "string",
+          "description": "Request runtime expression that provides the value."
+        },
+        "usingValue": {
+          "description": "Literal value to assign."
         }
       }
     },
