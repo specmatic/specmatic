@@ -552,6 +552,11 @@
           "type": "string",
           "minLength": 1,
           "description": "A runtime expression used to extract an idempotency key for recognizing repeated requests. For example, '$request.header.Idempotency-Key' or '$request.body#/metadata/requestId'."
+        },
+        "errorMessagePath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A response body JSON Pointer where stateful mock diagnostics are placed in configured error responses. For example, '$response.body#/errors/0/message'."
         }
       }
     },
@@ -581,6 +586,11 @@
           "type": "string",
           "minLength": 1,
           "description": "A runtime expression used to extract an idempotency key for recognizing repeated requests. For example, '$request.header.Idempotency-Key' or '$request.body#/metadata/requestId'. Overrides the common idempotency key when specified."
+        },
+        "errorMessagePath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A response body JSON Pointer where stateful mock diagnostics are placed in configured error responses. For example, '$response.body#/errors/0/message'. Overrides the common error message path when specified."
         }
       }
     },
