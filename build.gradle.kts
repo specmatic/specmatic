@@ -55,6 +55,8 @@ specmatic {
     }
 
     withOSSLibrary(project(":specmatic-core")) {
+        generateVersionInfo()
+        disableVulnScan()
         githubRelease()
 
         promote()
@@ -89,6 +91,7 @@ specmatic {
         }
     }
     withOSSLibrary(project(":junit5-support")) {
+        disableVulnScan()
         githubRelease()
 
         promote()
@@ -164,6 +167,7 @@ specmatic {
         }
     }
     withOSSLibrary(project(":specmatic-mcp")) {
+        disableVulnScan()
         githubRelease()
 
         promote()
@@ -196,6 +200,11 @@ specmatic {
                 }
             }
         }
+    }
+
+    withOSSLibrary(project(":conformance-tests")) {
+        disableVulnScan()
+        generateVersionInfo()
     }
 }
 
