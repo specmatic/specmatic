@@ -1,6 +1,6 @@
 package application
 
-import io.specmatic.specmatic.executable.VersionInfo
+import io.specmatic.specmatic.core.VersionInfo
 import picocli.CommandLine
 
 class VersionProvider : CommandLine.IVersionProvider {
