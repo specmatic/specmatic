@@ -63,7 +63,7 @@ jobs:
       - name: Publish Snapshot
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'self-hosted-mac'
         run: |
-          echo ${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }} | docker login -u ${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }} --password-stdin
+          printf '%s' "$SPECMATIC_DOCKER_HUB_TOKEN" | docker login -u "$SPECMATIC_DOCKER_HUB_USERNAME" --password-stdin
           ./gradlew publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository dockerBuildxPublish --parallel
         env:
           ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY }}"

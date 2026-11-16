@@ -24,7 +24,10 @@ jobs:
           runner-label: ubuntu-latest
 
       - name: Docker Login
-        run: echo ${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }} | docker login -u ${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }} --password-stdin
+        run: printf '%s' "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin
+        env:
+          DOCKER_HUB_TOKEN: ${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }}
+          DOCKER_HUB_USERNAME: ${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }}
 
       - name: 'Release'
         run: |
