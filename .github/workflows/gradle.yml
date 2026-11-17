@@ -35,7 +35,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest, self-hosted-mac ]
+        os: [ ubuntu-latest, windows-latest, macos-latest, self-hosted-mac, self-hosted-windows ]
     runs-on: ${{ matrix.os }}
     permissions:
       pull-requests: write
