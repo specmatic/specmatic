@@ -1,17 +1,48 @@
 package io.specmatic.core.config.validation
 
+import io.specmatic.core.config.McpConfiguration
+import io.specmatic.core.config.McpTestConfiguration
+import io.specmatic.core.config.McpTransport
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.objectMapper
+import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class ConfigSchemaValidationTest {
     private val validator = ConfigSchemaValidator()
     private val validOutput = emptyList<ConfigValidationOutput>()
+
+    @ParameterizedTest
+    @EnumSource(McpTransport::class)
+    fun `serialized MCP test configuration passes schema validation`(transport: McpTransport) {
+        val test = when (transport) {
+            McpTransport.STREAMABLE_HTTP -> McpTestConfiguration(baseUrl = "http://localhost:9100")
+            McpTransport.STDIO -> McpTestConfiguration(transportKind = transport, command = "calculator")
+        }
+        val yaml = yamlMapper.writeValueAsString(mapOf("version" to 3, "mcp" to McpConfiguration(test)))
+
+        assertThat(schema(SpecmaticConfigVersion.VERSION_3, yaml)).isEqualTo(validOutput)
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SpecmaticConfigVersion::class, names = ["VERSION_2", "VERSION_3"])
+    fun `MCP test configuration accepts a URL without an explicit transport`(version: SpecmaticConfigVersion) {
+        val versionNumber = if (version == SpecmaticConfigVersion.VERSION_2) 2 else 3
+        val output = schema(version, """
+            version: $versionNumber
+            mcp:
+              test:
+                baseUrl: http://localhost:9100
+        """.trimIndent())
+
+        assertThat(output).isEqualTo(validOutput)
+    }
 
     @Nested
     inner class V2 {
@@ -328,7 +359,7 @@ class ConfigSchemaValidationTest {
                 transportKind: streamable_http
             """.trimIndent())).isEqualTo(invalidOutput(detail(
                 instanceLocation = "/mcp/test/transportKind",
-                error = "does not have a value in the enumeration [\"STREAMABLE_HTTP\"]",
+                error = "does not have a value in the enumeration [\"STREAMABLE_HTTP\", \"STDIO\"]",
                 keywordLocation = $$"/properties/mcp/$ref/properties/test/$ref/properties/transportKind",
                 absoluteKeywordLocation = "https://specmatic.io/internal-schema/config-v3-resolved.schema.json#/definitions/McpTestRunOptions/properties/transportKind",
             )))

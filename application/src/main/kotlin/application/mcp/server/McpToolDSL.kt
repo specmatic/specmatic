@@ -1,9 +1,14 @@
 package application.mcp.server
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.modelcontextprotocol.json.McpJsonDefaults
 import io.modelcontextprotocol.server.McpServerFeatures
 import io.modelcontextprotocol.spec.McpSchema
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.SystemExitException
+
+private val schemaMapper = ObjectMapper().registerKotlinModule()
 
 fun tool(
     name: String,
@@ -11,6 +16,8 @@ fun tool(
     inputSchema: McpSchema.JsonSchema,
     callHandler: (McpSchema.CallToolRequest) -> McpSchema.CallToolResult
 ): McpServerFeatures.SyncToolSpecification {
+    val schema = schemaMapper.convertValue(inputSchema, Map::class.java) as Map<String, Any>
+    val validator = McpJsonDefaults.getSchemaValidator()
     return McpServerFeatures.SyncToolSpecification.builder()
         .tool(
             McpSchema.Tool.builder()
@@ -19,7 +26,17 @@ fun tool(
                 .inputSchema(inputSchema)
                 .build()
         )
-        .callHandler { _, request -> callHandler(request) }
+        .callHandler { _, request ->
+            val validation = validator.validate(schema, request.arguments().orEmpty())
+            if (validation.valid()) {
+                callHandler(request)
+            } else {
+                McpSchema.CallToolResult.builder()
+                    .isError(true)
+                    .addTextContent("Invalid tool arguments: ${validation.errorMessage()}")
+                    .build()
+            }
+        }
         .build()
 }
 

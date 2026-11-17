@@ -20,6 +20,30 @@ Learn more at [specmatic.io](https://specmatic.io/#features) 🌐
 
 [YouTube playlist](https://www.youtube.com/watch?v=0FpHsCkimto&list=PL9Z-JgiTsOYRERcsy9o3y6nsi5yK3IB_w&index=1) 📺
 
+## MCP Auto Test over stdio
+
+Pass the server executable and one `--arg` per argument. Use `--arg=value` for arguments that start with a dash.
+
+```bash
+specmatic mcp test --transport-kind STDIO --command python --arg=-m --arg=my_mcp_server
+```
+
+Specmatic starts the server for the test run and closes its stdin during shutdown. The server sends MCP messages on stdout and diagnostic output on stderr. Use `--working-directory` to set the server's working directory and `--env NAME=VALUE` to override a variable in its inherited environment.
+
+For a config-driven run, set `mcp.test.transportKind` to `STDIO` and `mcp.test.command` to the executable. The default transport for `mcp.test` is `STREAMABLE_HTTP`. Optional stdio fields are `args`, `env`, and `workingDirectory`. A relative `workingDirectory` is resolved from the configuration file.
+
+### Test Specmatic's MCP server locally
+
+Run the Kotlin end-to-end test from the repository root with Java and Git available.
+
+```bash
+./gradlew :specmatic-executable:test --tests 'application.mcp.SpecmaticMcpAutoTest'
+```
+
+The tests launch the compiled CLI and MCP server as separate processes, run a functional scenario for each of the five tools, and run MCP Auto Test with `--enable-resiliency-tests`. They use a local HTTP fixture and a temporary Git repository. A mock lifecycle test starts a mock over MCP, checks that an HTTP request returns the contract example, stops the mock, and verifies that it disappears from the inventory and releases its port. JUnit retains the temporary files on failure.
+
+To test a different server build, pass `-PspecmaticMcpServerJar=/path/to/specmatic.jar` to the same Gradle command.
+
 ## Specmatic Tests Orchestrator
 
 The existing **Java Build with Gradle** workflow triggers [`specmatic/specmatic-tests-orchestrator`](https://github.com/specmatic/specmatic-tests-orchestrator) after the snapshot publish step on `main`. It can also be run manually from the same workflow.

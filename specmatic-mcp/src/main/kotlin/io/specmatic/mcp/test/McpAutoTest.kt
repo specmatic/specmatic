@@ -3,7 +3,6 @@ package io.specmatic.mcp.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.Dictionary
 import io.specmatic.core.defaultReportDirPath
-import io.specmatic.core.config.McpTransport
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
 import io.specmatic.core.examples.module.SUCCESS_EXIT_CODE
 import io.specmatic.core.loadSpecmaticConfigOrNull
@@ -22,16 +21,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.withIndex
 
 class McpAutoTest(
-    baseUrl: String,
-    transport: McpTransport,
+    val client: McpTestClient,
     private val enableResiliency: Boolean = false,
     private val dictionaryFile: File? = null,
-    bearerToken: String? = null,
     private val filterTools: Set<String> = emptySet(),
     private val skipTools: Set<String> = emptySet()
 ) {
-    val client = McpTestClient.from(baseUrl, transport, bearerToken)
-
     suspend fun run() = client.use {
         logger.newLine()
         logger.newLine()
@@ -46,6 +41,7 @@ class McpAutoTest(
                 executionResults.add(result)
             }
 
+        client.ensureConnected()
         McpConsoleReport(executionResults.asSequence()).generate()
         McpJsonReport(executionResults).generate()
         return@use if (executionResults.none { it.result.isSuccess() }) FAILURE_EXIT_CODE else SUCCESS_EXIT_CODE
