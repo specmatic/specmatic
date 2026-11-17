@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonValue
+import io.specmatic.core.pattern.ContractException
 import java.io.File
 
 enum class McpTransport(private val value: String) {
@@ -36,6 +37,18 @@ data class McpTestConfiguration(
     val env: Map<String, String> = emptyMap(),
     val workingDirectory: String? = null,
 ) {
+    fun ensureHttpOptionsAbsent() {
+        if (baseUrl != null || bearerToken != null) {
+            throw ContractException("mcp.test.baseUrl and mcp.test.bearerToken are only supported with the STREAMABLE_HTTP transport")
+        }
+    }
+
+    fun ensureStdioOptionsAbsent() {
+        if (command != null || args.isNotEmpty() || env.isNotEmpty() || workingDirectory != null) {
+            throw ContractException("mcp.test.command, mcp.test.args, mcp.test.workingDirectory and mcp.test.env require the STDIO transport")
+        }
+    }
+
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): McpTestConfiguration {
         return copy(
             dictionaryFile = dictionaryFile?.let { mapper.child("dictionaryFile").map(it, configDirectory) },

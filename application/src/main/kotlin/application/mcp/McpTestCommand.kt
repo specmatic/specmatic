@@ -88,6 +88,7 @@ open class McpTestCommand : Callable<Int> {
 
     private fun createStreamableHttpAutoTest(): McpAutoTest {
         stdio.ensureAbsent()
+        mcpConfig?.test?.takeIf { it.transportKind == McpTransport.STREAMABLE_HTTP }?.ensureStdioOptionsAbsent()
         return createStreamableHttpAutoTest(
             baseUrl = streamableHttp.effectiveBaseUrl(mcpConfig?.test),
             enableResiliency = effectiveEnableResiliency(),
@@ -100,7 +101,8 @@ open class McpTestCommand : Callable<Int> {
 
     private fun createStdioAutoTest(): McpAutoTest {
         val config = mcpConfig?.test?.takeIf { it.transportKind == McpTransport.STDIO }
-        streamableHttp.ensureAbsent(config)
+        config?.ensureHttpOptionsAbsent()
+        streamableHttp.ensureAbsent()
         val command = stdio.effectiveCommand(config)
         return McpAutoTest(
             client = McpStdioTestClient(
@@ -183,8 +185,8 @@ open class McpTestCommand : Callable<Int> {
         )
         var bearerToken: String? = null
 
-        fun ensureAbsent(config: McpTestConfiguration?) {
-            if (baseUrl != null || bearerToken != null || config?.baseUrl != null || config?.bearerToken != null) {
+        fun ensureAbsent() {
+            if (baseUrl != null || bearerToken != null) {
                 throw ContractException("--url and --bearer-token are only supported with the STREAMABLE_HTTP transport")
             }
         }

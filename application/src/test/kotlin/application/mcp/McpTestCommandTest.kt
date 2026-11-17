@@ -2,15 +2,12 @@ package application.mcp
 
 import io.mockk.coEvery
 import io.mockk.mockk
-import io.specmatic.core.config.McpTestConfiguration
 import io.specmatic.core.config.McpTransport
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.mcp.test.McpAutoTest
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -38,13 +35,42 @@ class McpTestCommandTest {
         assertThat(cmd.call()).isEqualTo(FAILURE_EXIT_CODE)
     }
 
-    @Test
-    fun `http options reject incompatible config for stdio`() {
-        val options = McpTestCommand.StreamableHttpOptions()
-        for (config in listOf(McpTestConfiguration(baseUrl = "http://localhost"), McpTestConfiguration(bearerToken = "token"))) {
-            assertThatThrownBy { options.ensureAbsent(config) }
-                .isInstanceOf(ContractException::class.java)
-                .hasMessage("--url and --bearer-token are only supported with the STREAMABLE_HTTP transport")
+    @ParameterizedTest
+    @ValueSource(ints = [2, 3])
+    fun `http transport rejects stdio fields in http config`(version: Int, @TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+                version: $version
+                mcp:
+                  test:
+                    baseUrl: http://localhost
+                    command: python
+            """.trimIndent())
+        }
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = McpTestCommandMock()
+            assertThat(cmd.call()).isEqualTo(FAILURE_EXIT_CODE)
+            assertThat(cmd.autoTestWasCreated).isFalse()
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [2, 3])
+    fun `http CLI override does not validate unused stdio config`(version: Int, @TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+                version: $version
+                mcp:
+                  test:
+                    transportKind: STDIO
+                    command: python
+            """.trimIndent())
+        }
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = McpTestCommandMock()
+            CommandLine(cmd).parseArgs("--transport-kind", "STREAMABLE_HTTP", "--url", "http://cli")
+            assertThat(cmd.call()).isZero()
+            assertThat(cmd.capturedBaseUrl).isEqualTo("http://cli")
         }
     }
 
