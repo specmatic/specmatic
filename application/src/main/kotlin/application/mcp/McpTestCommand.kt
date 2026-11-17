@@ -12,6 +12,7 @@ import io.specmatic.mcp.test.client.McpStreamableHttpTestClient
 import java.io.File
 import java.util.concurrent.Callable
 import kotlinx.coroutines.runBlocking
+import picocli.CommandLine.ArgGroup
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 
@@ -22,8 +23,11 @@ import picocli.CommandLine.Option
 )
 @Category("AI Assisted Contract Programming")
 open class McpTestCommand : Callable<Int> {
-    @Option(names = ["--url"], description = ["URL of the mcp server"], required = false)
-    var baseUrl: String? = null
+    @field:ArgGroup(exclusive = false, heading = "%nSTDIO transport options:%n")
+    var stdio = StdioOptions()
+
+    @field:ArgGroup(exclusive = false, heading = "%nStreamable HTTP transport options:%n")
+    var streamableHttp = StreamableHttpOptions()
 
     @Option(
         names = ["--transport-kind"],
@@ -31,18 +35,6 @@ open class McpTestCommand : Callable<Int> {
         required = false
     )
     var transportKind: McpTransport? = null
-
-    @Option(names = ["--command"], description = ["Executable that starts the stdio MCP server"])
-    var serverCommand: String? = null
-
-    @Option(names = ["--arg"], description = ["Argument to the stdio server executable. Repeat for each argument."])
-    var serverArgs: List<String>? = null
-
-    @Option(names = ["--working-directory"], description = ["Working directory of the stdio MCP server"])
-    var workingDirectory: File? = null
-
-    @Option(names = ["--env"], description = ["Environment override for the stdio server as NAME=VALUE. Repeat for each override."])
-    var serverEnvironment: Map<String, String> = emptyMap()
 
     @Option(
         names = ["--enable-resiliency-tests"],
@@ -56,12 +48,6 @@ open class McpTestCommand : Callable<Int> {
         description = ["Dictionary file path"],
     )
     var dictionaryFile: File? = null
-
-    @Option(
-        names = ["--bearer-token"],
-        description = ["Bearer Access Token"],
-    )
-    var bearerToken: String? = null
 
     @Option(
         names = ["--filter-tools"],
@@ -100,40 +86,28 @@ open class McpTestCommand : Callable<Int> {
         }
     }
 
-    private fun resolveStdioCommand(config: McpTestConfiguration?): String {
-        if (baseUrl != null || bearerToken != null || config?.baseUrl != null || config?.bearerToken != null) {
-            throw ContractException("--url and --bearer-token are only supported with the STREAMABLE_HTTP transport")
-        }
-        return (serverCommand ?: config?.command)?.takeIf { it.isNotBlank() }
-            ?: throw ContractException("Please provide the STDIO server executable through --command or mcp.test.command")
+    private fun createStreamableHttpAutoTest(): McpAutoTest {
+        stdio.ensureAbsent()
+        return createStreamableHttpAutoTest(
+            baseUrl = streamableHttp.effectiveBaseUrl(mcpConfig?.test),
+            enableResiliency = effectiveEnableResiliency(),
+            dictionaryFile = effectiveDictionaryFile(),
+            bearerToken = effectiveBearerToken(),
+            filterTools = effectiveFilterTools(),
+            skipTools = effectiveSkipTools()
+        )
     }
-
-    private fun resolveStreamableHttpBaseUrl(): String {
-        if (serverCommand != null || serverArgs != null || workingDirectory != null || serverEnvironment.isNotEmpty()) {
-            throw ContractException("--command, --arg, --working-directory and --env require the STDIO transport")
-        }
-        return baseUrl ?: mcpConfig?.test?.baseUrl
-            ?: throw ContractException("Please provide baseUrl through CLI arguments or Specmatic Config")
-    }
-
-    private fun createStreamableHttpAutoTest(): McpAutoTest = createStreamableHttpAutoTest(
-        baseUrl = resolveStreamableHttpBaseUrl(),
-        enableResiliency = effectiveEnableResiliency(),
-        dictionaryFile = effectiveDictionaryFile(),
-        bearerToken = effectiveBearerToken(),
-        filterTools = effectiveFilterTools(),
-        skipTools = effectiveSkipTools()
-    )
 
     private fun createStdioAutoTest(): McpAutoTest {
         val config = mcpConfig?.test?.takeIf { it.transportKind == McpTransport.STDIO }
-        val command = resolveStdioCommand(config)
+        streamableHttp.ensureAbsent(config)
+        val command = stdio.effectiveCommand(config)
         return McpAutoTest(
             client = McpStdioTestClient(
                 command = command,
-                args = serverArgs ?: config?.args.orEmpty(),
-                environment = config?.env.orEmpty() + serverEnvironment,
-                workingDirectory = workingDirectory ?: config?.workingDirectory?.let(::File)
+                args = stdio.serverArgs ?: config?.args.orEmpty(),
+                environment = config?.env.orEmpty() + stdio.serverEnvironment,
+                workingDirectory = stdio.workingDirectory ?: config?.workingDirectory?.let(::File)
             ),
             enableResiliency = effectiveEnableResiliency(),
             dictionaryFile = effectiveDictionaryFile(),
@@ -173,5 +147,50 @@ open class McpTestCommand : Callable<Int> {
 
     private fun effectiveEnableResiliency(): Boolean = enableResiliencyTests ?: mcpConfig?.test?.enableResiliencyTests ?: false
     private fun effectiveDictionaryFile(): File? = dictionaryFile ?: mcpConfig?.test?.getDictionaryIfExists()
-    private fun effectiveBearerToken(): String? = bearerToken ?: mcpConfig?.test?.bearerToken
+    private fun effectiveBearerToken(): String? = streamableHttp.bearerToken ?: mcpConfig?.test?.bearerToken
+
+    class StdioOptions {
+        @Option(names = ["--command"], description = ["Executable that starts the stdio MCP server"])
+        var serverCommand: String? = null
+
+        @Option(names = ["--arg"], description = ["Argument to the stdio server executable. Repeat for each argument."])
+        var serverArgs: List<String>? = null
+
+        @Option(names = ["--working-directory"], description = ["Working directory of the stdio MCP server"])
+        var workingDirectory: File? = null
+
+        @Option(names = ["--env"], description = ["Environment override for the stdio server as NAME=VALUE. Repeat for each override."])
+        var serverEnvironment: Map<String, String> = emptyMap()
+
+        fun ensureAbsent() {
+            if (serverCommand != null || serverArgs != null || workingDirectory != null || serverEnvironment.isNotEmpty()) {
+                throw ContractException("--command, --arg, --working-directory and --env require the STDIO transport")
+            }
+        }
+
+        fun effectiveCommand(config: McpTestConfiguration?): String =
+            (serverCommand ?: config?.command)?.takeIf { it.isNotBlank() }
+                ?: throw ContractException("Please provide the STDIO server executable through --command or mcp.test.command")
+    }
+
+    class StreamableHttpOptions {
+        @Option(names = ["--url"], description = ["URL of the mcp server"], required = false)
+        var baseUrl: String? = null
+
+        @Option(
+            names = ["--bearer-token"],
+            description = ["Bearer Access Token"],
+        )
+        var bearerToken: String? = null
+
+        fun ensureAbsent(config: McpTestConfiguration?) {
+            if (baseUrl != null || bearerToken != null || config?.baseUrl != null || config?.bearerToken != null) {
+                throw ContractException("--url and --bearer-token are only supported with the STREAMABLE_HTTP transport")
+            }
+        }
+
+        fun effectiveBaseUrl(config: McpTestConfiguration?): String =
+            baseUrl ?: config?.baseUrl
+                ?: throw ContractException("Please provide baseUrl through CLI arguments or Specmatic Config")
+    }
 }

@@ -2,27 +2,99 @@ package application.mcp
 
 import io.mockk.coEvery
 import io.mockk.mockk
+import io.specmatic.core.config.McpTestConfiguration
 import io.specmatic.core.config.McpTransport
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.mcp.test.McpAutoTest
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
+import picocli.CommandLine
 
 class McpTestCommandTest {
+    @ParameterizedTest
+    @ValueSource(strings = ["--command=python", "--arg=server", "--working-directory=server", "--env=MODE=test"])
+    fun `http transport rejects stdio options`(option: String) {
+        val cmd = McpTestCommandMock()
+        CommandLine(cmd).parseArgs("--transport-kind", "STREAMABLE_HTTP", "--url", "http://localhost", option)
+
+        assertThat(cmd.call()).isEqualTo(FAILURE_EXIT_CODE)
+        assertThat(cmd.autoTestWasCreated).isFalse()
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["--url=http://localhost", "--bearer-token=token"])
+    fun `stdio transport rejects http options`(option: String) {
+        val cmd = McpTestCommand()
+        CommandLine(cmd).parseArgs("--transport-kind", "STDIO", "--command", "unused", option)
+
+        assertThat(cmd.call()).isEqualTo(FAILURE_EXIT_CODE)
+    }
+
+    @Test
+    fun `http options reject incompatible config for stdio`() {
+        val options = McpTestCommand.StreamableHttpOptions()
+        for (config in listOf(McpTestConfiguration(baseUrl = "http://localhost"), McpTestConfiguration(bearerToken = "token"))) {
+            assertThatThrownBy { options.ensureAbsent(config) }
+                .isInstanceOf(ContractException::class.java)
+                .hasMessage("--url and --bearer-token are only supported with the STREAMABLE_HTTP transport")
+        }
+    }
+
+    @Test
+    fun `stdio options parse together including repeated arguments and environment overrides`() {
+        val cmd = McpTestCommand()
+        CommandLine(cmd).parseArgs(
+            "--transport-kind", "STDIO", "--command", "python",
+            "--arg=-m", "--arg=server", "--working-directory", "server files",
+            "--env", "MODE=test", "--env", "DEBUG=true"
+        )
+
+        assertThat(cmd.stdio.serverCommand).isEqualTo("python")
+        assertThat(cmd.stdio.serverArgs).containsExactly("-m", "server")
+        assertThat(cmd.stdio.workingDirectory).isEqualTo(File("server files"))
+        assertThat(cmd.stdio.serverEnvironment).containsEntry("MODE", "test").containsEntry("DEBUG", "true")
+    }
+
+    @Test
+    fun `http options parse together`() {
+        val cmd = McpTestCommand()
+        CommandLine(cmd).parseArgs("--url", "http://localhost:8080", "--bearer-token", "token")
+
+        assertThat(cmd.streamableHttp.baseUrl).isEqualTo("http://localhost:8080")
+        assertThat(cmd.streamableHttp.bearerToken).isEqualTo("token")
+    }
+
+    @Test
+    fun `partial http group allows config to supply url`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nmcp:\n  test:\n    baseUrl: http://config-url:8080\n")
+        }
+        Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val cmd = McpTestCommandMock()
+            CommandLine(cmd).parseArgs("--bearer-token", "cli-token")
+
+            assertThat(cmd.call()).isZero()
+            assertThat(cmd.capturedBaseUrl).isEqualTo("http://config-url:8080")
+            assertThat(cmd.capturedBearerToken).isEqualTo("cli-token")
+        }
+    }
+
     @Test
     fun `cli arguments are passed correctly to McpAutoTest`(@TempDir tempDir: File) {
         val cmd = McpTestCommandMock().apply {
-            baseUrl = "http://localhost:8080"
+            streamableHttp.baseUrl = "http://localhost:8080"
             transportKind = McpTransport.STREAMABLE_HTTP
             enableResiliencyTests = true
             dictionaryFile = tempDir.resolve("dict.json")
-            bearerToken = "token123"
+            streamableHttp.bearerToken = "token123"
             filterTools = listOf("toolA", "toolB")
             skipTools = listOf("toolC")
         }
@@ -104,7 +176,7 @@ class McpTestCommandTest {
     @Test
     fun `cli only works without mcp config`(@TempDir tempDir: File) {
         val cmd = McpTestCommandMock().apply {
-            baseUrl = "http://cli-only"
+            streamableHttp.baseUrl = "http://cli-only"
             transportKind = McpTransport.STREAMABLE_HTTP
         }
 
@@ -131,7 +203,7 @@ class McpTestCommandTest {
     @Test
     fun `call fails when transport kind is absent from cli and config`() {
         val cmd = McpTestCommandMock().apply {
-            baseUrl = "http://localhost:8080"
+            streamableHttp.baseUrl = "http://localhost:8080"
         }
 
         val exitCode = cmd.call()
