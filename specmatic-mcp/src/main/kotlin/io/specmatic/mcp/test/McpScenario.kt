@@ -157,6 +157,7 @@ data class McpScenario(
         return inputPattern.negativeBasedOn(
             Row(), resolver,
         ).mapNotNull { newInputPattern -> scenarioWith(newInputPattern, isNegative = true) }
+            .filterNot { inputPattern.encompasses(it.inputPattern, resolver, resolver).isSuccess() }
     }
 
     private fun scenarioWith(newInputPattern: ReturnValue<Pattern>, isNegative: Boolean = false): McpScenario? {

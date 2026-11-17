@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: MCP smoke test API
+  version: 1.0.0
+paths:
+  /echo:
+    get:
+      parameters:
+        - in: query
+          name: value
+          required: true
+          schema:
+            type: integer
+          examples:
+            echo:
+              value: 42
+      responses:
+        '200':
+          description: Echoed integer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [value]
+                properties:
+                  value:
+                    type: integer
+              examples:
+                echo:
+                  value:
+                    value: 42
+        '400':
+          description: Missing or invalid integer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string

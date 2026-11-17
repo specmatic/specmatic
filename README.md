@@ -32,6 +32,18 @@ Specmatic starts the server for the test run and closes its stdin during shutdow
 
 For a config-driven run, set `mcp.test.transportKind` to `STDIO` and `mcp.test.command` to the executable. The default transport for `mcp.test` is `STREAMABLE_HTTP`. Optional stdio fields are `args`, `env`, and `workingDirectory`. A relative `workingDirectory` is resolved from the configuration file.
 
+### Test Specmatic's MCP server locally
+
+Run the Kotlin end-to-end test from the repository root with Java and Git available.
+
+```bash
+./gradlew :specmatic-executable:test --tests 'application.mcp.SpecmaticMcpAutoTest'
+```
+
+The tests launch the compiled CLI and MCP server as separate processes, run a functional scenario for each of the five tools, and run MCP Auto Test with `--enable-resiliency-tests`. They use a local HTTP fixture and a temporary Git repository. A mock lifecycle test starts a mock over MCP, checks that an HTTP request returns the contract example, stops the mock, and verifies that it disappears from the inventory and releases its port. JUnit retains the temporary files on failure.
+
+To test a different server build, pass `-PspecmaticMcpServerJar=/path/to/specmatic.jar` to the same Gradle command.
+
 ## Specmatic Tests Orchestrator
 
 The existing **Java Build with Gradle** workflow triggers [`specmatic/specmatic-tests-orchestrator`](https://github.com/specmatic/specmatic-tests-orchestrator) after the snapshot publish step on `main`. It can also be run manually from the same workflow.

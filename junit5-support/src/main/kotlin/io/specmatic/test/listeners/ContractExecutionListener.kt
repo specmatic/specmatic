@@ -23,8 +23,6 @@ fun getContractExecutionPrinter(): ContractExecutionPrinter {
 
 private fun colorIsRequested() = System.getenv("SPECMATIC_COLOR") == "1"
 
-private fun stdOutIsRedirected() = System.console() == null
-
 class ContractExecutionListener : TestExecutionListener {
     private val success = AtomicInteger(0)
     private val failure = AtomicInteger(0)
@@ -119,8 +117,6 @@ class ContractExecutionListener : TestExecutionListener {
     }
 
     override fun testPlanExecutionFinished(testPlan: TestPlan?) {
-        org.fusesource.jansi.AnsiConsole.systemInstall()
-
         println()
 
         val exceptionSnapshot = synchronized(exceptionsThrown) { exceptionsThrown.toList() }

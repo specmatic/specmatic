@@ -62,6 +62,23 @@ val junit5SystemExitArgumentProvider = objects.newInstance<JUnit5SystemExitArgum
     runtimeClasspath.from(configurations.getByName("testRuntimeClasspath"))
 }
 
+abstract class SpecmaticRuntimeClasspathArgumentProvider : CommandLineArgumentProvider {
+    @get:Classpath
+    abstract val runtimeClasspath: ConfigurableFileCollection
+
+    override fun asArguments() = listOf("-Dspecmatic.mcp.runtimeClasspath=${runtimeClasspath.asPath}")
+}
+
+val specmaticRuntimeClasspathArgumentProvider = objects.newInstance<SpecmaticRuntimeClasspathArgumentProvider>().apply {
+    runtimeClasspath.from(sourceSets.main.get().runtimeClasspath)
+}
+
 tasks.test {
     jvmArgumentProviders.add(junit5SystemExitArgumentProvider)
+    jvmArgumentProviders.add(specmaticRuntimeClasspathArgumentProvider)
+    providers.gradleProperty("specmaticMcpServerJar").orNull?.let { path ->
+        val serverJar = rootProject.file(path)
+        inputs.file(serverJar)
+        systemProperty("specmatic.mcp.serverJar", serverJar.absolutePath)
+    }
 }

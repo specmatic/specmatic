@@ -6,6 +6,10 @@ import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.launcher.TestIdentifier
 
 class ColorPrinter(private val out: PrintStream = System.out): ContractExecutionPrinter {
+    init {
+        org.fusesource.jansi.AnsiConsole.systemInstall()
+    }
+
     override fun printFinalSummary(testSummary: TestSummary) {
         val (_, partialSuccesses, aborted) = testSummary
 
