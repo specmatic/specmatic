@@ -40,7 +40,8 @@ fun urlToQueryParams(uri: URI): Map<String, String> {
 
 data class HttpRequestMetadata(
     val securityHeaderNames: Set<String> = emptySet(),
-    val securityQueryParamNames: Set<String> = emptySet()
+    val securityQueryParamNames: Set<String> = emptySet(),
+    val decodedGzipBodyLength: Long? = null
 )
 
 data class HttpRequest(

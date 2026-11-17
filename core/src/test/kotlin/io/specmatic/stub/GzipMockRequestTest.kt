@@ -26,8 +26,8 @@ import java.util.zip.GZIPOutputStream
 
 internal class GzipMockRequestTest {
     @Test
-    fun `gzip encoded JSON matches its request schema`() {
-        withMock("application/json") { stub ->
+    fun `decoded JSON matches alongside its original gzip headers`() {
+        withMock("application/json", requireGzipHeader = true) { stub ->
             val response = sendGzip(stub, "application/json", gzip("""{"name":"Jane"}"""))
             assertThat(response.statusCode()).withFailMessage(response.body()).isEqualTo(204)
         }
@@ -138,8 +138,9 @@ internal class GzipMockRequestTest {
         }
     }
 
-    @Test
-    fun `pass-through frames the body after a request adapter changes it`() {
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `pass-through frames the decoded body`(useAdapter: Boolean) {
         val upstream = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         upstream.createContext("/data") { exchange ->
             val body = exchange.requestBody.use { it.readBytes() }
@@ -155,22 +156,24 @@ internal class GzipMockRequestTest {
                 port = testPort(),
                 passThroughTargetBase = "http://127.0.0.1:${upstream.address.port}"
             ).use { stub ->
-                stub.registerRequestInterceptor(object : RequestInterceptor {
-                    override val name = "replace report body"
+                if (useAdapter) {
+                    stub.registerRequestInterceptor(object : RequestInterceptor {
+                        override val name = "replace report body"
 
-                override fun interceptRequest(httpRequest: SpecmaticRequest): SpecmaticRequest = httpRequest.copy(
-                    body = parsedJSON("""{"name":"Jane Doe"}"""),
-                    headers = httpRequest.headers.filterKeys {
-                        !it.equals("content-encoding", ignoreCase = true) &&
-                            !it.equals("content-length", ignoreCase = true)
-                    },
-                )
-                })
+                        override fun interceptRequest(httpRequest: SpecmaticRequest): SpecmaticRequest = httpRequest.copy(
+                            body = parsedJSON("""{"name":"Jane Doe"}"""),
+                            headers = httpRequest.headers.filterKeys {
+                                !it.equals("content-encoding", ignoreCase = true) &&
+                                    !it.equals("content-length", ignoreCase = true)
+                            },
+                        )
+                    })
+                }
                 val response = sendGzip(stub, "application/json", gzip("""{"name":"Jane"}"""))
 
                 assertThat(response.statusCode()).isEqualTo(200)
-                assertThat(io.specmatic.core.pattern.parsedJSON(response.body()))
-                    .isEqualTo(io.specmatic.core.pattern.parsedJSON("""{"name":"Jane Doe"}"""))
+                val expectedName = if (useAdapter) "Jane Doe" else "Jane"
+                assertThat(parsedJSON(response.body())).isEqualTo(parsedJSON("""{"name":"$expectedName"}"""))
                 assertThat(response.headers().firstValue("X-Upstream-Encoding")).hasValue("absent")
                 assertThat(response.headers().firstValue("X-Upstream-Length"))
                     .hasValue(response.body().toByteArray(Charsets.UTF_8).size.toString())
@@ -189,8 +192,18 @@ internal class GzipMockRequestTest {
               name:
                 type: string
         """.trimIndent(),
+        requireGzipHeader: Boolean = false,
         test: (HttpStub) -> Unit
     ) {
+        val gzipHeaderParameter = if (requireGzipHeader) """
+            parameters:
+              - in: header
+                name: Content-Encoding
+                required: true
+                schema:
+                  type: string
+                  enum: [gzip]
+        """.trimIndent().prependIndent("      ") else ""
         val feature = OpenApiSpecification.fromYAML(
             """
             openapi: 3.0.3
@@ -208,7 +221,9 @@ internal class GzipMockRequestTest {
                   responses:
                     '204':
                       description: Accepted
-            """.trimIndent().replace("            schema:", "            schema:\n" + requestSchema.prependIndent("              ")), ""
+            """.trimIndent()
+                .replace("      requestBody:", "$gzipHeaderParameter\n      requestBody:")
+                .replace("            schema:", "            schema:\n" + requestSchema.prependIndent("              ")), ""
         ).toFeature()
 
         HttpStub(feature, port = testPort()).use(test)

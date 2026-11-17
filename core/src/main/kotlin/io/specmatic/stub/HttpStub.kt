@@ -1495,7 +1495,15 @@ fun passThroughResponse(
     passThroughUrl: String,
     httpClientFactory: HttpClientFactory
 ): HttpStubResponse {
-    val response = httpClientFactory.client(passThroughUrl).execute(httpRequest)
+    val forwardRequest = httpRequest.metadata.decodedGzipBodyLength?.let { decodedLength ->
+        val headers = httpRequest.headers
+            .filterKeys { !it.equals(HttpHeaders.ContentEncoding, ignoreCase = true) }
+            .mapValues { (name, value) ->
+                if (name.equals(HttpHeaders.ContentLength, ignoreCase = true)) decodedLength.toString() else value
+            }
+        httpRequest.copy(headers = headers)
+    } ?: httpRequest
+    val response = httpClientFactory.client(passThroughUrl).execute(forwardRequest)
     return HttpStubResponse(response.copy(headers = response.headers.plus(SPECMATIC_SOURCE_HEADER to "proxy")))
 }
 

@@ -5,6 +5,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.ApplicationRequest
 import io.ktor.util.appendFiltered
+import io.ktor.util.toMap
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.discard
 import io.ktor.utils.io.jvm.javaio.toInputStream
@@ -50,11 +51,14 @@ internal suspend fun mockHttpRequest(call: ApplicationCall): HttpRequest {
                 // Multipart parsing can finish at its closing boundary before the gzip stream ends.
                 decoded.discard()
                 decoded.closedCause?.let { throw it }
-                if (HttpHeaders.ContentLength in call.request.headers) {
-                    request.updateHeader(HttpHeaders.ContentLength, decoded.totalBytesRead.toString())
-                } else {
-                    request
-                }
+                val wireHeaders = call.request.headers.toMap().filterKeys { name ->
+                    name.equals(HttpHeaders.ContentEncoding, ignoreCase = true) ||
+                        name.equals(HttpHeaders.ContentLength, ignoreCase = true)
+                }.mapValues { (_, values) -> values.first() }
+                request.copy(
+                    headers = request.headers + wireHeaders,
+                    metadata = request.metadata.copy(decodedGzipBodyLength = decoded.totalBytesRead),
+                )
             } finally {
                 decoded.cancel(null)
             }
