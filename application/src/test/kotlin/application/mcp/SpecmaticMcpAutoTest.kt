@@ -232,8 +232,9 @@ class SpecmaticMcpAutoTest {
         val process = ProcessBuilder(command).directory(directory).redirectErrorStream(true).redirectOutput(log).start()
         try {
             assertThat(process.waitFor(timeoutSeconds, TimeUnit.SECONDS))
-                .describedAs("Process timed out. See %s", log).isTrue()
-            assertThat(process.exitValue()).describedAs("Process failed. See %s", log).isZero()
+                .withFailMessage { "Process timed out after ${timeoutSeconds}s. See $log:\n${log.readText()}" }.isTrue()
+            assertThat(process.exitValue())
+                .withFailMessage { "Process exited with status ${process.exitValue()}. See $log:\n${log.readText()}" }.isZero()
         } finally {
             if (process.isAlive) {
                 process.descendants().forEach { it.destroyForcibly() }
