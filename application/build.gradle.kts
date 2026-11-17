@@ -74,6 +74,7 @@ val specmaticRuntimeClasspathArgumentProvider = objects.newInstance<SpecmaticRun
 }
 
 tasks.test {
+    inputs.property("specmaticMcpE2eEnabled", providers.environmentVariable("SPECMATIC_MCP_E2E_ENABLED").orElse("true"))
     jvmArgumentProviders.add(junit5SystemExitArgumentProvider)
     jvmArgumentProviders.add(specmaticRuntimeClasspathArgumentProvider)
     providers.gradleProperty("specmaticMcpServerJar").orNull?.let { path ->

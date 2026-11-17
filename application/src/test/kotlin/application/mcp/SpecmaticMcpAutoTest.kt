@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable
 import org.junit.jupiter.api.io.CleanupMode
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -24,6 +25,7 @@ import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+@DisabledIfEnvironmentVariable(named = "SPECMATIC_MCP_E2E_ENABLED", matches = "false")
 class SpecmaticMcpAutoTest {
     private val mapper = ObjectMapper()
     private val javaExecutable = ProcessHandle.current().info().command().orElseThrow()
