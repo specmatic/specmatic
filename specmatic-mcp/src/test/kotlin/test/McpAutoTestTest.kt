@@ -3,9 +3,9 @@ package test
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.config.McpTransport
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.mcp.test.McpAutoTest
+import io.specmatic.mcp.test.client.McpStreamableHttpTestClient
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
@@ -18,8 +18,7 @@ class McpAutoTestTest {
     @Disabled("This is a utility test")
     fun `should run the auto test`() {
         val autoTest = McpAutoTest(
-            baseUrl = "https://huggingface.co/mcp",
-            transport = McpTransport.STREAMABLE_HTTP,
+            client = McpStreamableHttpTestClient("https://huggingface.co/mcp"),
             enableResiliency = true,
             dictionaryFile = File("src/test/resources/hugging_face_dicts/simple_dict.json")
         )

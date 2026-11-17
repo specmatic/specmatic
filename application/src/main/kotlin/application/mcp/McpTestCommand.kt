@@ -1,11 +1,14 @@
 package application.mcp
 
+import io.specmatic.core.config.McpTestConfiguration
 import io.specmatic.core.config.McpTransport
 import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mcp.test.McpAutoTest
+import io.specmatic.mcp.test.client.McpStdioTestClient
+import io.specmatic.mcp.test.client.McpStreamableHttpTestClient
 import java.io.File
 import java.util.concurrent.Callable
 import kotlinx.coroutines.runBlocking
@@ -28,6 +31,18 @@ open class McpTestCommand : Callable<Int> {
         required = false
     )
     var transportKind: McpTransport? = null
+
+    @Option(names = ["--command"], description = ["Executable that starts the stdio MCP server"])
+    var serverCommand: String? = null
+
+    @Option(names = ["--arg"], description = ["Argument to the stdio server executable. Repeat for each argument."])
+    var serverArgs: List<String>? = null
+
+    @Option(names = ["--working-directory"], description = ["Working directory of the stdio MCP server"])
+    var workingDirectory: File? = null
+
+    @Option(names = ["--env"], description = ["Environment override for the stdio server as NAME=VALUE. Repeat for each override."])
+    var serverEnvironment: Map<String, String> = emptyMap()
 
     @Option(
         names = ["--enable-resiliency-tests"],
@@ -74,47 +89,77 @@ open class McpTestCommand : Callable<Int> {
     override fun call(): Int {
         McpBaseCommand.configureLogger(verbose)
         try {
-            val exitCode: Int = runBlocking {
-                createAutoTest(
-                    baseUrl = effectiveBaseUrl(),
-                    transport = effectiveTransport(),
-                    enableResiliency = effectiveEnableResiliency(),
-                    dictionaryFile = effectiveDictionaryFile(),
-                    bearerToken = effectiveBearerToken(),
-                    filterTools = effectiveFilterTools(),
-                    skipTools = effectiveSkipTools()
-                ).run()
+            val autoTest = when (effectiveTransport()) {
+                McpTransport.STDIO -> createStdioAutoTest()
+                McpTransport.STREAMABLE_HTTP -> createStreamableHttpAutoTest()
             }
-            return exitCode
+            return runBlocking { autoTest.run() }
         } catch (e: Throwable) {
             e.printStackTrace()
             return FAILURE_EXIT_CODE
         }
     }
 
-    protected open fun createAutoTest(
+    private fun resolveStdioCommand(config: McpTestConfiguration?): String {
+        if (baseUrl != null || bearerToken != null || config?.baseUrl != null || config?.bearerToken != null) {
+            throw ContractException("--url and --bearer-token are only supported with the STREAMABLE_HTTP transport")
+        }
+        return (serverCommand ?: config?.command)?.takeIf { it.isNotBlank() }
+            ?: throw ContractException("Please provide the STDIO server executable through --command or mcp.test.command")
+    }
+
+    private fun resolveStreamableHttpBaseUrl(): String {
+        if (serverCommand != null || serverArgs != null || workingDirectory != null || serverEnvironment.isNotEmpty()) {
+            throw ContractException("--command, --arg, --working-directory and --env require the STDIO transport")
+        }
+        return baseUrl ?: mcpConfig?.test?.baseUrl
+            ?: throw ContractException("Please provide baseUrl through CLI arguments or Specmatic Config")
+    }
+
+    private fun createStreamableHttpAutoTest(): McpAutoTest = createStreamableHttpAutoTest(
+        baseUrl = resolveStreamableHttpBaseUrl(),
+        enableResiliency = effectiveEnableResiliency(),
+        dictionaryFile = effectiveDictionaryFile(),
+        bearerToken = effectiveBearerToken(),
+        filterTools = effectiveFilterTools(),
+        skipTools = effectiveSkipTools()
+    )
+
+    private fun createStdioAutoTest(): McpAutoTest {
+        val config = mcpConfig?.test?.takeIf { it.transportKind == McpTransport.STDIO }
+        val command = resolveStdioCommand(config)
+        return McpAutoTest(
+            client = McpStdioTestClient(
+                command = command,
+                args = serverArgs ?: config?.args.orEmpty(),
+                environment = config?.env.orEmpty() + serverEnvironment,
+                workingDirectory = workingDirectory ?: config?.workingDirectory?.let(::File)
+            ),
+            enableResiliency = effectiveEnableResiliency(),
+            dictionaryFile = effectiveDictionaryFile(),
+            filterTools = effectiveFilterTools(),
+            skipTools = effectiveSkipTools()
+        )
+    }
+
+    protected open fun createStreamableHttpAutoTest(
         baseUrl: String,
-        transport: McpTransport,
         enableResiliency: Boolean,
         dictionaryFile: File?,
         bearerToken: String?,
         filterTools: Set<String>,
         skipTools: Set<String>
-    ): McpAutoTest = McpAutoTest(baseUrl, transport, enableResiliency, dictionaryFile, bearerToken, filterTools, skipTools)
+    ): McpAutoTest = McpAutoTest(
+        client = McpStreamableHttpTestClient(baseUrl, bearerToken),
+        enableResiliency = enableResiliency,
+        dictionaryFile = dictionaryFile,
+        filterTools = filterTools,
+        skipTools = skipTools
+    )
 
-    private fun effectiveTransport(): McpTransport {
-        val config = mcpConfig
-        if (transportKind != null) return transportKind as McpTransport
-        if (config?.test?.transportKind != null) return config.test.transportKind as McpTransport
-        throw ContractException("Please provide transportKind through CLI arguments or Specmatic Config")
-    }
-
-    private fun effectiveBaseUrl(): String {
-        val config = mcpConfig
-        if (baseUrl != null) return baseUrl as String
-        if (config?.test?.baseUrl != null) return config.test.baseUrl
-        throw ContractException("Please provide baseUrl through CLI arguments or Specmatic Config")
-    }
+    private fun effectiveTransport(): McpTransport =
+        transportKind ?: mcpConfig?.test?.transportKind
+        ?: throw ContractException("Please provide transportKind through CLI arguments or Specmatic Config")
 
     private fun effectiveFilterTools(): Set<String> = buildSet {
         mcpConfig?.test?.filterTools?.let { addAll(it) }

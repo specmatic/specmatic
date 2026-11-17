@@ -20,9 +20,11 @@ import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.mcp.constants.SchemaType
+import io.specmatic.mcp.test.client.McpStdioConnectionException
 import io.specmatic.mcp.test.client.McpTestClient
 import io.specmatic.mcp.test.client.model.JsonRpcResponse
 import io.specmatic.mcp.test.client.model.Tool
+import kotlinx.coroutines.CancellationException
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class ToolResponse(
@@ -67,7 +69,8 @@ data class McpScenario(
                 toolName = toolName,
                 arguments = arguments,
             )
-        } catch(e: Throwable) {
+        } catch (e: Throwable) {
+            if (e is CancellationException || e is McpStdioConnectionException) throw e
             return ScenarioExecutionResult(
                 name = name,
                 toolName = toolName,

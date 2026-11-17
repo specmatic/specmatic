@@ -1052,9 +1052,25 @@
       "description": "MCP endpoint, canonical transport, tool filters, authentication, and resiliency settings.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "baseUrl"
-      ],
+      "if": {
+        "required": ["transportKind"],
+        "properties": { "transportKind": { "const": "STDIO" } }
+      },
+      "then": {
+        "required": ["command"],
+        "not": { "anyOf": [{ "required": ["baseUrl"] }, { "required": ["bearerToken"] }] }
+      },
+      "else": {
+        "required": ["baseUrl"],
+        "not": {
+          "anyOf": [
+            { "required": ["command"] },
+            { "required": ["args"] },
+            { "required": ["env"] },
+            { "required": ["workingDirectory"] }
+          ]
+        }
+      },
       "properties": {
         "baseUrl": {
           "type": "string",
@@ -1068,10 +1084,31 @@
         "transportKind": {
           "type": "string",
           "title": "MCP transport",
+          "default": "STREAMABLE_HTTP",
           "description": "Canonical MCP transport. Parser tolerance for alternate spellings is not part of the resolved language.",
           "enum": [
-            "STREAMABLE_HTTP"
+            "STREAMABLE_HTTP",
+            "STDIO"
           ]
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Executable that starts the stdio MCP server."
+        },
+        "args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Arguments passed individually to the stdio server executable."
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Environment overrides for the stdio server process."
+        },
+        "workingDirectory": {
+          "type": "string",
+          "description": "Working directory of the stdio server, relative to the configuration file."
         },
         "enableResiliencyTests": {
           "type": "boolean",
