@@ -1,6 +1,5 @@
 .idea/*
 dependency-reduced-pom.xml
-/buildSrc/
 *.iml
 target/*
 .DS_Store
@@ -26,3 +25,7 @@ gen-resources/
 settings.local.json
 /temp
 .gemini
+
+# Generated Gradle buildSrc files
+/buildSrc/.gradle/
+/buildSrc/build/

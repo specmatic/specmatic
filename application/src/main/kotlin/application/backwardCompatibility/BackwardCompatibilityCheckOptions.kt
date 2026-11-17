@@ -17,7 +17,7 @@ class BackwardCompatibilityCheckOptions {
 
     @Option(
         names = ["--target-path"],
-        description = ["Specify the file or directory to limit the backward compatibility check scope. If omitted, all changed files will be checked."],
+        description = ["Select changed files within a file or directory. If omitted, all changed files are considered.", "Specifications referring to the selected files may also be checked outside this path."],
         required = false
     )
     var targetPath: String? = null

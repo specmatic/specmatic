@@ -6,7 +6,7 @@ import io.modelcontextprotocol.server.McpServerFeatures
 import io.modelcontextprotocol.server.McpSyncServer
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider
 import io.modelcontextprotocol.spec.McpSchema
-import io.specmatic.specmatic.executable.VersionInfo
+import io.specmatic.specmatic.core.VersionInfo
 import java.io.InputStream
 import java.io.OutputStream
 import java.time.Duration

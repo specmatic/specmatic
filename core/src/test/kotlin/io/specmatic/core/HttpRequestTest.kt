@@ -8,6 +8,7 @@ import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import io.specmatic.core.pattern.*
 import io.specmatic.optionalPattern
 import io.ktor.client.request.*
@@ -27,6 +28,15 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 internal class HttpRequestTest {
+    @ParameterizedTest
+    @ValueSource(strings = ["Specmatic-Response-Code", "specmatic-response-code"])
+    fun `response code hint is read regardless of header casing`(header: String) {
+        val request = HttpRequest(method = "POST", headers = mapOf(header to "202"))
+
+        assertThat(request.expectedResponseCode()).isEqualTo(202)
+        assertThat(request.isRequestExpectingAcceptedResponse()).isTrue()
+    }
+
     @Test
     fun `loading a filename-only multipart example reads the referenced file`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val expectedBytes = byteArrayOf(1, 2, 3)

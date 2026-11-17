@@ -10,6 +10,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.FileAssociation
@@ -105,6 +106,9 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig?
+
+    @JsonIgnore
+    fun mockSpecDefinitionFor(file: File): SpecificationDefinition? = null
 
     @JsonIgnore
     fun getCtrfSpecConfig(
