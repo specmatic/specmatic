@@ -165,8 +165,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
         val specTypesToCheck = determineSpecTypeFor(specFile)
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(service, resolver, it) ?: return@firstNotNullOfOrNull null
-            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-            runOptionSpecOverride?.getServerOrigin("0.0.0.0") ?: runOptions.gerServerOrigin()
+            runOptions.getServerOrigin(specId)
         }
     }
 
@@ -192,8 +191,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                     val runOptions = getRunOptions(service, resolver, specType) ?: return@mapNotNull null
                     val runCert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
                     val specId = specDefinition.getSpecificationId()
-                    val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-                    val baseUrl = runOptionSpecOverride?.getServerOrigin("0.0.0.0") ?: runOptions.gerServerOrigin() ?: return@mapNotNull null
+                    val baseUrl = runOptions.getServerOrigin(specId) ?: return@mapNotNull null
                     Pair(baseUrl, runCert)
                 }
             }

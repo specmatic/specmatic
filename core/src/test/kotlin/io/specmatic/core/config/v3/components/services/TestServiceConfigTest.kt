@@ -13,16 +13,35 @@ import io.specmatic.core.config.v3.components.runOptions.WsdlRunOptionsSpecifica
 import io.specmatic.core.config.v3.components.runOptions.WsdlTestConfig
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.v3.spi.ProtocolConfigServerExtractor
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TestServiceConfigTest {
+    private var serverOriginExtractorRegistrations = emptyList<AutoCloseable>()
+
     private val resolver = object : RefOrValueResolver {
         override fun resolveRef(reference: String): Map<*, *> {
             error("Unexpected ref resolution in test: $reference")
         }
+    }
+
+    @BeforeAll
+    fun beforeAll() {
+        serverOriginExtractorRegistrations = serviceConfigServerOriginExtractors()
+            .map { ProtocolConfigServerExtractor.register(it) }
+    }
+
+    @AfterAll
+    fun afterAll() {
+        serverOriginExtractorRegistrations.asReversed().forEach(AutoCloseable::close)
+        serverOriginExtractorRegistrations = emptyList()
     }
 
     @Test
@@ -50,6 +69,48 @@ class TestServiceConfigTest {
         assertThat(sourceEntries).hasSize(1)
         assertThat(sourceEntries.single().host).isEqualTo("localhost")
         assertThat(sourceEntries.single().port).isEqualTo(8082)
+        assertThat(sourceEntries.single().baseUrl).isNull()
+    }
+
+    @Test
+    fun `getSpecificationSources should use wrapped in-memory server host and port for async test runOptions`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("contract.yaml").apply { writeText("asyncapi: 3.0.0") }
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val asyncApiTestConfig = AsyncApiTestConfig().apply {
+            put(
+                "servers",
+                listOf(
+                    mapOf(
+                        "server" to mapOf(
+                            "host" to "localhost:61616",
+                            "protocol" to "jms",
+                            "type" to "in-memory",
+                        )
+                    )
+                )
+            )
+        }
+
+        val serviceConfig = CommonServiceConfig<TestRunOptions, TestSettings>(
+            definitions = listOf(
+                Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(source),
+                        specs = listOf(SpecificationDefinition.StringValue(specFile.name))
+                    )
+                )
+            ),
+            runOptions = RefOrValue.Value(TestRunOptions(asyncapi = asyncApiTestConfig))
+        )
+
+        val sourceEntries = TestServiceConfig(service = RefOrValue.Value(serviceConfig))
+            .getSpecificationSources(resolver, testSettings = null)
+            .values
+            .flatten()
+
+        assertThat(sourceEntries).hasSize(1)
+        assertThat(sourceEntries.single().host).isEqualTo("localhost")
+        assertThat(sourceEntries.single().port).isEqualTo(61616)
         assertThat(sourceEntries.single().baseUrl).isNull()
     }
 

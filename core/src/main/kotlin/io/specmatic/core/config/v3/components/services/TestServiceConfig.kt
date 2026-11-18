@@ -156,8 +156,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
                 val runOptions = getRunOptions(resolver, specType) ?: return@mapNotNull null
                 val runCert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
                 val specId = specDefinition.getSpecificationId()
-                val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-                val baseUrl = runOptionSpecOverride?.getServerOrigin("localhost") ?: runOptions.gerServerOrigin() ?: return@mapNotNull null
+                val baseUrl = runOptions.getServerOrigin(specId) ?: return@mapNotNull null
                 Pair(baseUrl, runCert)
             }
         }
@@ -235,8 +234,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         val specTypesToCheck = determineSpecTypeFor(specFile)
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(resolver, it) ?: return@firstNotNullOfOrNull null
-            val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-            runOptionSpecOverride?.getServerOrigin("localhost") ?: runOptions.gerServerOrigin()
+            runOptions.getServerOrigin(specId)
         }
     }
 

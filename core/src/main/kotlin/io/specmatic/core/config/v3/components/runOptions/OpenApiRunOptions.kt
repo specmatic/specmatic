@@ -21,6 +21,16 @@ interface ConfigWithCert { val cert: RefOrValue<HttpsConfiguration>? }
 sealed interface OpenApiRunOptions : IRunOptions {
     val type: RunOptionType?
     override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): OpenApiRunOptions
+
+    @JsonIgnore
+    override fun getServerOrigin(specId: String?): ServerOrigin? {
+        val defaultHost = if (this is OpenApiTestConfig) "localhost" else "0.0.0.0"
+        val specOverride = specId?.let(::getMatchingSpecification) as? OpenApiRunOptionsSpecifications
+        return specOverride?.getServerOrigin(defaultHost) ?: when (this) {
+            is OpenApiTestConfig -> getServerOrigin()
+            is OpenApiMockConfig -> getServerOrigin()
+        }
+    }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
@@ -47,7 +57,7 @@ data class OpenApiTestConfig(
     )
 
     @JsonIgnore
-    override fun gerServerOrigin(): ServerOrigin? {
+    fun getServerOrigin(): ServerOrigin? {
         if (baseUrl != null) return ServerOrigin.from(baseUrl)
         if (port == null) return null
         return ServerOrigin.from("http", host ?: "localhost", port)
@@ -92,7 +102,7 @@ data class OpenApiMockConfig(
     )
 
     @JsonIgnore
-    override fun gerServerOrigin(): ServerOrigin? {
+    fun getServerOrigin(): ServerOrigin? {
         if (baseUrl != null) return ServerOrigin.from(baseUrl)
         if (port == null) return null
         val scheme = if (cert == null) "http" else "https"
