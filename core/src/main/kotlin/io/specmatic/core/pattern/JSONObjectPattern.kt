@@ -13,6 +13,9 @@ import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.*
 import java.util.Optional
 
+internal fun describePropertyCount(count: Int): String =
+    "$count ${if (count == 1) "property" else "properties"}"
+
 fun toJSONObjectPattern(jsonContent: String, typeAlias: String?): JSONObjectPattern =
     toJSONObjectPattern(stringToPatternMap(jsonContent), typeAlias)
 
@@ -239,12 +242,12 @@ data class JSONObjectPattern(
 
     private fun checkPropertyCount(count: Int, resolver: Resolver): Result = when {
         count < (minProperties ?: 0) -> constraintMismatchResult(
-            expected = "an object with at least $minProperties properties",
-            actual = "an object with $count properties", mismatchMessages = resolver.mismatchMessages
+            expected = "an object with at least ${describePropertyCount(minProperties ?: 0)}",
+            actual = "an object with ${describePropertyCount(count)}", mismatchMessages = resolver.mismatchMessages
         )
         count > (maxProperties ?: Int.MAX_VALUE) -> constraintMismatchResult(
-            expected = "an object with at most $maxProperties properties",
-            actual = "an object with $count properties", mismatchMessages = resolver.mismatchMessages
+            expected = "an object with at most ${describePropertyCount(maxProperties ?: Int.MAX_VALUE)}",
+            actual = "an object with ${describePropertyCount(count)}", mismatchMessages = resolver.mismatchMessages
         )
         else -> Result.Success()
     }
@@ -258,7 +261,7 @@ data class JSONObjectPattern(
         }
         if (maxProperties != null && selectedPattern.size > maxProperties)
             throw ContractException(
-                "Cannot select ${selectedPattern.size} properties because maxProperties is $maxProperties",
+                "Cannot select ${describePropertyCount(selectedPattern.size)} because maxProperties is $maxProperties",
                 ruleViolationReport = RuleViolationReport.from(StandardRuleViolation.CONSTRAINT_VIOLATION)
             )
 
@@ -388,8 +391,8 @@ data class JSONObjectPattern(
             if (older.minimumPropertyCount > newer.minimumPropertyCount)
                 Result.Failure(
                     message = mismatchMessages.mismatchMessage(
-                        expected = "an object with at least ${older.minimumPropertyCount} properties",
-                        actual = "an object with at least ${newer.minimumPropertyCount} properties"
+                        expected = "an object with at least ${describePropertyCount(older.minimumPropertyCount)}",
+                        actual = "an object with at least ${describePropertyCount(newer.minimumPropertyCount)}"
                     ),
                     ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
                 )
@@ -423,7 +426,7 @@ data class JSONObjectPattern(
     private val maximumPropertyCountDescription: String
         get() = when (maximumPropertyCount) {
             Int.MAX_VALUE -> "an object with no upper property count limit"
-            else -> "an object with at most $maximumPropertyCount properties"
+            else -> "an object with at most ${describePropertyCount(maximumPropertyCount)}"
         }
 
     override fun generateWithAll(resolver: Resolver): Value {
@@ -1048,7 +1051,7 @@ private fun selectPropertiesWithinMaxAndMin(
 ): Map<String, Pattern> {
     val withAtMostMaxProperties = selectAtMostMaxProperties(jsonPattern, maxProperties)
     if (minProperties != null && withAtMostMaxProperties.size < minProperties)
-        throw ContractException("Cannot generate a JSON object with at least $minProperties properties as there are only ${withAtMostMaxProperties.size} properties in the specification.")
+        throw ContractException("Cannot generate a JSON object with at least ${describePropertyCount(minProperties)} as the specification provides only ${describePropertyCount(withAtMostMaxProperties.size)}.")
 
     return withAtMostMaxProperties
 }
@@ -1060,7 +1063,7 @@ private fun selectAtMostMaxProperties(
 ) = if (maxProperties != null) {
     val mandatoryKeys = properties.keys.filter { !isOptional(it) }
     if (mandatoryKeys.size > maxProperties)
-        throw ContractException("Cannot generate a JSON object with at most $maxProperties properties as there are ${mandatoryKeys.size} mandatory properties in the specification.")
+        throw ContractException("Cannot generate a JSON object with at most ${describePropertyCount(maxProperties)} as the specification requires ${describePropertyCount(mandatoryKeys.size)}.")
 
     val optionalKeys = properties.keys.filter { isOptional(it) }
     val countOfOptionalKeysToPick = maxProperties - mandatoryKeys.size

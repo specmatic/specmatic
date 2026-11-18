@@ -8,6 +8,27 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
 internal class ObjectPropertyBoundsParseTest {
+    @ParameterizedTest
+    @CsvSource("0 | 0 properties", "1 | 1 property", "2 | 2 properties", delimiter = '|')
+    fun `closed capacity diagnostics use correct count grammar`(declaredCount: Int, expected: String) {
+        val properties = when (declaredCount) {
+            0 -> "{}"
+            1 -> "{ id: { type: string } }"
+            else -> "{ id: { type: string }, name: { type: string } }"
+        }
+        val schema = """
+type: object
+minProperties: 3
+maxProperties: 4
+additionalProperties: false
+properties: $properties
+        """.trimIndent()
+
+        val (_, diagnostics) = OpenApiSpecification.fromYAML(specificationWithObject(schema), "bounds.yaml").toFeatureLenient()
+
+        assertThat(diagnostics.reportString()).contains("declared capacity of $expected").doesNotContain("1 properties")
+    }
+
     @Test
     fun `conflicts in additional property schemas are reported at their nested field and recovered`() {
         val schema = """

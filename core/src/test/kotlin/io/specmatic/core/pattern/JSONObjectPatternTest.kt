@@ -422,7 +422,7 @@ internal class JSONObjectPatternTest {
             @ParameterizedTest
             @CsvSource(
                 value = [
-                    """min | 2 | {"id": 10} | This is an object with at least 2 properties in the new specification, but an object with 1 properties in the old specification""",
+                    """min | 2 | {"id": 10} | This is an object with at least 2 properties in the new specification, but an object with 1 property in the old specification""",
                     """max | 2 | {"id": 10, "name": "Jill", "address": "Baker street"} | This is an object with at most 2 properties in the new specification, but an object with 3 properties in the old specification"""
                 ],
                 delimiter = '|',

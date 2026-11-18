@@ -12,6 +12,29 @@ import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 
 internal class ObjectPropertyBoundsTest {
+    @ParameterizedTest
+    @CsvSource(
+        "min | 1 | {} | at least 1 property | with 0 properties",
+        "min | 2 | {\"a\":\"x\"} | at least 2 properties | with 1 property",
+        "max | 0 | {\"a\":\"x\"} | at most 0 properties | with 1 property",
+        "max | 1 | {\"a\":\"x\",\"b\":\"y\"} | at most 1 property | with 2 properties",
+        "max | 2 | {\"a\":\"x\",\"b\":\"y\",\"c\":\"z\"} | at most 2 properties | with 3 properties",
+        delimiter = '|'
+    )
+    fun `property count diagnostics use singular only for one`(
+        bound: String, limit: Int, json: String, expected: String, actual: String
+    ) {
+        val pattern = JSONObjectPattern(
+            minProperties = limit.takeIf { bound == "min" },
+            maxProperties = limit.takeIf { bound == "max" },
+            additionalProperties = AdditionalProperties.FreeForm
+        )
+
+        val result = pattern.matches(parsedJSONObject(json), Resolver())
+
+        assertThat(result.reportString()).contains(expected, actual).doesNotContain("1 properties")
+    }
+
     @Test
     fun `an omission policy that cannot meet the minimum still fails during generation`() {
         val original = JSONObjectPattern(
@@ -21,6 +44,7 @@ internal class ObjectPropertyBoundsTest {
         assertThatThrownBy { original.generate(Resolver().withOnlyMandatoryKeysInJSONObject()) }
             .isInstanceOf(ContractException::class.java)
             .hasMessageContaining("Cannot generate a JSON object with at least 2 properties")
+            .hasMessageContaining("the specification provides only 1 property")
     }
 
     @ParameterizedTest

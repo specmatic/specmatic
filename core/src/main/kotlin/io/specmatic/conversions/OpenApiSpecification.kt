@@ -3609,7 +3609,7 @@ class OpenApiSpecification(
                 ).violation {
                     OpenApiLintViolations.INVALID_MIN_PROPERTIES
                 }.message {
-                    "minProperties $nonNegativeMinimum cannot exceed the ${schemaProperties.size} declared properties when additional properties are not allowed"
+                    "minProperties $nonNegativeMinimum cannot exceed the declared capacity of ${describePropertyCount(schemaProperties.size)} when additional properties are not allowed"
                 }.orUse { schemaProperties.size }.build()
                 else -> nonNegativeMinimum
             }
