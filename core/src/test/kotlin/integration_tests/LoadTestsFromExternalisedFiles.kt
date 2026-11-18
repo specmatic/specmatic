@@ -12,6 +12,7 @@ import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.log.*
+import io.specmatic.core.pattern.HasFailure
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONArray
@@ -578,6 +579,143 @@ class LoadTestsFromExternalisedFiles {
 
         assertThat(results.successCount).isEqualTo(1)
         assertThat(results.failureCount).isEqualTo(0)
+    }
+
+    @ParameterizedTest
+    @CsvSource("400, 400", "422, 422", "422, default")
+    fun `only invalid request examples send undeclared query parameters`(
+        status: Int,
+        responseKey: String,
+        @TempDir exampleDir: File
+    ) {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Search API
+              version: 1.0.0
+            components:
+              securitySchemes:
+                queryKey:
+                  type: apiKey
+                  in: query
+                  name: apiKey
+            security:
+              - queryKey: []
+            paths:
+              /search:
+                get:
+                  parameters:
+                    - name: select
+                      in: query
+                      schema:
+                        type: string
+                  responses:
+                    '$responseKey':
+                      description: Invalid query
+        """.trimIndent()
+        exampleDir.resolve("invalid-query.json").writeText("""
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/search",
+                "query": {"select": "abc", "sort": "false", "probe?": "001", "apiKey": "example-key"}
+              },
+              "http-response": {"status": $status}
+            }
+        """.trimIndent())
+
+        val executor = object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.queryParams.paramPairs)
+                    .containsExactlyInAnyOrder(
+                        "select" to "abc", "sort" to "false", "probe?" to "001", "apiKey" to "example-key"
+                    )
+                return HttpResponse(status)
+            }
+        }
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val results = Flags.using(EXAMPLE_DIRECTORIES to exampleDir.canonicalPath) {
+            feature.loadExternalisedExamples().executeTests(executor)
+        }
+
+        assertThat(results.report(defaultMessage = "")).isEmpty()
+        assertThat(results.successCount).isEqualTo(1)
+        val singleResult = feature.createContractTestFromExampleFile(exampleDir.resolve("invalid-query.json").path)
+            .value.runTest(executor)
+        assertThat(singleResult.result.isSuccess()).isTrue()
+    }
+
+    @ParameterizedTest
+    @CsvSource("403, false, false, false", "403, true, false, true", "403, true, abc, false", "200, true, false, true")
+    fun `external examples outside invalid request statuses follow the query contract`(
+        status: Int,
+        allowsBooleanQueryKeys: Boolean,
+        sortValue: String,
+        shouldExecute: Boolean,
+        @TempDir exampleDir: File
+    ) {
+        val queryParameters = if (allowsBooleanQueryKeys) """
+                  parameters:
+                    - name: options
+                      in: query
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        additionalProperties:
+                          type: boolean
+        """.trimEnd() else ""
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Search API
+              version: 1.0.0
+            paths:
+              /search:
+                get:$queryParameters
+                  responses:
+                    '$status':
+                      description: Search response
+        """.trimIndent()
+        val exampleFile = exampleDir.resolve("forbidden.json")
+        exampleFile.writeText("""
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/search",
+                "query": {"sort": "$sortValue"}
+              },
+              "http-response": {"status": $status}
+            }
+        """.trimIndent())
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val executor = object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(shouldExecute).isTrue()
+                assertThat(request.queryParams.paramPairs).containsExactly("sort" to "false")
+                return HttpResponse(status)
+            }
+        }
+
+        val results = Flags.using(EXAMPLE_DIRECTORIES to exampleDir.canonicalPath) {
+            feature.loadExternalisedExamples().executeTests(executor)
+        }
+        val singleTest = feature.createContractTestFromExampleFile(exampleFile.path)
+
+        if (shouldExecute) {
+            assertThat(results.report(defaultMessage = "")).isEmpty()
+            assertThat(results.successCount).isEqualTo(1)
+            assertThat(singleTest.value.runTest(executor).result.isSuccess()).isTrue()
+        } else {
+            assertThat(results.successCount).isZero()
+            val singleReport = (singleTest as HasFailure).toFailure().reportString()
+            assertThat(results.report()).contains("QUERY.sort")
+            assertThat(singleReport).contains("QUERY.sort")
+            if (allowsBooleanQueryKeys) {
+                assertThat(results.report()).contains("boolean")
+                assertThat(singleReport).contains("boolean")
+            }
+        }
     }
 
     @Test

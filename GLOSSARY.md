@@ -47,6 +47,11 @@ A payload element declared directly in an XML Schema, identified by its declarat
 **Local element qualification**:
 Whether an element declared within a schema type belongs to its schema namespace or has no namespace. An explicit `form` setting takes precedence over that declaration's source schema default.
 
+## Contract test examples
+
+**Invalid-request example**:
+An external contract test example that expects HTTP 400 or 422. Its request can include query parameters outside those permitted by the operation.
+
 ## Backward compatibility
 
 **Discovery candidate**:

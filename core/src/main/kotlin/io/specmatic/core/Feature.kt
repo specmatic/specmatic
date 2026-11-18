@@ -974,8 +974,19 @@ data class Feature(
     fun createContractTestFromExampleFile(filePath: String): ReturnValue<ContractTest> {
         val example = ExampleFromFile(File(filePath))
         val isBadRequest = (example.responseStatus ?: 0) in invalidRequestStatuses
+        val exampleRow = example.toRow(specmaticConfig)
+        var queryFailure: Result.Failure? = null
 
         val originalScenario = scenarios.firstOrNull { scenario ->
+            if (!isBadRequest && scenario.matchesStatusAndContentType(example.response) &&
+                scenario.httpRequestPattern.exampleRequestBelongsToPattern(example.request, scenario.resolver)
+            ) {
+                val queryMatch = scenario.validateExternalExampleQuery(exampleRow, flagsBased)
+                if (queryMatch is Result.Failure) {
+                    queryFailure = queryFailure ?: queryMatch
+                    return@firstOrNull false
+                }
+            }
             val matchResult = scenario.matches(
                 httpRequest = example.request,
                 httpResponse = example.response,
@@ -984,9 +995,8 @@ data class Feature(
                 isPartial = example.isPartial()
             )
             matchResult.isSuccess() || (matchResult as Result.Failure).hasReason(FailureReason.URLPathParamMismatchButSameStructure) && isBadRequest
-        } ?: return HasFailure(Result.Failure("Could not find an API matching example $filePath"))
+        } ?: return HasFailure(queryFailure ?: Result.Failure("Could not find an API matching example $filePath"))
 
-        val exampleRow = example.toRow(specmaticConfig)
         return originalScenario.newBasedOn(exampleRow, flagsBased.withoutGenerativeTests()).map {
             it.ifHasValue { rValue ->
                 HasValue(scenarioAsTest(rValue.value, rValue.comments(), Workflow(), originalScenario, scenarios))

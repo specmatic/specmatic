@@ -837,7 +837,7 @@ data class HttpRequestPattern(
             }
 
             val newQueryParamsPatterns: Sequence<ReturnValue<HttpQueryParamPattern>> = returnValue(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-                if (status.toString().startsWith("2")) {
+                val generatedPatterns = if (status.toString().startsWith("2")) {
                     httpQueryParamPattern.addComplimentaryPatterns(
                         httpQueryParamPattern.newBasedOn(row, resolver),
                         row,
@@ -849,6 +849,17 @@ data class HttpRequestPattern(
                         resolver,
                         shouldGenerateMandatoryEntryIfMissing(resolver, status)
                     )
+                }
+                val exampleQuery = row.requestExample?.let { withoutSecuritySchemes(it).queryParams }
+                if (row.fileSource == null || exampleQuery == null) generatedPatterns
+                else {
+                    val exampleResponseStatus = row.responseExample?.status ?: status
+                    val extraPairs = httpQueryParamPattern.extraExampleQueryPairs(
+                        exampleQuery, resolver, includeUndeclaredQueryParams = exampleResponseStatus in invalidRequestStatuses
+                    )
+                    generatedPatterns.map { result ->
+                        result.ifValue { it.copy(extraExampleQueryPairs = extraPairs) }
+                    }
                 }
             }
 
@@ -1256,6 +1267,14 @@ data class HttpRequestPattern(
         return securitySchemes.fold(request) { req, securityScheme ->
             securityScheme.copyFromTo(originalRequest, req)
         }
+    }
+
+    internal fun matchesExtraExampleQueryParams(request: HttpRequest, resolver: Resolver): Result {
+        val query = withoutSecuritySchemes(request).queryParams
+        val queryResolver = if (httpQueryParamPattern.extensibleQueryParams)
+            resolver.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
+        else resolver
+        return httpQueryParamPattern.matchesExtraExampleQueryParams(query, queryResolver).breadCrumb("REQUEST")
     }
 
     private fun withoutSecuritySchemes(request: HttpRequest): HttpRequest {

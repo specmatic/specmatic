@@ -507,14 +507,21 @@ data class Scenario(
         )
     }
 
+    private fun requestExampleStatus(row: Row): Int =
+        row.responseExample?.status?.takeIf { row.fileSource != null && it != 0 } ?: httpResponsePattern.status
+
     private fun fillInTheBlanks(row: Row, resolver: Resolver): ReturnValue<Row> {
         if (row.requestExample == null || this.isGherkinScenario) return HasValue(row)
 
         return runCatching {
             val data = row.scenarioStub?.data ?: JSONObjectValue()
-            val updatedResolver = resolver.copy(isNegative = isA4xxScenario())
+            val updatedResolver = resolver.copy(isNegative = isA4xxScenario() || requestExampleStatus(row) in invalidRequestStatuses)
             val filledInResolvedRequest = Pipeline.from(row.requestExample)
                 .then { httpRequestPattern.resolveTemplates(updatedResolver, it, data) }
+                .then { request ->
+                    val result = matchesExternalExampleQuery(row, request, updatedResolver)
+                    if (result is Result.Failure) HasFailure(result) else HasValue(request)
+                }
                 .then { HasValue(httpRequestPattern.fillInTheBlanks(it, updatedResolver)) }
                 .run()
                 .value
@@ -654,11 +661,16 @@ data class Scenario(
             )
 
             val result = when (resolvedRequest) {
-                is HasValue -> matchesRequestExample(resolvedRequest.value, resolverForExample)
+                is HasValue -> {
+                    val queryResult = matchesExternalExampleQuery(row, resolvedRequest.value, resolverForExample)
+                    if (queryResult is Result.Failure && (isA4xxScenario() || httpRequestPattern.httpQueryParamPattern.additionalProperties != null))
+                        return queryResult
+                    matchesRequestExample(resolvedRequest.value, resolverForExample)
+                }
                 is ReturnFailure -> return resolvedRequest.toFailure().updateScenario(this)
             }
 
-            if(result is Result.Failure && !status.toString().startsWith("4"))
+            if(result is Result.Failure && !isA4xxScenario() && requestExampleStatus(row) !in invalidRequestStatuses)
                 return result
             if(result is Result.Failure && httpRequestPattern.hasUndeclaredRequestVariant())
                 return result
@@ -667,6 +679,23 @@ data class Scenario(
         }
 
         return Result.Success()
+    }
+
+    private fun matchesExternalExampleQuery(row: Row, request: HttpRequest, resolver: Resolver): Result {
+        if (row.fileSource == null || requestExampleStatus(row) in invalidRequestStatuses) return Result.Success()
+        return httpRequestPattern.matchesExtraExampleQueryParams(request, resolver).updateScenario(this)
+    }
+
+    internal fun validateExternalExampleQuery(row: Row, flagsBased: FlagsBased): Result {
+        val request = row.requestExample ?: return Result.Success()
+        if (requestExampleStatus(row) in invalidRequestStatuses) return Result.Success()
+        val exampleResolver = flagsBased.update(resolverForValidation(resolver, row)).disableOverrideUnexpectedKeyCheck()
+        return when (val resolved = httpRequestPattern.resolveTemplates(
+            exampleResolver, request, row.scenarioStub?.data ?: JSONObjectValue(), MatcherResolutionMode.LOAD_TIME
+        )) {
+            is HasValue -> matchesExternalExampleQuery(row, resolved.value, exampleResolver)
+            is ReturnFailure -> resolved.toFailure().updateScenario(this)
+        }
     }
 
     fun generateTestScenarios(
