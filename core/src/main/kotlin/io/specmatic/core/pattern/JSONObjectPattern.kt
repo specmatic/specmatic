@@ -133,9 +133,31 @@ data class JSONObjectPattern(
         val valueMap = (value as? JSONObjectValue)?.jsonObject.orEmpty()
         val adjustedPattern = additionalProperties.updatePatternMap(pattern, valueMap)
 
-        return JSONObjectValue(
-            fix(jsonPatternMap = adjustedPattern, jsonValueMap = valueMap, resolver = resolver, jsonPattern = this)
-        )
+        val fixedValues = fix(jsonPatternMap = adjustedPattern, jsonValueMap = valueMap, resolver = resolver, jsonPattern = this)
+        if (resolver.hasPartialKeyCheck() || resolver.isNegative) return JSONObjectValue(fixedValues)
+        return JSONObjectValue(completeMinimumProperties(retainPropertiesWithinMaximum(fixedValues), resolver))
+    }
+
+    private fun retainPropertiesWithinMaximum(values: Map<String, Value>): Map<String, Value> {
+        val maximum = maxProperties ?: return values
+        val requiredKeys = pattern.keys.filterNot(::isOptional).toSet()
+        val requiredValues = values.filterKeys { it in requiredKeys }
+        val remainingValues = values.filterKeys { it !in requiredKeys }.entries
+            .take((maximum - requiredValues.size).coerceAtLeast(0)).associate { it.toPair() }
+        return requiredValues + remainingValues
+    }
+
+    private fun completeMinimumProperties(values: Map<String, Value>, resolver: Resolver): Map<String, Value> {
+        val missingCount = ((minProperties ?: 0) - values.size).coerceAtLeast(0)
+        if (missingCount == 0) return values
+
+        val missingDeclaredPatterns = pattern.entries.filter { withoutOptionality(it.key) !in values }
+            .take(missingCount).associate { withoutOptionality(it.key) to it.value }
+        val existingPatterns = values.mapValues { it.value.deepPattern() }
+        val completePatterns = withAdditionalPropertiesForMinimum(existingPatterns + missingDeclaredPatterns)
+        val missingPatterns = completePatterns.filterKeys { it !in values }
+
+        return values + generate(missingPatterns, withNullPattern(resolver), this)
     }
 
     override fun eliminateOptionalKey(value: Value, resolver: Resolver): Value {
@@ -197,18 +219,50 @@ data class JSONObjectPattern(
             typeAlias = patternToConsider.typeAlias, resolver = resolver,
             removeExtraKeys = removeExtraKeys
         ).realise(
-            hasValue = { valuesMap, _ -> HasValue(JSONObjectValue(valuesMap)) },
+            hasValue = { valuesMap, _ -> patternToConsider.completeAndValidatePropertyCount(valuesMap, resolver) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
     }
 
+    private fun completeAndValidatePropertyCount(values: Map<String, Value>, resolver: Resolver): ReturnValue<Value> {
+        if (resolver.isNegative || resolver.hasPartialKeyCheck()) return HasValue(JSONObjectValue(values))
+        return runCatching {
+            val completed = JSONObjectValue(completeMinimumProperties(values, resolver))
+            checkPropertyCount(completed.jsonObject.size, resolver).toReturnValue<Value>(completed)
+        }.getOrElse(::HasException)
+    }
+
+    private fun validatePropertyCount(value: JSONObjectValue, resolver: Resolver): ReturnValue<Value> {
+        if (resolver.isNegative || resolver.hasPartialKeyCheck()) return HasValue(value)
+        return checkPropertyCount(value.jsonObject.size, resolver).toReturnValue(value)
+    }
+
+    private fun checkPropertyCount(count: Int, resolver: Resolver): Result = when {
+        count < (minProperties ?: 0) -> constraintMismatchResult(
+            expected = "an object with at least $minProperties properties",
+            actual = "an object with $count properties", mismatchMessages = resolver.mismatchMessages
+        )
+        count > (maxProperties ?: Int.MAX_VALUE) -> constraintMismatchResult(
+            expected = "an object with at most $maxProperties properties",
+            actual = "an object with $count properties", mismatchMessages = resolver.mismatchMessages
+        )
+        else -> Result.Success()
+    }
+
     override fun removeKeysNotPresentIn(keys: Set<String>, resolver: Resolver): Pattern {
         if (keys.isEmpty()) return this
-        return this.copy(pattern = pattern.filterKeys {
+        val selectedPattern = pattern.filterKeys {
             withoutOptionality(it) in keys
         }.mapKeys {
             withoutOptionality(it.key)
-        })
+        }
+        if (maxProperties != null && selectedPattern.size > maxProperties)
+            throw ContractException(
+                "Cannot select ${selectedPattern.size} properties because maxProperties is $maxProperties",
+                ruleViolationReport = RuleViolationReport.from(StandardRuleViolation.CONSTRAINT_VIOLATION)
+            )
+
+        return copy(pattern = selectedPattern, minProperties = minProperties?.coerceAtMost(selectedPattern.size))
     }
 
     override fun jsonObjectPattern(resolver: Resolver): JSONObjectPattern {
@@ -234,15 +288,19 @@ data class JSONObjectPattern(
         val resolved = substitution.substitute(value, this, resolver).unwrapOrReturn { return it.cast() }
         val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
         val adjustedPattern = additionalProperties.updatePatternMap(patternMap = pattern, valueMap = resolvedValue.jsonObject)
+            .mapKeys { (key, _) -> if (key in pattern) key else withOptionality(key) }
 
-        if (adjustedPattern.isEmpty()) return HasValue(value)
+        if (adjustedPattern.isEmpty()) return validatePropertyCount(resolvedValue, resolver)
         return resolveSubstitutions(
             resolver = resolver,
             typeAlias = typeAlias,
             substitution = substitution,
             jsonPatternMap = adjustedPattern,
             jsonValueMap = resolvedValue.jsonObject,
-        ).ifValue(resolvedValue::copy)
+        ).realise(
+            hasValue = { values, _ -> validatePropertyCount(resolvedValue.copy(values), resolver) },
+            orException = { it.cast() }, orFailure = { it.cast() }
+        )
     }
 
     override fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {
@@ -369,7 +427,8 @@ data class JSONObjectPattern(
         }
 
     override fun generateWithAll(resolver: Resolver): Value {
-        return JSONObjectValue(pattern.filterNot { it.key == "..." }.mapKeys {
+        val selectedPatterns = selectPropertiesForGeneration(pattern.minus("..."))
+        return JSONObjectValue(selectedPatterns.mapKeys {
             attempt(breadCrumb = it.key) {
                 withoutOptionality(it.key)
             }
@@ -401,29 +460,8 @@ data class JSONObjectPattern(
         val resolverWithNullType = withNullPattern(resolver)
         if (sampleData !is JSONObjectValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
 
-        val propertyCount = sampleData.jsonObject.size
-        val minCountErrors: List<Result.Failure> = if (propertyCount < (minProperties ?: 0))
-            listOf(
-                constraintMismatchResult(
-                    mismatchMessages = resolver.mismatchMessages,
-                    actual = "an object with $propertyCount properties",
-                    expected = "an object with at least $minProperties properties",
-                )
-            )
-        else
-            emptyList()
-
-        val maxCountErrors: List<Result.Failure> =
-            if (propertyCount > (maxProperties ?: Int.MAX_VALUE))
-                listOf(
-                    constraintMismatchResult(
-                        mismatchMessages = resolver.mismatchMessages,
-                        actual = "an object with $propertyCount properties",
-                        expected = "an object with at most $maxProperties properties",
-                    )
-                )
-            else
-                emptyList()
+        val propertyCountErrors = listOf(checkPropertyCount(sampleData.jsonObject.size, resolver))
+            .filterIsInstance<Result.Failure>()
 
         val adjustedPattern = pattern.mapKeys {
             if (shouldMakePropertyMandatory(it.value, resolver)) {
@@ -467,7 +505,7 @@ data class JSONObjectPattern(
                 it.reportString()
             }
 
-        val failures: List<Result.Failure> = minCountErrors + maxCountErrors + keyErrors + results
+        val failures: List<Result.Failure> = propertyCountErrors + keyErrors + results
 
         return if (failures.isEmpty())
             Result.Success()
@@ -496,12 +534,15 @@ data class JSONObjectPattern(
 
         return JSONObjectValue(
             generate(
-                selectPropertiesWithinMaxAndMin(withAdditionalPropertiesForMinimum(pattern), minProperties, maxProperties),
+                selectPropertiesForGeneration(pattern),
                 withNullPattern(resolver),
                 this
             )
         )
     }
+
+    private fun selectPropertiesForGeneration(properties: Map<String, Pattern>): Map<String, Pattern> =
+        selectPropertiesWithinMaxAndMin(withAdditionalPropertiesForMinimum(properties), minProperties, maxProperties)
 
     private fun withAdditionalPropertiesForMinimum(properties: Map<String, Pattern>): Map<String, Pattern> {
         val missingCount = ((minProperties ?: 0) - properties.size).coerceAtLeast(0)
@@ -512,7 +553,7 @@ data class JSONObjectPattern(
             AdditionalProperties.FreeForm -> StringPattern()
             is AdditionalProperties.PatternConstrained -> additional.pattern
         }
-        val declaredKeys = this.pattern.keys.map(::withoutOptionality).toSet()
+        val declaredKeys = (this.pattern.keys + properties.keys).map(::withoutOptionality).toSet()
         val additionalPatterns = generateSequence(1) { it + 1 }
             .map { "additionalProperty$it" }
             .filterNot { it in declaredKeys }
