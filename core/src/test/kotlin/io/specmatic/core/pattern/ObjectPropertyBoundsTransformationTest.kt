@@ -3,22 +3,56 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.HttpRequestPattern
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.Scenario
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.stub.HttpStubResponse
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 
 internal class ObjectPropertyBoundsTransformationTest {
+    @ParameterizedTest
+    @CsvSource(
+        "{\"id\":\"keep\",\"name\":\"Ada\",\"note\":\"$(drop)\"} | 1 property (\"note\") | 2 properties",
+        "{\"id\":\"keep\",\"name\":\"$(drop)\",\"note\":\"$(drop)\"} | 2 properties (\"name\", \"note\") | 1 property",
+        delimiter = '|'
+    )
+    fun `mock response errors explain when dropping properties violates the minimum`(
+        json: String, dropped: String, remaining: String
+    ) {
+        val bodyPattern = JSONObjectPattern(
+            pattern = mapOf("id" to StringPattern(), "name?" to StringPattern()),
+            minProperties = 3, maxProperties = 4,
+            additionalProperties = AdditionalProperties.PatternConstrained(StringPattern())
+        )
+        val scenario = Scenario(
+            "mock response drop", HttpRequestPattern(), HttpResponsePattern(status = 200, body = bodyPattern),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+        val stub = HttpStubResponse(response = HttpResponse(status = 200, body = parsedJSONObject(json)), scenario = scenario)
+        val request = HttpRequest("POST", "/objects")
+
+        val exception = assertThrows<ContractException> {
+            stub.resolveSubstitutions(request, request, JSONObjectValue())
+        }
+
+        assertThat(exception.report()).contains(
+            "RESPONSE.BODY", "R1003", "Dropping $dropped", "would leave $remaining", "minProperties is 3", "At least 3 properties must remain"
+        )
+    }
+
     @Test
     fun `attribute selection generates the requested bounded response fields through Scenario`() {
         val response = JSONObjectPattern(

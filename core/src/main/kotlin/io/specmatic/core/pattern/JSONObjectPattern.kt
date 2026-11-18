@@ -240,6 +240,20 @@ data class JSONObjectPattern(
         return checkPropertyCount(value.jsonObject.size, resolver).toReturnValue(value)
     }
 
+    private fun validateSubstitutedPropertyCount(original: JSONObjectValue, substituted: JSONObjectValue, resolver: Resolver): ReturnValue<Value> {
+        val validation = validatePropertyCount(substituted, resolver)
+        val minimum = minProperties ?: 0
+        if (validation !is HasFailure || substituted.jsonObject.size >= minimum) return validation
+
+        val droppedKeys = original.jsonObject.keys - substituted.jsonObject.keys
+        if (droppedKeys.isEmpty()) return validation
+
+        val reason = "Dropping ${describePropertyCount(droppedKeys.size)} (${droppedKeys.joinToString(", ") { it.quote() }}) " +
+            "would leave ${describePropertyCount(substituted.jsonObject.size)}, but minProperties is $minimum. " +
+            "At least ${describePropertyCount(minimum)} must remain."
+        return validation.copy(failure = validation.failure.copy(causes = listOf(Result.FailureCause(message = reason))))
+    }
+
     private fun checkPropertyCount(count: Int, resolver: Resolver): Result = when {
         count < (minProperties ?: 0) -> constraintMismatchResult(
             expected = "an object with at least ${describePropertyCount(minProperties ?: 0)}",
@@ -301,7 +315,7 @@ data class JSONObjectPattern(
             jsonPatternMap = adjustedPattern,
             jsonValueMap = resolvedValue.jsonObject,
         ).realise(
-            hasValue = { values, _ -> validatePropertyCount(resolvedValue.copy(values), resolver) },
+            hasValue = { values, _ -> validateSubstitutedPropertyCount(resolvedValue, resolvedValue.copy(values), resolver) },
             orException = { it.cast() }, orFailure = { it.cast() }
         )
     }
