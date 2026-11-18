@@ -5,7 +5,9 @@ import io.ktor.network.tls.certificates.generateCertificate
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyData
 import io.specmatic.core.KeyDataRegistry
+import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogTail
+import io.specmatic.core.log.dontPrintToConsole
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.assertThat
@@ -16,6 +18,8 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.nio.file.Path
 import java.security.KeyStore
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.KeyManager
 import javax.net.ssl.KeyManagerFactory
@@ -24,6 +28,8 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 class SpecmaticMockIncomingMtlsTest {
+    private val requestLogged = CountDownLatch(1)
+
     @Test
     fun `mock should log plain HTTP request without transport marker`() {
         val port = findRandomFreePort()
@@ -35,7 +41,7 @@ class SpecmaticMockIncomingMtlsTest {
 
         try {
             assertThat(executeGet("http://localhost:$port/hello")).isEqualTo(200)
-            val log = fetchLog("http://localhost:$port/_specmatic/log")
+            val log = awaitRequestLog("http://localhost:$port/_specmatic/log")
 
             assertThat(log).contains("Request to port '$port' at")
             assertThat(log).doesNotContain("Request to port '$port' (TLS) at")
@@ -64,7 +70,7 @@ class SpecmaticMockIncomingMtlsTest {
 
         try {
             assertThat(executeGet("https://localhost:$port/hello")).isEqualTo(200)
-            val log = fetchLog("https://localhost:$port/_specmatic/log")
+            val log = awaitRequestLog("https://localhost:$port/_specmatic/log")
 
             assertThat(log).contains("Request to port '$port' at")
             assertThat(log).doesNotContain("Request to port '$port' (TLS) at")
@@ -124,7 +130,7 @@ class SpecmaticMockIncomingMtlsTest {
 
         try {
             assertThat(executeGet("https://localhost:$port/hello", clientKeyData)).isEqualTo(200)
-            val log = fetchLog("https://localhost:$port/_specmatic/log", clientKeyData)
+            val log = awaitRequestLog("https://localhost:$port/_specmatic/log", clientKeyData)
             assertThat(log).contains("Request to port '$port' (mTLS) at")
         } finally {
             stub.close()
@@ -148,6 +154,10 @@ class SpecmaticMockIncomingMtlsTest {
             features = listOf(feature),
             host = "localhost",
             port = port,
+            log = { event ->
+                dontPrintToConsole(event)
+                if (event is HttpLogMessage && event.request.path == "/hello") requestLogged.countDown()
+            },
             keyDataRegistry = keyDataRegistry,
             incomingMtlsRegistry = incomingMtlsRegistry
         )
@@ -174,7 +184,11 @@ class SpecmaticMockIncomingMtlsTest {
         }
     }
 
-    private fun fetchLog(url: String, keyData: KeyData? = null): String {
+    private fun awaitRequestLog(url: String, keyData: KeyData? = null): String {
+        // The response can reach the client before the server appends its request log.
+        assertThat(requestLogged.await(5, TimeUnit.SECONDS))
+            .describedAs("The /hello request must be recorded before reading the mock log")
+            .isTrue()
         return (openConnection(url, keyData) as HttpURLConnection).run {
             requestMethod = "GET"
             connect()
