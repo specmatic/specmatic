@@ -9,6 +9,67 @@ import org.junit.jupiter.params.provider.CsvSource
 
 internal class ObjectPropertyBoundsParseTest {
     @ParameterizedTest
+    @CsvSource("3, 2", "5, 4")
+    fun `diagnostics retain original bound conflicts even when recovering the minimum removes them`(minimum: Int, maximum: Int) {
+        val schema = """
+type: object
+minProperties: $minimum
+maxProperties: $maximum
+additionalProperties: false
+required: [id, name]
+properties:
+  id:
+    type: string
+  name:
+    type: string
+        """.trimIndent()
+
+        val (feature, diagnostics) = OpenApiSpecification.fromYAML(specificationWithObject(schema), "bounds.yaml").toFeatureLenient()
+
+        assertThat(diagnostics.toIssues()).hasSize(2)
+        assertThat(diagnostics.reportString()).contains(
+            "minProperties $minimum requires at least $minimum properties",
+            "maxProperties $maximum allows at most $maximum properties",
+            "the schema declares only 2 properties"
+        )
+        val scenario = feature.scenarios.single()
+        val request = scenario.generateHttpRequest()
+        assertThat(scenario.httpRequestPattern.matches(request, scenario.resolver).isSuccess()).isTrue()
+    }
+
+    @Test
+    fun `conflicting count diagnostics explain the original bounds required keys and closed capacity`() {
+        val schema = """
+type: object
+minProperties: 3
+maxProperties: 1
+additionalProperties: false
+required: [id, name]
+properties:
+  id:
+    type: string
+  name:
+    type: string
+        """.trimIndent()
+
+        val (feature, diagnostics) = OpenApiSpecification.fromYAML(specificationWithObject(schema), "bounds.yaml").toFeatureLenient()
+
+        assertThat(diagnostics.toIssues()).hasSize(2)
+        assertThat(diagnostics.reportString()).contains(
+            "minProperties 3 requires at least 3 properties",
+            "the schema declares only 2 properties",
+            "additional properties are not allowed",
+            "maxProperties 1 allows at most 1 property",
+            "requires 2 properties (id, name)",
+            "No object can satisfy these constraints"
+        )
+        val scenario = feature.scenarios.single()
+        val request = scenario.generateHttpRequest()
+        assertThat((request.body as JSONObjectValue).jsonObject.keys).containsExactlyInAnyOrder("id", "name")
+        assertThat(scenario.httpRequestPattern.matches(request, scenario.resolver).isSuccess()).isTrue()
+    }
+
+    @ParameterizedTest
     @CsvSource("0 | 0 properties", "1 | 1 property", "2 | 2 properties", delimiter = '|')
     fun `closed capacity diagnostics use correct count grammar`(declaredCount: Int, expected: String) {
         val properties = when (declaredCount) {
@@ -26,7 +87,7 @@ properties: $properties
 
         val (_, diagnostics) = OpenApiSpecification.fromYAML(specificationWithObject(schema), "bounds.yaml").toFeatureLenient()
 
-        assertThat(diagnostics.reportString()).contains("declared capacity of $expected").doesNotContain("1 properties")
+        assertThat(diagnostics.reportString()).contains("the schema declares only $expected").doesNotContain("1 properties")
     }
 
     @Test
@@ -162,7 +223,7 @@ properties:
 
         assertThat(diagnostics.toIssues()).hasSize(1)
         assertThat(diagnostics.reportString()).contains(
-            "components.schemas.Bounded.maxProperties", "OAS0007", "maxProperties 2 cannot be less than 3"
+            "components.schemas.Bounded.maxProperties", "OAS0007", "maxProperties 2 allows at most 2 properties", "minProperties 3 requires at least 3 properties"
         )
         val scenario = feature.scenarios.single()
         val request = scenario.generateHttpRequest()

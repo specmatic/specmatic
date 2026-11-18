@@ -3601,26 +3601,10 @@ class OpenApiSpecification(
         val requiredFields = schema.required.orEmpty()
         val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack, collectorContext = collectorContext)
         val additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, collectorContext)
-        val minProperties = schema.minProperties?.let {
-            val nonNegativeMinimum = collectorContext.requireMinimum("minProperties", it, 0, OpenApiLintViolations.INVALID_MIN_PROPERTIES)
-            when (additionalProperties) {
-                AdditionalProperties.NoAdditionalProperties -> collectorContext.check(
-                    name = "minProperties", value = nonNegativeMinimum, isValid = { it <= schemaProperties.size }
-                ).violation {
-                    OpenApiLintViolations.INVALID_MIN_PROPERTIES
-                }.message {
-                    "minProperties $nonNegativeMinimum cannot exceed the declared capacity of ${describePropertyCount(schemaProperties.size)} when additional properties are not allowed"
-                }.orUse { schemaProperties.size }.build()
-                else -> nonNegativeMinimum
-            }
-        }
-        val maxProperties = schema.maxProperties?.let {
-            val minimumCount = maxOf(minProperties ?: 0, schemaProperties.keys.count { !isOptional(it) })
-            collectorContext.requireMinimum("maxProperties", it, minimumCount, OpenApiLintViolations.INVALID_MAX_PROPERTIES)
-        }
+        val constraints = ObjectPropertyConstraints(schema, schemaProperties, additionalProperties, collectorContext)
         val jsonObjectPattern = toJSONObjectPattern(schemaProperties, if(patternName.isNotBlank()) "(${patternName})" else null).copy(
-            minProperties = minProperties,
-            maxProperties = maxProperties,
+            minProperties = constraints.minProperties,
+            maxProperties = constraints.maxProperties,
             additionalProperties = additionalProperties,
             extensions = schema.extensions.orEmpty()
         )
