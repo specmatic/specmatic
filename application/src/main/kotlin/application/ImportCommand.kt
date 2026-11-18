@@ -11,7 +11,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.openApiFromTraffic
-import io.specmatic.license.core.LicenseResolver
+import io.specmatic.core.license.SpecmaticLicense
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.cli.Category
@@ -58,7 +58,7 @@ fun convertStub(path: String, userSpecifiedOutFile: String?) {
 
     val outFile = userSpecifiedOutFile ?: "${inputFile.nameWithoutExtension}.yaml"
 
-    LicenseResolver.utilize(
+    SpecmaticLicense.utilize(
         product = LicensedProduct.OPEN_SOURCE,
         feature = SpecmaticFeature.EXAMPLES_IMPORTED_FROM_STUB,
         protocol = listOfNotNull(stub.protocol)

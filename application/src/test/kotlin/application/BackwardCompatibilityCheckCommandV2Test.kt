@@ -123,6 +123,47 @@ class BackwardCompatibilityCheckCommandV2Test {
         assertThat(command.run { document.isCheckableSpec() }).isEqualTo(expected)
     }
 
+    @Test
+    fun `exhausted usage rejects comparison before executing compatibility scenarios`() {
+        val spec = tempDir.resolve("api.yaml")
+        spec.writeText("""
+            openapi: 3.0.3
+            info: {title: Pets, version: '1'}
+            paths:
+              /pets:
+                get:
+                  responses:
+                    '200': {description: OK}
+        """.trimIndent())
+        commit(tempDir, "Initial API")
+        val base = SystemGit(tempDir.absolutePath).currentBranch()
+        ProcessBuilder("git", "switch", "-c", "change-api").directory(tempDir).start().waitFor()
+        spec.appendText("\n# changed API\n")
+        commit(tempDir, "Update API")
+        val license = LicenseV3(
+            "customer", java.time.Instant.now().minusSeconds(60), java.time.Duration.ofDays(1), LicenseType.ENTERPRISE,
+            0, "organization", io.ktor.http.Url("http://localhost:9000"), java.util.UUID.randomUUID(),
+            io.specmatic.license.core.UserType.INDIVIDUAL, setOf("core"),
+        )
+        mockkObject(LicenseResolver)
+        every { LicenseResolver.license() } returns license
+        val (output, exit) = try {
+            captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = base
+                    options.targetPath = "api.yaml"
+                }.call()
+            }
+        } finally {
+            unmockkObject(LicenseResolver)
+        }
+        assertThat(exit).isEqualTo(1)
+        assertThat(output).contains("exceeded the limit of 0 invocations")
+            .doesNotContain("[Compatibility Check] Executing")
+        assertThat(license.remainingLimitValue).isZero()
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
     fun `only OpenAPI specs are checked when a transitive schema fragment changes`(licensedReporting: Boolean) {

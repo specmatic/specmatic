@@ -16,7 +16,7 @@ import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheck
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.openApiYamlFromExampleDir
 import io.specmatic.core.utilities.uniqueNameForApiOperation
-import io.specmatic.license.core.LicenseResolver
+import io.specmatic.core.license.SpecmaticLicense
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.mock.MOCK_HTTP_REQUEST
@@ -127,6 +127,8 @@ class Proxy(
         )
     )
 
+    private val licensedProduct = SpecmaticLicense.product()
+
     private val targetHost =
         baseURL.let {
             when {
@@ -161,8 +163,8 @@ class Proxy(
 
                             else ->
                                 try {
-                                    LicenseResolver.utilize(
-                                        product = LicensedProduct.OPEN_SOURCE,
+                                    SpecmaticLicense.utilize(
+                                        product = licensedProduct,
                                         feature = SpecmaticFeature.PROXY_RECORD,
                                         protocol = listOf(httpRequest.protocol)
                                     )

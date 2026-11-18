@@ -17,7 +17,7 @@ import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
-import io.specmatic.license.core.LicenseResolver
+import io.specmatic.core.license.SpecmaticLicense
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
@@ -321,16 +321,16 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 specFilePath = specFilePath,
             )
 
-            val checkResult = checkBackwardCompatibility(older, newer)
-            val backwardCompatibilityResult = checkResult.results
-            val result =
-                if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
-
-            LicenseResolver.utilize(
+            SpecmaticLicense.utilize(
                 product = LicensedProduct.OPEN_SOURCE,
                 feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
                 protocol = listOfNotNull((older as? Feature)?.protocol)
             )
+
+            val checkResult = checkBackwardCompatibility(older, newer)
+            val backwardCompatibilityResult = checkResult.results
+            val result =
+                if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
 
             return ProcessedSpec(
                 specFilePath = specFilePath,

@@ -73,7 +73,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.toXMLNode
-import io.specmatic.license.core.LicenseResolver
+import io.specmatic.core.license.SpecmaticLicense
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.SpecmaticProtocol
@@ -154,6 +154,8 @@ class HttpStub(
     var requestHandlers: MutableList<RequestHandler> = mutableListOf(),
     private val insightsReportOptions: InsightsReportOptions = InsightsReportOptions.sniff().also { it.validate() },
 ) : ContractStub {
+    private val licensedProduct = SpecmaticLicense.product()
+
     private val incomingMtlsSslContextsByPort: MutableMap<Int, SslContext> = mutableMapOf()
     private val mtlsEnabledByPort: MutableMap<Int, Boolean> = mutableMapOf()
 
@@ -350,8 +352,8 @@ class HttpStub(
                     )
                     val requestInterceptorErrors = requestInterceptorResults.flatMap { it.errors }
 
-                    LicenseResolver.utilize(
-                        product = LicensedProduct.OPEN_SOURCE,
+                    SpecmaticLicense.utilize(
+                        product = licensedProduct,
                         feature = SpecmaticFeature.MOCK,
                         protocol = listOf(httpRequest.protocol),
                     )

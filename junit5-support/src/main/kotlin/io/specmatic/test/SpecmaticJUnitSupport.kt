@@ -1,5 +1,7 @@
 package io.specmatic.test
 
+import io.specmatic.core.license.SpecmaticLicense
+
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.filters.ScenarioMetadataFilter
@@ -59,6 +61,7 @@ data class API(
 @Execution(ExecutionMode.CONCURRENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class SpecmaticJUnitSupport {
+    private val licensedProduct = SpecmaticLicense.product()
     private var startTime: Instant? = null
     private var settings = ContractTestSettings(settingsStaging)
 
@@ -382,8 +385,8 @@ open class SpecmaticJUnitSupport {
                     throw TestAbortedException(message)
                 }
 
-                LicenseResolver.utilize(
-                    product = LicensedProduct.OPEN_SOURCE,
+                SpecmaticLicense.utilize(
+                    product = licensedProduct,
                     feature = SpecmaticFeature.TEST,
                     protocol = listOfNotNull(contractTest.protocol),
                 )

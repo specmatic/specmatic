@@ -10,7 +10,7 @@ import io.specmatic.core.lifecycle.LifecycleHooks
 import io.specmatic.core.log.logger
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.license.core.LicenseResolver
+import io.specmatic.core.license.SpecmaticLicense
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.mock.FuzzyExampleJsonValidator
@@ -122,7 +122,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     }
 
     fun validateExampleReturningResults(feature: Feature, scenarioStub: ScenarioStub): Results {
-        LicenseResolver.utilize(
+        SpecmaticLicense.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = SpecmaticFeature.EXAMPLES_VALIDATED,
             protocol = listOf(feature.protocol)
@@ -138,7 +138,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     }
 
     fun validateExample(feature: Feature, example: ExampleFromFile): Result {
-        LicenseResolver.utilize(
+        SpecmaticLicense.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = SpecmaticFeature.EXAMPLES_VALIDATED,
             protocol = listOf(feature.protocol)
@@ -154,7 +154,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     }
 
     fun validateSchemaExample(feature: Feature, schemaExample: SchemaExample): Result {
-        LicenseResolver.utilize(
+        SpecmaticLicense.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = SpecmaticFeature.EXAMPLES_VALIDATED,
             protocol = listOf(feature.protocol)

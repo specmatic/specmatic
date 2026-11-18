@@ -32,6 +32,11 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Changed
+
+- Embedded engines retain their host product identity across mock and proxy requests and deferred tests. Commercial distributions can enforce purchased products against one shared usage allowance while standalone Open Source usage remains available.
+- Enterprise licenses without product grants retain access to Core, Studio, Skeptic, and Insights. Trials include every product; service accounts retain unlimited usage within their purchased products.
+
 ### Fixed
 
 - Backward compatibility checks no longer list or check ordinary YAML/JSON files and schema fragments as standalone OpenAPI specifications. Shared fragments still trigger checks of affected specifications, including through transitive references.

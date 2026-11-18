@@ -9,7 +9,7 @@ import io.specmatic.core.utilities.featureFromTraffic
 import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.log.dontPrintToConsole
-import io.specmatic.license.core.LicenseResolver
+import io.specmatic.core.license.SpecmaticLicense
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.test.LegacyHttpClient
@@ -35,7 +35,7 @@ internal fun contractsFromPostmanCollection(postmanCollection: PostmanCollection
 
         val protocolsInUse = stubInfo.map { (_, namedStub) -> namedStub.protocol }
 
-        LicenseResolver.utilize(
+        SpecmaticLicense.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = SpecmaticFeature.EXAMPLES_IMPORTED_FROM_POSTMAN,
             protocol = protocolsInUse,
