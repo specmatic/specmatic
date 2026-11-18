@@ -41,6 +41,19 @@ enum class OpenApiLintViolations(
         summary = "Maximum must be greater than or equal to minimum"
     ),
 
+    /* -------- Object constraints -------- */
+    INVALID_MIN_PROPERTIES(
+        id = "OAS0006",
+        title = "Invalid min properties",
+        summary = "Minimum property count must be non-negative and achievable with the permitted properties"
+    ),
+
+    INVALID_MAX_PROPERTIES(
+        id = "OAS0007",
+        title = "Invalid max properties",
+        summary = "Maximum property count must be non-negative and accommodate the minimum and required properties"
+    ),
+
     /* -------- Parameters -------- */
     INVALID_PARAMETER_DEFINITION(
         id = "OAS0010",

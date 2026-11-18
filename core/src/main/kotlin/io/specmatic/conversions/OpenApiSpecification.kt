@@ -3600,12 +3600,28 @@ class OpenApiSpecification(
     private fun toJsonObjectPattern(schema: Schema<*>, patternName: String, typeStack: List<String>, collectorContext: CollectorContext): JSONObjectPattern {
         val requiredFields = schema.required.orEmpty()
         val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack, collectorContext = collectorContext)
-        val minProperties: Int? = schema.minProperties
-        val maxProperties: Int? = schema.maxProperties
+        val additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, collectorContext)
+        val minProperties = schema.minProperties?.let {
+            val nonNegativeMinimum = collectorContext.requireMinimum("minProperties", it, 0, OpenApiLintViolations.INVALID_MIN_PROPERTIES)
+            when (additionalProperties) {
+                AdditionalProperties.NoAdditionalProperties -> collectorContext.check(
+                    name = "minProperties", value = nonNegativeMinimum, isValid = { it <= schemaProperties.size }
+                ).violation {
+                    OpenApiLintViolations.INVALID_MIN_PROPERTIES
+                }.message {
+                    "minProperties $nonNegativeMinimum cannot exceed the ${schemaProperties.size} declared properties when additional properties are not allowed"
+                }.orUse { schemaProperties.size }.build()
+                else -> nonNegativeMinimum
+            }
+        }
+        val maxProperties = schema.maxProperties?.let {
+            val minimumCount = maxOf(minProperties ?: 0, schemaProperties.keys.count { !isOptional(it) })
+            collectorContext.requireMinimum("maxProperties", it, minimumCount, OpenApiLintViolations.INVALID_MAX_PROPERTIES)
+        }
         val jsonObjectPattern = toJSONObjectPattern(schemaProperties, if(patternName.isNotBlank()) "(${patternName})" else null).copy(
             minProperties = minProperties,
             maxProperties = maxProperties,
-            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, collectorContext),
+            additionalProperties = additionalProperties,
             extensions = schema.extensions.orEmpty()
         )
         val annotated = if (patternName.isNotBlank()) {

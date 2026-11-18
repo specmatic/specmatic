@@ -102,6 +102,13 @@ data class JSONObjectPattern(
     val propertyPointers: Map<String, String> = emptyMap(),
     val schemaPointer: String? = null
 ) : Pattern, PossibleJsonObjectPatternContainer {
+    init {
+        require(minProperties == null || minProperties >= 0) { "minProperties $minProperties cannot be less than 0" }
+        require(maxProperties == null || maxProperties >= 0) { "maxProperties $maxProperties cannot be less than 0" }
+        require(minimumPropertyCount <= maximumPropertyCount) {
+            "minimum property count $minimumPropertyCount exceeds maximum property count $maximumPropertyCount"
+        }
+    }
 
     override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
         return visitor.objectProperties(
@@ -316,12 +323,15 @@ data class JSONObjectPattern(
     }
 
     private fun olderPropertyLimitsEncompassNewer(newer: JSONObjectPattern, older: JSONObjectPattern, mismatchMessages: MismatchMessages): List<Result.Failure> {
+        if (older.minProperties == null && newer.minProperties == null && older.maxProperties == null && newer.maxProperties == null)
+            return emptyList()
+
         val minPropertiesResult =
-            if (older.minProperties != null && newer.minProperties != null && older.minProperties > newer.minProperties)
+            if (older.minimumPropertyCount > newer.minimumPropertyCount)
                 Result.Failure(
                     message = mismatchMessages.mismatchMessage(
-                        expected = "an object with at least ${older.minProperties} properties",
-                        actual = "an object with at least ${newer.minProperties} properties"
+                        expected = "an object with at least ${older.minimumPropertyCount} properties",
+                        actual = "an object with at least ${newer.minimumPropertyCount} properties"
                     ),
                     ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
                 )
@@ -329,11 +339,11 @@ data class JSONObjectPattern(
                 Result.Success()
 
         val maxPropertiesResult =
-            if (older.maxProperties != null && newer.maxProperties != null && older.maxProperties < newer.maxProperties)
+            if (older.maximumPropertyCount < newer.maximumPropertyCount)
                 Result.Failure(
                     message = mismatchMessages.mismatchMessage(
-                        expected = "an object with at most ${older.maxProperties} properties",
-                        actual = "an object with at most ${newer.maxProperties} properties"
+                        expected = older.maximumPropertyCountDescription,
+                        actual = newer.maximumPropertyCountDescription
                     ),
                     ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION
                 )
@@ -342,6 +352,21 @@ data class JSONObjectPattern(
 
         return listOf(minPropertiesResult, maxPropertiesResult).filterIsInstance<Result.Failure>()
     }
+
+    private val minimumPropertyCount: Int
+        get() = maxOf(minProperties ?: 0, pattern.keys.count { !isOptional(it) })
+
+    private val maximumPropertyCount: Int
+        get() = minOf(maxProperties ?: Int.MAX_VALUE, when (additionalProperties) {
+            AdditionalProperties.NoAdditionalProperties -> pattern.size
+            else -> Int.MAX_VALUE
+        })
+
+    private val maximumPropertyCountDescription: String
+        get() = when (maximumPropertyCount) {
+            Int.MAX_VALUE -> "an object with no upper property count limit"
+            else -> "an object with at most $maximumPropertyCount properties"
+        }
 
     override fun generateWithAll(resolver: Resolver): Value {
         return JSONObjectValue(pattern.filterNot { it.key == "..." }.mapKeys {
@@ -471,11 +496,30 @@ data class JSONObjectPattern(
 
         return JSONObjectValue(
             generate(
-                selectPropertiesWithinMaxAndMin(pattern, minProperties, maxProperties),
+                selectPropertiesWithinMaxAndMin(withAdditionalPropertiesForMinimum(pattern), minProperties, maxProperties),
                 withNullPattern(resolver),
                 this
             )
         )
+    }
+
+    private fun withAdditionalPropertiesForMinimum(properties: Map<String, Pattern>): Map<String, Pattern> {
+        val missingCount = ((minProperties ?: 0) - properties.size).coerceAtLeast(0)
+        if (missingCount == 0) return properties
+
+        val valuePattern = when (val additional = additionalProperties) {
+            AdditionalProperties.NoAdditionalProperties -> return properties
+            AdditionalProperties.FreeForm -> StringPattern()
+            is AdditionalProperties.PatternConstrained -> additional.pattern
+        }
+        val declaredKeys = this.pattern.keys.map(::withoutOptionality).toSet()
+        val additionalPatterns = generateSequence(1) { it + 1 }
+            .map { "additionalProperty$it" }
+            .filterNot { it in declaredKeys }
+            .take(missingCount)
+            .associateWith { valuePattern }
+
+        return properties + additionalPatterns
     }
 
     private fun getPatternWithOmittedOptionalFields(pattern: Map<String, Pattern>, resolver: Resolver): Map<String, Pattern> {
@@ -504,7 +548,7 @@ data class JSONObjectPattern(
             newMapBasedOn(pattern, row, withNullPattern(resolver))
         }.map { it: ReturnValue<Map<String, Pattern>> ->
             patternWithKeyCombinationDetails(it) { patternMap ->
-                toJSONObjectPattern(patternMap.mapKeys { (key, _) -> withoutOptionality(key) }, typeAlias)
+                copy(pattern = patternMap.mapKeys { (key, _) -> withoutOptionality(key) })
             }
     }
 
@@ -515,7 +559,7 @@ data class JSONObjectPattern(
             minProperties,
             maxProperties,
             returnValues { pattern: Map<String, Pattern> -> newBasedOn(pattern, withNullPattern(resolver)) }
-        ).map { it.value }.map { toJSONObjectPattern(it, typeAlias) }
+        ).map { it.value }.map { copy(pattern = it) }
 
     override fun negativeBasedOn(
         row: Row,
@@ -962,32 +1006,10 @@ private fun selectPropertiesWithinMaxAndMin(
     maxProperties: Int?
 ): Map<String, Pattern> {
     val withAtMostMaxProperties = selectAtMostMaxProperties(jsonPattern, maxProperties)
+    if (minProperties != null && withAtMostMaxProperties.size < minProperties)
+        throw ContractException("Cannot generate a JSON object with at least $minProperties properties as there are only ${withAtMostMaxProperties.size} properties in the specification.")
 
-    return selectAtMostMinProperties(withAtMostMaxProperties, minProperties)
-}
-
-private fun selectAtMostMinProperties(
-    properties: Map<String, Pattern>,
-    minProperties: Int?
-): Map<String, Pattern> {
-    return if (minProperties != null) {
-        val mandatoryKeys = properties.keys.filter { !isOptional(it) }
-        val optionalKeys = properties.keys.filter { isOptional(it) }
-
-        if (mandatoryKeys.size >= minProperties)
-            properties.filterKeys { it in mandatoryKeys }
-        else {
-            val countOfOptionalKeysToPick = minProperties - mandatoryKeys.size
-            val selectedOptionalKeys = optionalKeys.shuffled().take(countOfOptionalKeysToPick)
-            val selectedKeys = mandatoryKeys + selectedOptionalKeys
-
-            if (selectedKeys.size < minProperties)
-                throw ContractException("Cannot generate a JSON object with at least $minProperties properties as there are only ${selectedKeys.size} properties in the specification.")
-
-            properties.filterKeys { it in selectedKeys }
-        }
-    } else
-        properties
+    return withAtMostMaxProperties
 }
 
 

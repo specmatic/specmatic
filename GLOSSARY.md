@@ -57,3 +57,11 @@ An API specification selected for a backward compatibility check. Schema fragmen
 
 **Schema fragment**:
 A document containing reusable schema definitions referenced by a specification or another fragment, without itself being a complete API specification.
+
+## OpenAPI object schemas
+
+**Object property count**:
+The total number of properties present in an object, including declared properties and additional properties. `minProperties` and `maxProperties` constrain this total.
+
+**Satisfiable object schema**:
+An object schema for which at least one object satisfies all its constraints together, including required properties, property-count bounds and restrictions on additional properties.
