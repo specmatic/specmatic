@@ -32,6 +32,8 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+- Embedded MCP hosts can supply their own tool providers while retaining default discovery. Insights publishing enforces its own grant; local reports retain their host behavior.
+
 ### Changed
 
 - Embedded engines retain their host product identity across mock and proxy requests and deferred tests. Commercial distributions can enforce purchased products against one shared usage allowance while standalone Open Source usage remains available.

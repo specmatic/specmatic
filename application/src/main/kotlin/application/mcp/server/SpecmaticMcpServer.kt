@@ -12,9 +12,10 @@ import java.io.OutputStream
 import java.time.Duration
 import java.util.ServiceLoader
 
-class SpecmaticMcpServer(
+class SpecmaticMcpServer @JvmOverloads constructor(
     inputStream: InputStream = System.`in`,
-    outputStream: OutputStream = System.out
+    outputStream: OutputStream = System.out,
+    private val toolProviders: List<McpToolProvider>? = null,
 ) : AutoCloseable {
     private val server: McpSyncServer = McpServer.sync(
         StdioServerTransportProvider(McpJsonDefaults.getMapper(), inputStream, outputStream)
@@ -30,7 +31,7 @@ class SpecmaticMcpServer(
 
     private fun tools(): List<McpServerFeatures.SyncToolSpecification> {
         System.err.println("Registering Specmatic MCP tools...")
-        val providers = ServiceLoader.load(McpToolProvider::class.java).toList()
+        val providers = toolProviders ?: ServiceLoader.load(McpToolProvider::class.java).toList()
         if (!providers.isEmpty()) return providers.flatMap { it.tools() }
         return DefaultSpecmaticMcpToolProvider().tools()
     }
