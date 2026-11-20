@@ -64,23 +64,26 @@ class TestSubstitutionIntegrationTest {
         assertThat(SubstitutionFixtureExecutor.calls.count { it == "before" }).isEqualTo(1)
         assertThat(SubstitutionFixtureExecutor.calls.count { it == "after" }).isEqualTo(1)
 
-        assertThat(SubstitutionFixtureExecutor.receivedContexts).hasSize(2)
-        assertThat(SubstitutionFixtureExecutor.beforeFixtureRequests).hasSize(2)
-        assertThat(SubstitutionFixtureExecutor.afterFixtureRequests).hasSize(2)
+        assertThat(SubstitutionFixtureExecutor.receivedContexts).containsExactly(
+            FixtureExecutionMetadata(FixtureScenarioType.EXAMPLE),
+            FixtureExecutionMetadata(FixtureScenarioType.EXAMPLE)
+        )
+        assertThat(SubstitutionFixtureExecutor.beforeFixtureRequests).hasSize(3)
+        assertThat(SubstitutionFixtureExecutor.afterFixtureRequests).hasSize(3)
 
         assertThat(
-            SubstitutionFixtureExecutor.positiveAfterUpdatedSubstitution.substitute(
-                StringValue("$(BEFORE_POSITIVE)"),
+            SubstitutionFixtureExecutor.exampleAfterUpdatedSubstitution.substitute(
+                StringValue("$(BEFORE_EXAMPLE)"),
                 StringPattern(),
             )
-        ).isEqualTo(HasValue(StringValue("beforePositive")))
+        ).isEqualTo(HasValue(StringValue("beforeExample")))
 
         assertThat(
-            SubstitutionFixtureExecutor.positiveAfterUpdatedSubstitution.substitute(
-                StringValue("$(AFTER_POSITIVE)"),
+            SubstitutionFixtureExecutor.exampleAfterUpdatedSubstitution.substitute(
+                StringValue("$(AFTER_EXAMPLE)"),
                 StringPattern(),
             )
-        ).isEqualTo(HasValue(StringValue("afterPositive")))
+        ).isEqualTo(HasValue(StringValue("afterExample")))
 
         assertThat(SubstitutionTestExecutor.requestsSeen).hasSize(1).allSatisfy { request ->
             assertThat(request.path).isEqualTo("/test")
@@ -135,11 +138,13 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
             "before" -> when (executionMetadata.scenarioType) {
                 FixtureScenarioType.POSITIVE -> positiveBeforeFixtures
                 FixtureScenarioType.NEGATIVE -> negativeBeforeFixtures
+                FixtureScenarioType.EXAMPLE -> exampleBeforeFixtures
             }
 
             "after" -> when (executionMetadata.scenarioType) {
                 FixtureScenarioType.POSITIVE -> positiveAfterFixtures
                 FixtureScenarioType.NEGATIVE -> negativeAfterFixtures
+                FixtureScenarioType.EXAMPLE -> exampleAfterFixtures
             }
 
             else -> error("Unexpected fixture discriminator key $fixtureDiscriminatorKey for id $id")
@@ -178,6 +183,16 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
                     )
                 }
 
+                "/beforeExample" -> {
+                    assertSubstitutes(currentSubstitution, "BEFORE_1", "before1")
+                    assertSubstitutes(currentSubstitution, "BEFORE_2", "before2")
+                    assertSubstitutes(currentSubstitution, "BEFORE_POSITIVE", "beforePositive")
+                    currentSubstitution.upsertStoreUsing(
+                        StringValue("(BEFORE_EXAMPLE:string)"),
+                        StringValue("beforeExample")
+                    )
+                }
+
                 "/afterAll" -> {
                     assertSubstitutes(currentSubstitution, "BEFORE_1", "before1")
                     assertSubstitutes(currentSubstitution, "BEFORE_2", "before2")
@@ -206,6 +221,17 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
                     )
                 }
 
+                "/afterExample" -> {
+                    assertSubstitutes(currentSubstitution, "TEST", "test")
+                    assertSubstitutes(currentSubstitution, "BEFORE_EXAMPLE", "beforeExample")
+                    assertSubstitutes(currentSubstitution, "AFTER_ALL", "afterAll")
+                    assertSubstitutes(currentSubstitution, "AFTER_POSITIVE", "afterPositive")
+                    currentSubstitution.upsertStoreUsing(
+                        StringValue("(AFTER_EXAMPLE:string)"),
+                        StringValue("afterExample")
+                    )
+                }
+
                 else -> currentSubstitution
             }
         }
@@ -217,6 +243,10 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
                 when (executionMetadata.scenarioType) {
                     FixtureScenarioType.POSITIVE -> assertSubstitutes(currentSubstitution, "BEFORE_POSITIVE", "beforePositive")
                     FixtureScenarioType.NEGATIVE -> assertSubstitutes(currentSubstitution, "BEFORE_NEGATIVE", "beforeNegative")
+                    FixtureScenarioType.EXAMPLE -> {
+                        assertSubstitutes(currentSubstitution, "BEFORE_POSITIVE", "beforePositive")
+                        assertSubstitutes(currentSubstitution, "BEFORE_EXAMPLE", "beforeExample")
+                    }
                 }
             }
 
@@ -225,6 +255,10 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
                 when (executionMetadata.scenarioType) {
                     FixtureScenarioType.POSITIVE -> assertSubstitutes(currentSubstitution, "AFTER_POSITIVE", "afterPositive")
                     FixtureScenarioType.NEGATIVE -> assertSubstitutes(currentSubstitution, "AFTER_NEGATIVE", "afterNegative")
+                    FixtureScenarioType.EXAMPLE -> {
+                        assertSubstitutes(currentSubstitution, "AFTER_POSITIVE", "afterPositive")
+                        assertSubstitutes(currentSubstitution, "AFTER_EXAMPLE", "afterExample")
+                    }
                 }
             }
         }
@@ -234,6 +268,7 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
             when (executionMetadata.scenarioType) {
                 FixtureScenarioType.POSITIVE -> positiveAfterUpdatedSubstitution = currentSubstitution
                 FixtureScenarioType.NEGATIVE -> negativeAfterUpdatedSubstitution = currentSubstitution
+                FixtureScenarioType.EXAMPLE -> exampleAfterUpdatedSubstitution = currentSubstitution
             }
         }
 
@@ -290,6 +325,33 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
                 "status": 200,
                 "body": {
                   "beforePositive": "(BEFORE_POSITIVE:string)"
+                },
+                "headers": {
+                  "Content-Type": "application/json"
+                }
+              }
+            }
+        """.trimIndent())
+        private val beforeExampleFixture = parsedJSONObject("""
+            {
+              "executeFor": {
+                "scenarios": "example"
+              },
+              "type": "http",
+              "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/beforeExample",
+                "method": "POST",
+                "body": {
+                  "before1": "$(BEFORE_1)",
+                  "before2": "$(BEFORE_2)",
+                  "beforePositive": "$(BEFORE_POSITIVE)"
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "beforeExample": "(BEFORE_EXAMPLE:string)"
                 },
                 "headers": {
                   "Content-Type": "application/json"
@@ -376,6 +438,34 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
               }
             }
         """.trimIndent())
+        private val afterExampleFixture = parsedJSONObject("""
+            {
+              "executeFor": {
+                "scenarios": "example"
+              },
+              "type": "http",
+              "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/afterExample",
+                "method": "POST",
+                "body": {
+                  "test": "$(TEST)",
+                  "beforeExample": "$(BEFORE_EXAMPLE)",
+                  "afterAll": "$(AFTER_ALL)",
+                  "afterPositive": "$(AFTER_POSITIVE)"
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "afterExample": "(AFTER_EXAMPLE:string)"
+                },
+                "headers": {
+                  "Content-Type": "application/json"
+                }
+              }
+            }
+        """.trimIndent())
         private val afterNegativeFixture = parsedJSONObject("""
             {
               "executeFor": {
@@ -405,14 +495,17 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
 
         val positiveBeforeFixtures = listOf(beforeAllFixture, beforePositiveFixture)
         val negativeBeforeFixtures = listOf(beforeAllFixture, beforeNegativeFixture)
+        val exampleBeforeFixtures = listOf(beforeAllFixture, beforePositiveFixture, beforeExampleFixture)
         val positiveAfterFixtures = listOf(afterAllFixture, afterPositiveFixture)
         val negativeAfterFixtures = listOf(afterAllFixture, afterNegativeFixture)
+        val exampleAfterFixtures = listOf(afterAllFixture, afterPositiveFixture, afterExampleFixture)
 
         val beforeFixtureRequests = mutableListOf<Value>()
         val afterFixtureRequests = mutableListOf<Value>()
         var updatedSubstitution: Substitution = SubstitutionImpl.empty()
         var positiveAfterUpdatedSubstitution: Substitution = SubstitutionImpl.empty()
         var negativeAfterUpdatedSubstitution: Substitution = SubstitutionImpl.empty()
+        var exampleAfterUpdatedSubstitution: Substitution = SubstitutionImpl.empty()
 
         fun reset() {
             calls.clear()
@@ -422,6 +515,7 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
             updatedSubstitution = SubstitutionImpl.empty()
             positiveAfterUpdatedSubstitution = SubstitutionImpl.empty()
             negativeAfterUpdatedSubstitution = SubstitutionImpl.empty()
+            exampleAfterUpdatedSubstitution = SubstitutionImpl.empty()
         }
     }
 
@@ -504,8 +598,9 @@ private fun List<Value>.filterFor(context: FixtureExecutionMetadata): List<Value
     return filter { fixture ->
         when (fixture.fixtureScenarioSelector()) {
             null, "all" -> true
-            "positive" -> context.scenarioType == FixtureScenarioType.POSITIVE
+            "positive" -> context.scenarioType in setOf(FixtureScenarioType.POSITIVE, FixtureScenarioType.EXAMPLE)
             "negative" -> context.scenarioType == FixtureScenarioType.NEGATIVE
+            "example" -> context.scenarioType == FixtureScenarioType.EXAMPLE
             else -> error("Unexpected executeFor.scenarios value in test fixture")
         }
     }

@@ -463,8 +463,14 @@ data class Scenario(
                         Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
+                val hasExample = !row.isEmpty() || row.requestExample != null
                 newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
-                    val generatedFrom = if (index == 0 && !row.isEmpty()) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
+                    val generatedFrom = if (index == 0 && !isNegative && hasExample) {
+                        GeneratedScenarioOrigin.EXAMPLE_ROW
+                    } else {
+                        GeneratedScenarioOrigin.MUTATION
+                    }
+
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(

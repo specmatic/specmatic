@@ -35,6 +35,20 @@
       "http-response": {
         "status": 200
       }
+    },
+    {
+      "type": "http",
+      "executeFor": {
+        "scenarios": "example"
+      },
+      "http-request": {
+        "baseUrl": "http://localhost:8080",
+        "method": "GET",
+        "path": "/setup/example"
+      },
+      "http-response": {
+        "status": 200
+      }
     }
   ]
 }
