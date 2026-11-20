@@ -18,6 +18,9 @@ data class ReferredType(val wsdlTypeReference: String, val element: XMLNode, val
               wsdl.getSimpleTypeXMLNode(element)
           } ?: element
 
+          if (typeNode.name == "simpleType" && (typeNode.findFirstChildByName("union") != null || typeNode.findFirstChildByName("list") != null))
+              return SimpleElement(wsdlTypeReference, element, wsdl, simpleTypeNode = typeNode)
+
           return fromRestriction(typeNode)?.let { type ->
               if(!isPrimitiveType(typeNode))
                   throw ContractException("Simple type $type in restriction not recognized")

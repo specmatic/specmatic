@@ -18,6 +18,14 @@ _Avoid_: Inline complex type
 A simple type declared with a schema type name that element declarations can reference.
 _Avoid_: Element name
 
+**Simple type union**:
+A simple type whose value is accepted by at least one of its member types.
+_Avoid_: XML choice group
+
+**Simple type list**:
+A simple type whose value is a whitespace-separated sequence of items, each accepted by its item type. An empty sequence is permitted unless constrained.
+_Avoid_: Repeated XML elements
+
 **Occurrence range**:
 The minimum and maximum number of times an XML Schema particle may occur, expressed by `minOccurs` and `maxOccurs`. An unbounded maximum places no upper limit on the number of occurrences.
 _Avoid_: Length constraint
