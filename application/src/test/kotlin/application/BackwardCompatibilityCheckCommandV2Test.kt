@@ -42,6 +42,24 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
+    @Test
+    fun `file detection retains YAML JSON BOM malformed input and AsyncAPI exclusion`(@TempDir directory: File) {
+        val command = BackwardCompatibilityCheckCommandV2()
+        val cases = listOf(
+            Triple("api.yaml", "openapi: 3.0.3\npaths: {}", true),
+            Triple("bom.yml", "\uFEFFopenapi: 3.0.3\npaths: {}", true),
+            Triple("api.json", """{"openapi":"3.0.3","paths":{}}""", true),
+            Triple("async.yaml", "asyncapi: 3.0.0\nchannels: {}", false),
+            Triple("async.json", """{"asyncapi":"3.0.0","channels":{}}""", false),
+            Triple("bad.yaml", "openapi: [", false),
+            Triple("scalar.yaml", "plain scalar", false),
+        )
+        cases.forEach { (name, content, expected) ->
+            val file = directory.resolve(name).apply { writeText(content) }
+            assertThat(with(command) { file.isValidFileFormat() }).describedAs(name).isEqualTo(expected)
+        }
+    }
+
     private val objectMapper = ObjectMapper()
 
     companion object {
