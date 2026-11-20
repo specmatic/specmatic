@@ -34,11 +34,9 @@ interface ContractTestInterceptor {
 
     companion object {
         private val prioritizedInterceptors = CopyOnWriteArrayList<ContractTestInterceptor>()
-        private val serviceLoadedInterceptors by lazy {
-            ServiceLoader.load(ContractTestInterceptor::class.java).toList()
-        }
 
         fun load(additionalInterceptors: List<ContractTestInterceptor> = emptyList()): List<ContractTestInterceptor> {
+            val serviceLoadedInterceptors = ServiceLoader.load(ContractTestInterceptor::class.java).toList()
             return prioritizedInterceptors.toList().plus(serviceLoadedInterceptors).plus(additionalInterceptors)
         }
 

@@ -21,6 +21,8 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
 import io.specmatic.stub.isSupportedAPISpecification
+import io.specmatic.test.interceptor.ContractTestInterceptorContext
+import io.specmatic.test.interceptor.ContractTestInterceptorProvider
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverage
@@ -29,10 +31,17 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.extension.ExtensionContext
+import org.junit.jupiter.api.extension.InvocationInterceptor
+import org.junit.jupiter.api.extension.ParameterContext
+import org.junit.jupiter.api.extension.ParameterResolver
+import org.junit.jupiter.api.extension.ReflectiveInvocationContext
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.opentest4j.TestAbortedException
 import java.io.File
+import java.lang.reflect.Method
 import java.net.HttpURLConnection
 import java.net.URI
 import java.time.Instant
@@ -204,7 +213,8 @@ open class SpecmaticJUnitSupport {
     }
 
     @TestFactory
-    fun contractTest(): Stream<DynamicTest> {
+    @ExtendWith(ContractTestExecutionContextResolver::class)
+    fun contractTest(context: ExtensionContext? = null): Stream<DynamicTest> {
         settings = ContractTestSettings(settings, specmaticConfig)
         partialSuccesses.clear()
 
@@ -216,6 +226,13 @@ open class SpecmaticJUnitSupport {
         } catch (_: NumberFormatException) {
             throw ContractException("The test timeout should be a value of type long")
         } ?: DEFAULT_TIMEOUT_IN_MILLISECONDS
+
+        val parallelExecutionEnabled = if (context == null) {
+            System.getProperty(PARALLEL_EXECUTION_ENABLED).toBoolean()
+        } else {
+            context.getConfigurationParameter(PARALLEL_EXECUTION_ENABLED).orElse("false").toBoolean() &&
+            context.executionMode == ExecutionMode.CONCURRENT
+        }
 
         val workingDirectory = WorkingDirectory(DEFAULT_WORKING_DIRECTORY)
         val testBuildResult = try {
@@ -234,7 +251,8 @@ open class SpecmaticJUnitSupport {
                             filterNotName = filterNotName,
                             specmaticConfig = specmaticConfig,
                             overlayContent = overlayContent,
-                            filter = testFilter
+                            filter = testFilter,
+                            parallelExecutionEnabled = parallelExecutionEnabled
                         )
 
                         LoadedContractScenarios(
@@ -281,7 +299,8 @@ open class SpecmaticJUnitSupport {
                             generative = contractPathData.generative,
                             overlayContent = overlayContent,
                             filter = testFilter,
-                            exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
+                            exampleDirPaths = contractPathData.exampleDirPaths.orEmpty(),
+                            parallelExecutionEnabled = parallelExecutionEnabled
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
@@ -542,7 +561,8 @@ open class SpecmaticJUnitSupport {
         generative: ResiliencyTestSuite? = null,
         overlayContent: String = "",
         filter: ScenarioMetadataFilter,
-        exampleDirPaths: List<String> = emptyList()
+        exampleDirPaths: List<String> = emptyList(),
+        parallelExecutionEnabled: Boolean = false,
     ): LoadedTestScenarios {
         if (hasOpenApiFileExtension(path) && !isOpenAPI(path)) {
             return LoadedTestScenarios(emptySequence(), emptyList(), emptyList())
@@ -628,9 +648,18 @@ open class SpecmaticJUnitSupport {
         val (validatedScenarioDecisions, result) = featureWithExternalizedExamples.validateAndFilterExamples(filteredScenarioDecisions)
         if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
 
-        val validatedScenarios = validatedScenarioDecisions.mapNotNull { (it as? Decision.Execute)?.value }
-        val validExampleFeature = featureWithExternalizedExamples.copy(scenarios = validatedScenarios.toList())
+        val validatedScenarios = validatedScenarioDecisions.mapNotNull { (it as? Decision.Execute)?.value }.toList()
+        val validExampleFeature = featureWithExternalizedExamples.copy(scenarios = validatedScenarios)
         validExampleFeature.validateExamplesOrException()
+
+        val interceptors = ContractTestInterceptorProvider.interceptorsFor(
+            context = ContractTestInterceptorContext(
+                selectedScenarios = validatedScenarios,
+                feature = featureWithExternalizedExamples,
+                parallelExecutionEnabled = parallelExecutionEnabled,
+            )
+        )
+
         val tests = validExampleFeature.also {
             if (it.scenarios.isEmpty()) {
                 logger.log("All scenarios were filtered out.")
@@ -638,7 +667,7 @@ open class SpecmaticJUnitSupport {
                 logger.debug("Selected scenarios:")
                 it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
             }
-        }.generateContractTestsWithDecision(feature.scenarios, validatedScenarioDecisions)
+        }.generateContractTestsWithDecision(feature.scenarios, validatedScenarioDecisions, interceptors)
 
         return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
     }
@@ -790,5 +819,34 @@ fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000, keyData: KeyData?
         code in 200..499
     } catch (e: Exception) {
         false
+    }
+}
+
+private const val PARALLEL_EXECUTION_ENABLED = "junit.jupiter.execution.parallel.enabled"
+class ContractTestExecutionContextResolver : ParameterResolver, InvocationInterceptor {
+    override fun supportsParameter(parameterContext: ParameterContext, extensionContext: ExtensionContext): Boolean {
+        return parameterContext.parameter.type == ExtensionContext::class.java
+    }
+
+    override fun resolveParameter(parameterContext: ParameterContext, extensionContext: ExtensionContext): ExtensionContext {
+        return extensionContext
+    }
+
+    override fun <T> interceptTestFactoryMethod(
+        invocation: InvocationInterceptor.Invocation<T>,
+        invocationContext: ReflectiveInvocationContext<Method>,
+        extensionContext: ExtensionContext,
+    ): T {
+        val previous = current.get()
+        current.set(extensionContext)
+        return try {
+            invocation.proceed()
+        } finally {
+            if (previous == null) current.remove() else current.set(previous)
+        }
+    }
+
+    companion object {
+        val current = ThreadLocal<ExtensionContext>()
     }
 }

@@ -1,18 +1,22 @@
 package io.specmatic.test.interceptor
 
 import io.specmatic.core.Feature
+import io.specmatic.core.Scenario
 import java.util.ServiceLoader
 
+data class ContractTestInterceptorContext(
+    val feature: Feature,
+    val selectedScenarios: List<Scenario>,
+    val parallelExecutionEnabled: Boolean = false,
+)
+
 interface ContractTestInterceptorProvider {
-    fun interceptorsFor(feature: Feature): List<ContractTestInterceptor>
+    fun interceptorsFor(context: ContractTestInterceptorContext): List<ContractTestInterceptor>
 
     companion object {
-        private val serviceLoadedProviders by lazy {
-            ServiceLoader.load(ContractTestInterceptorProvider::class.java).toList()
-        }
-
-        fun interceptorsFor(feature: Feature): List<ContractTestInterceptor> {
-            return serviceLoadedProviders.flatMap { provider -> provider.interceptorsFor(feature) }
+        fun interceptorsFor(context: ContractTestInterceptorContext): List<ContractTestInterceptor> {
+            return ServiceLoader.load(ContractTestInterceptorProvider::class.java)
+                .flatMap { provider -> provider.interceptorsFor(context) }
         }
     }
 }
