@@ -416,7 +416,7 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
                 protocol = SpecmaticProtocol.SOAP,
             )
         } catch (e: ContractException) {
-            throw ContractException("${e.message} in $path", exceptionCause = e)
+            throw if (path.isBlank()) e else e.copy(errorMessage = "WSDL file: $path\n${e.errorMessage}")
         }
     }
 
