@@ -33,6 +33,177 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
+    fun `readFrom does not treat security query params as undeclared example params`() {
+        val request = HttpRequest(
+            method = "GET",
+            path = "/resource",
+            queryParams = QueryParameters(mapOf("api_key" to "secret")),
+            metadata = HttpRequestMetadata(securityQueryParamNames = setOf("api_key"))
+        )
+
+        val row = Row(
+            requestExample = request,
+            values = listOf("secret"),
+            columnNames = listOf("api_key"),
+        )
+
+        listOf(
+            HttpQueryParamPattern(emptyMap()),
+            HttpQueryParamPattern(emptyMap(), additionalProperties = StringPattern())
+        ).forEach { queryPattern ->
+            val readPattern = queryPattern.readFrom(row, Resolver(), generateMandatoryEntryIfMissing = false).single().value
+            assertThat(readPattern.generate(Resolver())).isEqualTo(emptyList<Pair<String, String>>())
+        }
+    }
+
+    @Nested
+    inner class ExampleQueryParamTests {
+        @Test
+        fun `newBasedOn should retain an undeclared query parameter from the request example`() {
+            val request = HttpRequest(queryParams = QueryParameters(listOf("extra" to "value")))
+
+            val row = Row(requestExample = request)
+            val pattern = HttpQueryParamPattern(emptyMap())
+                .newBasedOn(row, Resolver())
+                .single()
+                .value
+
+            assertThat(pattern.queryPatterns).isEqualTo(
+                mapOf("extra" to ExactValuePattern(StringValue("value")))
+            )
+        }
+
+        @Test
+        fun `readFrom should retain an undeclared query parameter from the request example`() {
+            val request = HttpRequest(queryParams = QueryParameters(listOf("extra" to "value")))
+            val row = Row(
+                requestExample = request,
+                values = listOf("value"),
+                columnNames = listOf("extra"),
+            )
+
+            val pattern = HttpQueryParamPattern(emptyMap())
+                .readFrom(row, Resolver(), generateMandatoryEntryIfMissing = false)
+                .single()
+                .value
+
+            assertThat(pattern.queryPatterns).isEqualTo(
+                mapOf("extra" to ExactValuePattern(StringValue("value")))
+            )
+        }
+
+        @Test
+        fun `readFrom should retain all values for a repeated undeclared query parameter`() {
+            val values = listOf("first", "second")
+            val request = HttpRequest(
+                queryParams = QueryParameters(values.map { "tag" to it })
+            )
+
+            val row = Row(
+                requestExample = request,
+                columnNames = listOf("tag"),
+                values = listOf(JSONArrayValue(values.map(::StringValue)).toStringLiteral())
+            )
+
+            val pattern = HttpQueryParamPattern(emptyMap())
+                .readFrom(row, Resolver(), generateMandatoryEntryIfMissing = false)
+                .single()
+                .value
+
+            assertThat(pattern.generate(Resolver()))
+                .containsExactly("tag" to "first", "tag" to "second")
+        }
+
+        @Test
+        fun `newBasedOn should retain all values for a repeated undeclared query parameter`() {
+            val queryParams = QueryParameters(listOf("tag" to "first", "tag" to "second"))
+            val row = Row(requestExample = HttpRequest(queryParams = queryParams))
+            val pattern = HttpQueryParamPattern(emptyMap()).newBasedOn(row, Resolver()).single().value
+
+            assertThat(pattern.queryPatterns).isEqualTo(
+                mapOf(
+                    "tag" to ExactValuePattern(
+                        JSONArrayValue(listOf(StringValue("first"), StringValue("second")))
+                    )
+                )
+            )
+
+            assertThat(pattern.generate(Resolver()))
+                .containsExactly("tag" to "first", "tag" to "second")
+        }
+    }
+
+    @Nested
+    inner class NegativeBasedOnTests {
+        @Test
+        fun `negativeBasedOn should include example query params allowed by additional properties`() {
+            val additionalProperties = StringPattern()
+            val queryPattern = HttpQueryParamPattern(
+                additionalProperties = additionalProperties,
+                queryPatterns = mapOf("id" to QueryParameterScalarPattern(NumberPattern())),
+            )
+
+            val row = Row(
+                values = listOf("1", "extra"),
+                columnNames = listOf("id", "example_only"),
+                requestExample = HttpRequest(
+                    queryParams = QueryParameters(
+                        paramPairs = listOf("id" to "1", "example_only" to "extra"),
+                    )
+                ),
+            )
+
+            val expectedPatterns = queryPattern.copy(
+                queryPatterns = queryPattern.queryPatterns + ("example_only" to additionalProperties)
+            ).negativeBasedOn(row, Resolver())
+                .map { normalizeAdditionalQueryParamKeys(it.value.queryPatterns) }
+                .toList()
+
+            val generatedPatterns = queryPattern.negativeBasedOn(row, Resolver())
+                .map { normalizeAdditionalQueryParamKeys(it.value.queryPatterns) }
+                .toList()
+
+            assertThat(generatedPatterns).containsExactlyElementsOf(expectedPatterns)
+        }
+
+        @Test
+        fun `negativeBasedOn should ignore additional query params from the request example`() {
+            val queryPattern = HttpQueryParamPattern(
+                extensibleQueryParams = true,
+                queryPatterns = mapOf("id" to QueryParameterScalarPattern(NumberPattern())),
+            )
+
+            val resolver = Resolver()
+            val row = Row(
+                values = listOf("1", "extra"),
+                columnNames = listOf("id", "example_only"),
+                requestExample = HttpRequest(
+                    queryParams = QueryParameters(
+                        paramPairs = listOf("id" to "1", "example_only" to "extra"),
+                    )
+                ),
+            )
+
+            val expectedPatterns = queryPattern.negativeBasedOn(
+                resolver = resolver,
+                row = Row(columnNames = listOf("id"), values = listOf("1")),
+            ).map { it.value.queryPatterns }.toList()
+
+            val generatedPatterns = queryPattern.negativeBasedOn(row, resolver)
+                .map { it.value.queryPatterns }
+                .toList()
+
+            assertThat(generatedPatterns).containsExactlyElementsOf(expectedPatterns)
+        }
+
+        private fun normalizeAdditionalQueryParamKeys(patterns: Map<String, Pattern>): List<Pair<String, Pattern>> {
+            return patterns
+                .map { (key, pattern) -> (if (key == "id") key else "<additional>") to pattern }
+                .sortedBy { it.first }
+        }
+    }
+
+    @Test
     fun `should match a boolean in a query only when resolver has mock matching on`() {
         val matcher = buildQueryPattern(URI("/pets?available=(boolean)"))
         assertThat(matcher.matches(URI.create("/pets"), mapOf("available" to "true"), Resolver())).isInstanceOf(Success::class.java)

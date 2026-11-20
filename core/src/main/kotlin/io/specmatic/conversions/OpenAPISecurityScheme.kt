@@ -1,6 +1,7 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpRequestMetadata
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -18,6 +19,7 @@ interface OpenAPISecurityScheme {
     fun isInRow(row: Row): Boolean
     fun isInRequest(request: HttpRequest, complete: Boolean): Boolean
     fun getHeaderKey(): String? = null
+    fun securityMetadata(): HttpRequestMetadata = HttpRequestMetadata()
     fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result
     fun fixValue(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
         return if (matches(httpRequest, resolver).isSuccess()) {

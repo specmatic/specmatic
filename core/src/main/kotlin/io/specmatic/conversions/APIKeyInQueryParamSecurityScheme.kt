@@ -11,6 +11,8 @@ data class APIKeyInQueryParamSecurityScheme(
     private val apiKey: String?,
     override val schemeName: String? = null,
 ) : OpenAPISecurityScheme {
+    override fun securityMetadata(): HttpRequestMetadata = HttpRequestMetadata(securityQueryParamNames = setOf(name))
+
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         if (!httpRequest.hasQueryParam(name)) return Result.Success()
         return Result.Failure(

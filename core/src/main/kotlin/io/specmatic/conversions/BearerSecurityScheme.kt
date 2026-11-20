@@ -11,6 +11,8 @@ data class BearerSecurityScheme(
 ) : OpenAPISecurityScheme {
     override val schemeName: String? get() = authentication.schemeName
 
+    override fun securityMetadata(): HttpRequestMetadata = HttpRequestMetadata(securityHeaderNames = setOf(AUTHORIZATION))
+
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         val entry = httpRequest.headers.getCaseInsensitive(AUTHORIZATION) ?: return Result.Success()
         return Result.Failure(
