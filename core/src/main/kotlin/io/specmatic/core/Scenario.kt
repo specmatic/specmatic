@@ -853,6 +853,11 @@ data class Scenario(
         return Decision.Execute(value = negativeBasedOn(badRequestOrDefault), context = this, reasoning = reason)
     }
 
+    /**
+     * Attribute selection is a contract projection, so it shares the Pattern derivation consistency
+     * obligations without promising the full original shape. Audit selection with object projection,
+     * response matching and generation: they must agree on which constraints survive the projection.
+     */
     fun newBasedOnAttributeSelectionFields(queryParams: QueryParameters?): Scenario {
         val fieldsToBeMadeMandatory = fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams)
         if (fieldsToBeMadeMandatory.isEmpty()) return this

@@ -12,6 +12,11 @@ import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
+/**
+ * Changes to any Pattern operation may affect matching, generation, derivation,
+ * repair, completion, substitution and compatibility. Audit these together,
+ * including intentional exceptions for negative/partial values and projections.
+ */
 interface Pattern {
     fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C = visitor.rootContext): R {
         return visitor.opaque(OpaquePatternCase(pattern = this, context = context))

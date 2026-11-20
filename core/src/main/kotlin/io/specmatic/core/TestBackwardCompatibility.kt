@@ -11,6 +11,12 @@ import io.specmatic.reporter.commands.InsightsReportOptions
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
 
+/**
+ * Compatibility connects Pattern value sets in opposite directions: [newer] must accept requests
+ * allowed by [older], while newer responses must satisfy older expectations. Audit request derivation
+ * and generation together with response encompassing when a constraint changes. Self-compatibility
+ * is a shared invariant across these operations, not merely a property of schema comparison.
+ */
 fun testBackwardCompatibility(older: Feature, newer: Feature, insightsReportOptions: InsightsReportOptions): Results {
     return testBackwardCompatibilityWithReport(older, newer, insightsReportOptions).first
 }

@@ -665,6 +665,11 @@ class OpenApiSpecification(
         return result.returnLenientlyElseFail(logger, lenientMode, feature)
     }
 
+    /**
+     * Changes to validation can affect both error messages and recovery. Check these together with
+     * rejection in [toFeature]: errors should explain what was wrong with the original input, even
+     * when recovery changes it to produce a usable pattern.
+     */
     fun toFeatureLenient(): Pair<Feature, Result> {
         val rootContext = CollectorContext().combineImmutable(parseCollectorContext)
         val name = File(openApiFilePath).name
