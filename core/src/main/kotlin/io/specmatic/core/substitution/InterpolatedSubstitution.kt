@@ -1,6 +1,7 @@
 package io.specmatic.core.substitution
 
 import io.specmatic.core.Resolver
+import io.specmatic.core.pattern.AnyValuePattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.isBuiltInPattern
 import io.specmatic.core.pattern.isPatternToken
@@ -39,13 +40,26 @@ internal object InterpolatedSubstitution {
     }
 
     fun extractVariables(original: String, running: String, resolver: Resolver = Resolver()): Map<String, Value> {
+        return extractVariables(original, StringValue(running), resolver)
+    }
+
+    fun extractVariables(original: String, running: Value, resolver: Resolver = Resolver()): Map<String, Value> {
         return when (val result = extractVariablesResult(original, running, resolver)) {
             is ExtractionResult.Success -> result.variables
             is ExtractionResult.Failure -> throw ContractException(result.message)
         }
     }
 
-    private fun extractVariablesResult(original: String, running: String, resolver: Resolver): ExtractionResult {
+    private fun extractVariablesResult(original: String, running: Value, resolver: Resolver): ExtractionResult {
+        val wholeCapture = captureRegex.matchEntire(original)?.takeIf { isKnownCaptureType(it.value, resolver) }
+        if (wholeCapture != null) {
+            val (name, typeName) = placeholderParts(wholeCapture.value)
+                ?: return ExtractionResult.Failure("Invalid placeholder token \"${wholeCapture.value}\" in \"$original\"")
+
+            val value = parseExtractedValue(typeName, running, resolver)
+            return ExtractionResult.Success(mapOf(name to value))
+        }
+
         val placeholders = captureRegex
             .findAll(original)
             .filterNot { isDollarFunctionCall(original, it.range.first) }
@@ -59,9 +73,10 @@ internal object InterpolatedSubstitution {
             )
         }
 
+        val runningText = running.toStringLiteral()
         val regexSource = buildRegexSource(original, placeholders)
-        val match = Regex(regexSource).matchEntire(running) ?: return ExtractionResult.Failure(
-            message = "Could not extract substitution variables from \"$running\" using template \"$original\""
+        val match = Regex(regexSource).matchEntire(runningText) ?: return ExtractionResult.Failure(
+            message = "Could not extract substitution variables from \"$runningText\" using template \"$original\""
         )
 
         val variables = linkedMapOf<String, Value>()
@@ -72,7 +87,7 @@ internal object InterpolatedSubstitution {
 
             val (name, typeName) = parts
             val value = match.groups[index + 1]?.value ?: return ExtractionResult.Failure(
-                message = "Could not extract placeholder \"$name\" from \"$running\" using template \"$original\""
+                message = "Could not extract placeholder \"$name\" from \"$runningText\" using template \"$original\""
             )
 
             val existingValue = variables[name]
@@ -82,7 +97,7 @@ internal object InterpolatedSubstitution {
                 )
             }
 
-            variables[name] = parseExtractedValue(typeName, value, resolver)
+            variables[name] = parseExtractedValue(typeName, StringValue(value), resolver)
         }
 
         return ExtractionResult.Success(variables)
@@ -104,10 +119,11 @@ internal object InterpolatedSubstitution {
         return regex.toString()
     }
 
-    private fun parseExtractedValue(typeName: String, value: String, resolver: Resolver): Value {
+    private fun parseExtractedValue(typeName: String, value: Value, resolver: Resolver): Value {
+        if (typeName == AnyValuePattern.typeName.removeSurrounding("(", ")")) return value
         return runCatching {
-            resolver.getPattern("($typeName)").parse(value, resolver)
-        }.getOrDefault(StringValue(value))
+            resolver.getPattern("($typeName)").parse(value.toStringLiteral(), resolver)
+        }.getOrDefault(value)
     }
 
     private fun placeholderParts(token: String): Pair<String, String>? {
