@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.reporter.parsing.jacksonYamlFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.ktor.http.HttpStatusCode
@@ -57,7 +57,8 @@ import io.swagger.v3.oas.models.responses.ApiResponses
 import io.swagger.v3.oas.models.security.OAuthFlow
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
-import io.swagger.v3.parser.OpenAPIV3Parser
+import io.specmatic.reporter.parsing.OpenApiParser
+import io.specmatic.reporter.parsing.OpenApiMode
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
 import io.swagger.v3.parser.reference.DereferencerContext
@@ -301,19 +302,19 @@ class OpenApiSpecification(
         fun getParsedOpenApi(openApiFilePath: String): OpenAPI {
             // TODO: This is ignoring parse errors for example it declares asyncapi files as valid and parseable
             // To fix it must check that the returned result has no messages
-            return OpenAPIV3Parser().read(openApiFilePath, null, resolveExternalReferences())
+            return OpenApiParser.parseLocation(openApiFilePath, options = resolveExternalReferences(), mode = OpenApiMode.SWAGGER_2_OR_OPENAPI_3).openAPI
         }
 
         fun isParsable(openApiFilePath: String): Boolean {
             // TODO: This is ignoring parse errors for example it declares asyncapi files as valid and parseable
             // To fix it must check that the returned result has no messages
-            return OpenAPIV3Parser().read(openApiFilePath, null, resolveExternalReferences()) != null
+            return OpenApiParser.parseLocation(openApiFilePath, options = resolveExternalReferences(), mode = OpenApiMode.SWAGGER_2_OR_OPENAPI_3).openAPI != null
         }
 
         fun isParsableOpenApiDocument(openApiFilePath: String): Boolean {
             // Unlike read(), readLocation() does not fall back to parser extensions
             // that can convert ordinary YAML/JSON into an apparent OpenAPI model.
-            return OpenAPIV3Parser().readLocation(openApiFilePath, null, resolveExternalReferences())
+            return OpenApiParser.parseLocation(openApiFilePath, options = resolveExternalReferences())
                 .openAPI?.openapi != null
         }
 
@@ -336,11 +337,10 @@ class OpenApiSpecification(
                 collectorContext = CollectorContext()
             )
             val parseResult: SwaggerParseResult =
-                OpenAPIV3Parser().readContents(
+                OpenApiParser.parse(
                     preprocessedYaml,
-                    null,
-                    resolveExternalReferences(),
-                    openApiFilePath,
+                    location = openApiFilePath,
+                    options = resolveExternalReferences(),
                 )
             if (parseResult.openAPI == null) {
                 throw ContractException("Could not parse contract $openApiFilePath, please validate the syntax using https://editor.swagger.io")
@@ -371,6 +371,7 @@ class OpenApiSpecification(
             lenientMode: Boolean = false,
             exampleDirPaths: List<String> = emptyList()
         ): OpenApiSpecification {
+            OpenApiParser.validateSize(yamlContent)
             val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
@@ -434,11 +435,10 @@ class OpenApiSpecification(
             exampleDirPaths: List<String> = emptyList(),
         ): OpenApiSpecification {
             val parseResult: SwaggerParseResult =
-                OpenAPIV3Parser().readContents(
+                OpenApiParser.parse(
                     yamlContent,
-                    null,
-                    resolveFullyReferences(),
-                    openApiFilePath.replace("\\", "/")
+                    location = openApiFilePath.replace("\\", "/"),
+                    options = resolveFullyReferences(),
                 )
             val parsedOpenApi: OpenAPI = parseResult.openAPI
                 ?: throw ContractException("Could not parse contract $openApiFilePath for change tracking, please validate the syntax using https://editor.swagger.io")
@@ -478,12 +478,11 @@ class OpenApiSpecification(
         }
 
         private fun parseWithReferences(yaml: String, location: String, hasOverlay: Boolean): SwaggerParseResult {
-            val parser = OpenAPIV3Parser()
             val options = resolveExternalReferences()
             if (hasOverlay && location.isNotBlank() && System.getenv("disableOas31Resolve").isNullOrBlank()) {
                 val root = yamlPreprocessorMapper.readTree(yaml)
                 if (root?.path("openapi")?.asText()?.startsWith("3.1") == true) {
-                    val parsed = parser.readContents(yaml, null, ParseOptions(), location)
+                    val parsed = OpenApiParser.parse(yaml, location = location, options = ParseOptions())
                     if (parsed.openAPI != null) {
                         val dereferencer = object : OpenAPIDereferencer31() {
                             override fun buildReferenceVisitorWithContext(
@@ -505,7 +504,7 @@ class OpenApiSpecification(
                     return parsed
                 }
             }
-            return parser.readContents(yaml, null, options, location)
+            return OpenApiParser.parse(yaml, location = location, options = options)
         }
 
         private fun resolveExternalReferences(): ParseOptions {
@@ -524,7 +523,7 @@ class OpenApiSpecification(
 
         private val yamlPreprocessorMapper: ObjectMapper by lazy {
             ObjectMapper(
-                YAMLFactory()
+                jacksonYamlFactory()
                     .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER),
             ).registerKotlinModule()
         }

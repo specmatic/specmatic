@@ -1,7 +1,6 @@
 package io.specmatic.core.overlay
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.reporter.parsing.jacksonYamlMapper
 import io.specmatic.core.log.logger
 
 class OverlayParser {
@@ -58,7 +57,7 @@ class OverlayParser {
         }
 
         private fun String.actions(): List<Map<String, Any>> {
-            val rootNode = ObjectMapper(YAMLFactory())
+            val rootNode = jacksonYamlMapper()
                 .readValue(this, Map::class.java) as Map<String, Any>
 
             return rootNode["actions"] as? List<Map<String, Any>>? ?: emptyList()

@@ -2,13 +2,13 @@ package io.specmatic.core.utilities
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.reporter.parsing.jacksonYamlFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.*
 
-private val yamlFactory = YAMLFactory().apply {
+private val yamlFactory = jacksonYamlFactory().apply {
     disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
     enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
     disable(YAMLGenerator.Feature.USE_NATIVE_TYPE_ID)
