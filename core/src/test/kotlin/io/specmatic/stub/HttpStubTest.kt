@@ -22,11 +22,13 @@ import io.specmatic.osAgnosticPath
 import io.specmatic.shouldMatch
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.toViolationReportString
+import io.swagger.v3.core.util.Yaml
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.http.HttpHeaders
@@ -42,6 +44,7 @@ import java.net.ConnectException
 import java.net.URI
 import java.net.ServerSocket
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
 import kotlin.io.path.absolutePathString
@@ -189,6 +192,46 @@ internal class HttpStubTest {
             }
         } finally {
             tempDir.deleteRecursively()
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource("json, application/json", "yaml, application/yaml")
+    fun `swagger endpoint preserves OpenAPI 3_1 schema keywords`(extension: String, mediaType: String, @TempDir tempDir: Path) {
+        val specFile = tempDir.resolve("api.yaml")
+        Files.writeString(
+            specFile,
+            """
+            openapi: 3.1.0
+            info:
+              title: OpenAPI 3.1 test
+              version: 1.0.0
+            paths:
+              /health:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                Status:
+                  type: string
+                  const: ready
+            """.trimIndent()
+        )
+        val feature = parseContractFileToFeature(specFile.toString())
+
+        HttpStub(features = listOf(feature), port = testPort()).use { stub ->
+            val response = RestTemplate().getForEntity<String>(stub.endPoint + "/swagger/v1/swagger.$extension")
+
+            assertThat(response.statusCode.value()).isEqualTo(200)
+            assertThat(response.headers.contentType?.let { "${it.type}/${it.subtype}" }).isEqualTo(mediaType)
+
+            val document = Yaml.mapper().readTree(response.body)
+            assertThat(document.path("openapi").textValue()).isEqualTo("3.1.0")
+            assertThat(document.at("/components/schemas/Status")).isEqualTo(
+                Yaml.mapper().readTree("""{"type":"string","const":"ready"}""")
+            )
         }
     }
 
