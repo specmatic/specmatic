@@ -432,6 +432,22 @@ internal class HttpHeadersPatternTest {
 
     @Nested
     inner class NewBasedOnTests {
+        @ParameterizedTest
+        @CsvSource("X-Trace-Id, x-trace-id", "X-Trace-Id?, x-trace-id")
+        fun `newBasedOn should not add a case insensitive spec header as an extra header`(specHeaderName: String, exampleHeaderName: String) {
+            val headers = HttpHeadersPattern(mapOf(specHeaderName to StringPattern()))
+            val row = Row(requestExample = HttpRequest(headers = mapOf(exampleHeaderName to "trace-value")))
+            val newHeaders = headers.newBasedOn(row, Resolver()).toList()
+            val expectedPatterns = if (isOptional(specHeaderName)) {
+                listOf(mapOf("X-Trace-Id" to StringPattern()), emptyMap())
+            } else {
+                listOf(mapOf("X-Trace-Id" to StringPattern()))
+            }
+
+            assertThat(newHeaders.map { it.value.pattern })
+                .containsExactlyElementsOf(expectedPatterns)
+        }
+
         @Test
         fun `newBasedOn should include additional headers from example`() {
             val headers = HttpHeadersPattern(mapOf("X-Existing" to StringPattern()))
@@ -445,8 +461,12 @@ internal class HttpHeadersPatternTest {
             val newHeaders = headers.newBasedOn(row, Resolver()).toList()
 
             assertThat(newHeaders).hasSize(1)
-            val newHeader = newHeaders[0].value
-            assertThat(newHeader.pattern).containsKeys("X-Existing", "X-New")
+            assertThat(newHeaders.single().value.pattern).isEqualTo(
+                mapOf(
+                    "X-Existing" to StringPattern(),
+                    "X-New" to ExactValuePattern(StringValue("newValue"))
+                )
+            )
         }
 
         @Test
@@ -510,6 +530,57 @@ internal class HttpHeadersPatternTest {
             assertThat(newHeaders.last().value.pattern).hasSize(5).allSatisfy { key, _ ->
                 assertThat(isOptional(key)).isFalse()
             }
+        }
+    }
+
+    @Nested
+    inner class ReadFromTests {
+        @Test
+        fun `readFrom should retain additional headers from the request example`() {
+            val request = HttpRequest(headers = mapOf("X-Example" to "value"))
+            val row = Row(
+                requestExample = request,
+                values = listOf("value"),
+                columnNames = listOf("X-Example"),
+            )
+
+            val pattern = HttpHeadersPattern(emptyMap())
+                .readFrom(row, Resolver(), generateMandatoryEntryIfMissing = false, breadCrumb = BreadCrumb.PARAM_HEADER.value)
+                .single()
+                .value
+
+            assertThat(pattern.pattern).isEqualTo(
+                mapOf("X-Example" to ExactValuePattern(StringValue("value")))
+            )
+        }
+    }
+
+    @Nested
+    inner class NegativeBasedOnTests {
+        @Test
+        fun `negativeBasedOn should ignore additional headers from the request example`() {
+            val headers = HttpHeadersPattern(mapOf("X-Declared" to StringPattern()))
+            val resolver = Resolver()
+            val row = Row(
+                values = listOf("value", "extra"),
+                columnNames = listOf("X-Declared", "X-Example-Only"),
+                requestExample = HttpRequest(headers = mapOf(
+                    "X-Declared" to "value",
+                    "X-Example-Only" to "extra"
+                )),
+            )
+
+            val expectedPatterns = headers.negativeBasedOn(
+                resolver = resolver,
+                breadCrumb = BreadCrumb.PARAM_HEADER.value,
+                row = Row(columnNames = listOf("X-Declared"), values = listOf("value")),
+            ).map { it.value.pattern }.toList()
+
+            val generatedPatterns = headers.negativeBasedOn(row, resolver, BreadCrumb.PARAM_HEADER.value)
+                .map { it.value.pattern }
+                .toList()
+
+            assertThat(generatedPatterns).containsExactlyElementsOf(expectedPatterns)
         }
     }
 

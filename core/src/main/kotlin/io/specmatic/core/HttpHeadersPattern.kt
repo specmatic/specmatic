@@ -293,9 +293,9 @@ data class HttpHeadersPattern(
     private fun extractFromExampleHeadersNotInSpec(specPattern : Map<String, Pattern>, row: Row): Map<String, Pattern> {
         val additionalHeadersPattern = if (row.requestExample != null) {
             row.requestExample.headers.keys
-                .filter { exampleHeaderName -> !specPattern.containsKey(exampleHeaderName) && !specPattern.containsKey("${exampleHeaderName}?") }
+                .filter { exampleHeaderName -> !specPattern.containsCaseInsensitiveCheckOptional(exampleHeaderName) }
                 .filter { exampleHeaderName -> exampleHeaderName.lowercase() !in getHeadersToExcludeNotInExamples(row.requestExample) }
-                .filter { exampleHeaderName -> exampleHeaderName !in row.requestExample.metadata.securityHeaderNames }
+                .filter { exampleHeaderName -> !row.requestExample.metadata.hasSecurityHeader(exampleHeaderName) }
                 .associateWith { exampleHeaderName -> ExactValuePattern(StringValue(row.requestExample.headers.getValue(exampleHeaderName))) }
         } else {
             emptyMap()
@@ -439,7 +439,8 @@ data class HttpHeadersPattern(
         breadCrumb: String
     ): Sequence<ReturnValue<HttpHeadersPattern>> {
         return attempt(breadCrumb = breadCrumb) {
-            readFrom(this.pattern, row, resolver, generateMandatoryEntryIfMissing)
+            val patterns = this.pattern + extractFromExampleHeadersNotInSpec(this.pattern, row)
+            readFrom(patterns, row, resolver, generateMandatoryEntryIfMissing)
         }.map {
             HasValue(
                 HttpHeadersPattern(
