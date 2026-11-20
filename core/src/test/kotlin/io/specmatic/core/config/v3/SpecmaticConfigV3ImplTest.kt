@@ -60,6 +60,34 @@ class SpecmaticConfigV3ImplTest {
         }
     }
 
+    @Nested
+    inner class TestSpecificationConfig {
+        @Test
+        fun `should read and expose config attached to a test specification`() {
+            val config = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: orders
+                            path: orders.yaml
+                            testConfig:
+                              enabled: true
+                              retryCount: 3
+            """.trimIndent())
+
+            val specification = config.testSpecDefinitionFor(File("orders.yaml"))
+            assertThat(specification).isInstanceOf(SpecificationDefinition.ObjectValue::class.java)
+            assertThat(specification!!.getConfig()).isEqualTo(mapOf("testConfig" to mapOf("enabled" to true, "retryCount" to 3)))
+        }
+    }
+
     @Test
     fun `should use the longest matching stub baseUrl path`() {
         val config = v3Config(

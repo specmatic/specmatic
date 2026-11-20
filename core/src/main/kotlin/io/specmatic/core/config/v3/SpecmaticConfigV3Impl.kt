@@ -242,6 +242,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return dependencies.getSpecDefinitionFor(file, service, resolver)
     }
 
+    override fun testSpecDefinitionFor(file: File): SpecificationDefinition? {
+        return specmaticConfig.systemUnderTest?.getSpecDefinitionFor(file, resolver)
+    }
+
     override fun getCtrfSpecConfig(specFile: File, testType: String, protocol: String, specType: String): CtrfSpecConfig {
         val source = when (testType) {
             CONTRACT_TEST_TEST_TYPE -> specmaticConfig.systemUnderTest?.getSourcesContaining(specFile, resolver)
