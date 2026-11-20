@@ -59,6 +59,45 @@ import java.math.BigDecimal
 import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
+    @Test
+    fun `root code point limit includes comments and supplementary Unicode before preprocessing`() {
+        val limit = io.specmatic.reporter.parsing.MAX_SPEC_CODE_POINTS
+        val prefix = "openapi: 3.0.3\ninfo: {title: '🚀', version: '1'}\npaths: {}\n#"
+        val source = prefix + "x".repeat(limit - prefix.codePointCount(0, prefix.length))
+        assertThat(OpenApiSpecification.fromYAML(source, "boundary.yaml").parsedOpenApi.openapi).isEqualTo("3.0.3")
+        assertThrows<IllegalArgumentException> { OpenApiSpecification.fromYAML(source + "x", "boundary.yaml") }
+    }
+
+    @Test
+    fun `YAML and JSON inputs retain optional body operations and response schemas`() {
+        val yaml = """
+            openapi: 3.0.3
+            info: {title: Items, version: '1'}
+            paths:
+              /items:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema: {type: object}
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema: {type: integer}
+        """.trimIndent()
+        val tree = com.fasterxml.jackson.databind.ObjectMapper(com.fasterxml.jackson.dataformat.yaml.YAMLFactory()).readTree(yaml)
+        val json = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(tree)
+        listOf(yaml, json).forEach { source ->
+            val parsed = OpenApiSpecification.fromYAML(source, "api.yaml")
+            val operation = parsed.parsedOpenApi.paths["/items"]!!.post
+            assertThat(operation.requestBody).extracting("required").isNull()
+            assertThat(operation.responses["200"]!!.content["application/json"]!!.schema.type).isEqualTo("integer")
+            assertThat(parsed.toFeature().scenarios).isNotEmpty()
+        }
+    }
+
     @Nested
     inner class AllOfRequiredDiscriminatorProperties {
         @ParameterizedTest

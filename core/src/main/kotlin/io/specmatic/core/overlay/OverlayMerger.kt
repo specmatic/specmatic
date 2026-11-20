@@ -2,7 +2,7 @@ package io.specmatic.core.overlay
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.reporter.parsing.jacksonYamlFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.DocumentContext
@@ -18,7 +18,7 @@ class OverlayMerger {
     ): String {
         try {
             val yamlMapper = ObjectMapper(
-                YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+                jacksonYamlFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
             )
             val rootNode = yamlMapper.readTree(baseContent) as ObjectNode
             val documentContext = documentContextFor(rootNode)
