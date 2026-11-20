@@ -38,7 +38,7 @@ class ClientErrorExamplesTest {
         val tests = feature.generateContractTests().toList()
         assertThat(tests).hasSize(1)
         var executions = 0
-        val result = ContractTestInterceptor.withLoaderForTest({ if (intercepted) ProcessingInterceptor() else null }) {
+        val execute = {
             tests.single().runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     executions++
@@ -51,6 +51,7 @@ class ClientErrorExamplesTest {
                 }
             }).result
         }
+        val result = if (intercepted) ContractTestInterceptor.withInterceptor(ProcessingInterceptor(), execute) else execute()
         assertThat(executions).isEqualTo(1)
         assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
     }
@@ -81,7 +82,7 @@ class ClientErrorExamplesTest {
         assertThat(negatives.mapNotNull { it.scenario.generateHttpRequest().headers["Accept"] })
             .anyMatch { !isResponseContentTypeAccepted(it, "application/json") }
         var executions = 0
-        ContractTestInterceptor.withLoaderForTest({ ProcessingInterceptor() }) {
+        ContractTestInterceptor.withInterceptor(ProcessingInterceptor()) {
             negatives.forEach { test ->
                 val result = test.runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
@@ -119,7 +120,7 @@ class ClientErrorExamplesTest {
         }
         val test = feature.generateContractTests().first { it.scenario.isNegative == negative }
         val interceptor = object : ProcessingInterceptor() {
-            override fun updateRequest(testScenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, substitution: Substitution): InterceptResult<HttpRequest> {
+            override fun updateRequest(feature: Feature, testScenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, substitution: Substitution): InterceptResult<HttpRequest> {
                 val changedRequest = when (changedField) {
                     "method" -> httpRequest.copy(method = "DELETE")
                     "path" -> httpRequest.copy(path = "/unrelated")
@@ -129,7 +130,7 @@ class ClientErrorExamplesTest {
             }
         }
         var executions = 0
-        val result = ContractTestInterceptor.withLoaderForTest({ interceptor }) {
+        val result = ContractTestInterceptor.withInterceptor(interceptor) {
             test.runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     executions++
@@ -148,7 +149,7 @@ class ClientErrorExamplesTest {
                 Result.Failure("custom validation failed")
         })
         var executions = 0
-        val result = ContractTestInterceptor.withLoaderForTest({ ProcessingInterceptor() }) {
+        val result = ContractTestInterceptor.withInterceptor(ProcessingInterceptor()) {
             test.runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     executions++
@@ -241,10 +242,10 @@ class ClientErrorExamplesTest {
     """.trimIndent()
 
     private open class ProcessingInterceptor : ContractTestInterceptor {
-        override fun updateRequest(testScenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, substitution: Substitution): InterceptResult<HttpRequest> =
+        override fun updateRequest(feature: Feature, testScenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, substitution: Substitution): InterceptResult<HttpRequest> =
             InterceptResult.Processed(HasValue(httpRequest.copy(headers = httpRequest.headers + ("X-Processed" to "true"))))
 
-        override fun updateSubstitution(testScenario: Scenario, originalScenario: Scenario, httpResponse: HttpResponse, substitution: Substitution): InterceptResult<Substitution> =
+        override fun updateSubstitution(feature: Feature, testScenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest, httpResponse: HttpResponse, substitution: Substitution): InterceptResult<Substitution> =
             InterceptResult.PassThrough
     }
 }

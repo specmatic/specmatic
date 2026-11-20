@@ -2,6 +2,7 @@ package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Dictionary
+import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
@@ -472,6 +473,7 @@ class SubstitutionTestExecutor : TestExecutor {
 
 class ServiceLoaderTestInterceptor : ContractTestInterceptor {
     override fun updateRequest(
+        feature: Feature,
         testScenario: Scenario,
         originalScenario: Scenario,
         httpRequest: HttpRequest,
@@ -483,8 +485,10 @@ class ServiceLoaderTestInterceptor : ContractTestInterceptor {
     }
 
     override fun updateSubstitution(
+        feature: Feature,
         testScenario: Scenario,
         originalScenario: Scenario,
+        httpRequest: HttpRequest,
         httpResponse: HttpResponse,
         substitution: Substitution,
     ): InterceptResult<Substitution> {
