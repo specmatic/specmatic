@@ -422,7 +422,7 @@ internal class JSONObjectPatternTest {
             @ParameterizedTest
             @CsvSource(
                 value = [
-                    """min | 2 | {"id": 10} | This is an object with at least 2 properties in the new specification, but an object with 1 properties in the old specification""",
+                    """min | 2 | {"id": 10} | This is an object with at least 2 properties in the new specification, but an object with 1 property in the old specification""",
                     """max | 2 | {"id": 10, "name": "Jill", "address": "Baker street"} | This is an object with at most 2 properties in the new specification, but an object with 3 properties in the old specification"""
                 ],
                 delimiter = '|',
@@ -473,16 +473,16 @@ internal class JSONObjectPatternTest {
             }
 
             @Test
-            fun `generation should fail when available properties are less than minimum`() {
-                val pattern = JSONObjectPattern(
-                    mapOf(
-                        "id" to NumberPattern(),
-                        "name?" to StringPattern()
-                    ),
-                    minProperties = 3
-                )
-
-                assertThatThrownBy { pattern.generate(Resolver()) }.isInstanceOf(ContractException::class.java)
+            fun `construction should fail when available properties are less than minimum`() {
+                assertThatThrownBy {
+                    JSONObjectPattern(
+                        mapOf(
+                            "id" to NumberPattern(),
+                            "name?" to StringPattern()
+                        ),
+                        minProperties = 3
+                    )
+                }.isInstanceOf(IllegalArgumentException::class.java)
             }
 
             @Test
@@ -503,17 +503,17 @@ internal class JSONObjectPatternTest {
             }
 
             @Test
-            fun `generation should fail when the count of mandatory properties is greater than maxProperties`() {
-                val pattern = JSONObjectPattern(
-                    mapOf(
-                        "id" to NumberPattern(),
-                        "name" to StringPattern(),
-                        "address" to StringPattern(),
-                    ),
-                    maxProperties = 2
-                )
-
-                assertThatThrownBy { pattern.generate(Resolver()) }.isInstanceOf(ContractException::class.java)
+            fun `construction should fail when the count of mandatory properties is greater than maxProperties`() {
+                assertThatThrownBy {
+                    JSONObjectPattern(
+                        mapOf(
+                            "id" to NumberPattern(),
+                            "name" to StringPattern(),
+                            "address" to StringPattern(),
+                        ),
+                        maxProperties = 2
+                    )
+                }.isInstanceOf(IllegalArgumentException::class.java)
             }
         }
 

@@ -4,7 +4,6 @@
 The PR body is this repository's `.github/PULL_REQUEST_TEMPLATE.md` with the blanks filled. Keep the HTML comments and template headings. Do not add extra `##` sections. Append `N/A` to irrelevant checklist items.
 
 ## Running gradle commands
-- Run gradle tests one at a time. Many tests listen on hard-coded ports. So if tests run in parallel, they will collide on the ports and run into bind errors.
 - When running a focused test, be sure to use the fully qualified test class name in the gradle command, e.g. `./gradlew test --tests "com.example.TestClass"`
 
 ## Project structure

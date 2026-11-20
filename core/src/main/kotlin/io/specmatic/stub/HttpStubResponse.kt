@@ -17,6 +17,11 @@ data class HttpStubResponse(
 ) {
     val responseBody = response.body
 
+    /**
+     * Mock templates bridge symbolic examples and contract-constrained responses. Audit substitution
+     * and property drops with Scenario response resolution and Pattern constraint checking: they must
+     * agree on the validity of the resolved response. Drop behavior belongs to this mock-side boundary.
+     */
     fun resolveSubstitutions(
         request: HttpRequest,
         originalRequest: HttpRequest,

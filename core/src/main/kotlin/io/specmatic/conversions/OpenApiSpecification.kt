@@ -665,6 +665,11 @@ class OpenApiSpecification(
         return result.returnLenientlyElseFail(logger, lenientMode, feature)
     }
 
+    /**
+     * Changes to validation can affect both error messages and recovery. Check these together with
+     * rejection in [toFeature]: errors should explain what was wrong with the original input, even
+     * when recovery changes it to produce a usable pattern.
+     */
     fun toFeatureLenient(): Pair<Feature, Result> {
         val rootContext = CollectorContext().combineImmutable(parseCollectorContext)
         val name = File(openApiFilePath).name
@@ -3600,12 +3605,12 @@ class OpenApiSpecification(
     private fun toJsonObjectPattern(schema: Schema<*>, patternName: String, typeStack: List<String>, collectorContext: CollectorContext): JSONObjectPattern {
         val requiredFields = schema.required.orEmpty()
         val schemaProperties = toSchemaProperties(schema, requiredFields, patternName, typeStack, collectorContext = collectorContext)
-        val minProperties: Int? = schema.minProperties
-        val maxProperties: Int? = schema.maxProperties
+        val additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, collectorContext)
+        val constraints = ObjectPropertyConstraints(schema, schemaProperties, additionalProperties, collectorContext)
         val jsonObjectPattern = toJSONObjectPattern(schemaProperties, if(patternName.isNotBlank()) "(${patternName})" else null).copy(
-            minProperties = minProperties,
-            maxProperties = maxProperties,
-            additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, collectorContext),
+            minProperties = constraints.minProperties,
+            maxProperties = constraints.maxProperties,
+            additionalProperties = additionalProperties,
             extensions = schema.extensions.orEmpty()
         )
         val annotated = if (patternName.isNotBlank()) {

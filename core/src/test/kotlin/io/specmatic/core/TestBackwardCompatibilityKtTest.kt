@@ -2647,7 +2647,7 @@ paths:
         @ParameterizedTest
         @CsvSource(
             value = [
-                """minProperties | 2 | 1 | This is an object with at least 1 properties in the new specification response but an object with at least 2 properties in the old specification""",
+                """minProperties | 2 | 1 | This is an object with at least 1 property in the new specification response but an object with at least 2 properties in the old specification""",
                 """maxProperties | 2 | 3 | This is an object with at most 3 properties in the new specification response but an object with at most 2 properties in the old specification"""
             ],
             delimiter = '|',
