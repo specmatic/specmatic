@@ -303,7 +303,7 @@ class OpenApiSpecification(
         fun getParsedOpenApi(openApiFilePath: String): OpenAPI {
             // TODO: This is ignoring parse errors for example it declares asyncapi files as valid and parseable
             // To fix it must check that the returned result has no messages
-            return OpenApiParser.parseOpenApiLocationWithExtensions(
+            return OpenApiParser.parseOpenApiWithExtensions(
                 openApiFilePath,
                 null,
                 resolveExternalReferences()
@@ -313,7 +313,7 @@ class OpenApiSpecification(
         fun isParsable(openApiFilePath: String): Boolean {
             // TODO: This is ignoring parse errors for example it declares asyncapi files as valid and parseable
             // To fix it must check that the returned result has no messages
-            return OpenApiParser.parseOpenApiLocationWithExtensions(openApiFilePath, null, resolveExternalReferences()) != null
+            return OpenApiParser.parseOpenApiWithExtensions(openApiFilePath, null, resolveExternalReferences()) != null
         }
 
         fun isParsableOpenApiDocument(openApiFilePath: String): Boolean {
