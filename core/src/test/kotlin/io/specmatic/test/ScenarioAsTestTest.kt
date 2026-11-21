@@ -33,6 +33,7 @@ import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.buildHttpPathPattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.ktor.http.ContentType
@@ -700,6 +701,159 @@ class ScenarioAsTestTest {
         )
 
         verify(exactly = 0) { matcherEngine.matchResponseValue(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `runTest matches response header examples through matcher engine`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns Result.Success()
+
+        val expected = StringValue($$"$match(exact: $(data.requestId))")
+        val data = parsedJSONObject("""{"data":{"requestId":"request-123"}}""")
+        val scenario = scenario(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    response = HttpResponse(status = 200, headers = mapOf("X-Request-Id" to expected.string)),
+                    data = data,
+                ),
+            ),
+        )
+
+        try {
+            val result = scenarioAsTest(scenario).runTest(
+                fixedResponseExecutor(status = 200, body = "response", headers = mapOf("x-request-id" to "request-123")),
+            ).result
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+            verify(exactly = 1) {
+                matcherEngine.matchResponseValue(
+                    expected,
+                    StringValue("request-123"),
+                    any(),
+                    data,
+                )
+            }
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
+    }
+
+    @Test
+    fun `runTest reports response header matcher failures at the header path`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(StringValue(""), any(), any(), any()) } returns Result.Success()
+        every {
+            matcherEngine.matchResponseValue(StringValue($$"$match(exact: request-123)"), any(), any(), any())
+        } returns Result.Failure("matcher failed").breadCrumb("matcher")
+
+        val scenario = scenario(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    response = HttpResponse(status = 200, headers = mapOf("X-Request-Id" to $$"$match(exact: request-123)")),
+                ),
+            ),
+        )
+
+        try {
+            val result = scenarioAsTest(scenario).runTest(
+                fixedResponseExecutor(status = 200, body = "response"),
+            ).result
+
+            assertThat(result.reportString()).contains("RESPONSE.HEADERS.X-Request-Id")
+            verify(exactly = 1) {
+                matcherEngine.matchResponseValue(
+                    StringValue($$"$match(exact: request-123)"),
+                    NullValue,
+                    any(),
+                    any(),
+                )
+            }
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
+    }
+
+    @Test
+    fun `runTest skips echoed response header when the generated request omits it`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns Result.Success()
+
+        val scenario = scenario(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    request = HttpRequest(headers = mapOf("X-Request-Id" to "example-id")),
+                    response = HttpResponse(status = 200, headers = mapOf("X-Request-Id" to "example-id")),
+                ),
+            ),
+        )
+
+        try {
+            val result = scenarioAsTest(scenario).runTest(
+                fixedResponseExecutor(status = 200, body = "response", headers = mapOf("X-Request-Id" to "server-id")),
+            ).result
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+            verify(exactly = 0) {
+                matcherEngine.matchResponseValue(StringValue("example-id"), any(), any(), any())
+            }
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
+    }
+
+    @Test
+    fun `runTest matches echoed response header against the generated request value`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns Result.Success()
+
+        val scenario = scenario(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    request = HttpRequest(headers = mapOf("X-Request-Id" to "example-id")),
+                    response = HttpResponse(status = 200, headers = mapOf("X-Request-Id" to "example-id")),
+                ),
+            ),
+        ).copy(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/resource"),
+                method = "GET",
+                headersPattern = HttpHeadersPattern(
+                    mapOf("X-Request-Id" to ExactValuePattern(StringValue("generated-id"))),
+                ),
+            ),
+        )
+
+        try {
+            val result = scenarioAsTest(scenario).runTest(
+                object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse = HttpResponse(
+                        status = 200,
+                        body = "response",
+                        headers = mapOf("X-Request-Id" to request.headers.getValue("X-Request-Id")),
+                    )
+                },
+            ).result
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+            verify(exactly = 1) {
+                matcherEngine.matchResponseValue(
+                    StringValue("generated-id"),
+                    StringValue("generated-id"),
+                    any(),
+                    any(),
+                )
+            }
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
     }
 
     @Test
