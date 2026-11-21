@@ -7,12 +7,13 @@ import io.specmatic.core.value.toXMLNode
 
 class EmptySOAPPayload : SOAPPayload {
     override fun toPattern(headers: RequestHeaders): Pattern {
-        return XMLPattern(emptySoapMessage(), isSOAP = true)
+        return XMLPattern(emptySoapMessage(headers), isSOAP = true)
     }
 }
 
-internal fun emptySoapMessage(): XMLNode {
-    val payload = soapSkeleton(emptyMap())
+internal fun emptySoapMessage(headers: RequestHeaders = RequestHeaders()): XMLNode {
+    val payload = soapSkeleton(headers.namespaces)
+    val headerNode = headers.toHeaderNode(payload.namespaces)
     val bodyNode = toXMLNode("<soapenv:Body/>")
-    return payload.withChildNodes(payload.childNodes.plus(bodyNode))
+    return payload.withChildNodes(payload.childNodes.plus(listOfNotNull(headerNode, bodyNode)))
 }

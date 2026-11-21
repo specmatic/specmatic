@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  xmlns:tns="urn:header-presence" targetNamespace="urn:header-presence">
+  <wsdl:types>
+    <xsd:schema targetNamespace="urn:header-presence" elementFormDefault="qualified">
+      <xsd:element name="Request" type="xsd:string"/>
+      <xsd:element name="Response" type="xsd:string"/>
+      <xsd:complexType name="HeaderContent">
+        <xsd:sequence>
+          <xsd:element name="id" type="xsd:int"/>
+          <xsd:element name="note" type="xsd:string" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:element name="Session" type="tns:HeaderContent"/>
+      <xsd:element name="Receipt" type="tns:HeaderContent"/>
+    </xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="RequestMessage"><wsdl:part name="body" element="tns:Request"/></wsdl:message>
+  <wsdl:message name="ResponseMessage"><wsdl:part name="body" element="tns:Response"/></wsdl:message>
+  <wsdl:message name="SessionMessage"><wsdl:part name="session" element="tns:Session"/></wsdl:message>
+  <wsdl:message name="ReceiptMessage"><wsdl:part name="receipt" element="tns:Receipt"/></wsdl:message>
+  <wsdl:portType name="PortType">
+    <wsdl:operation name="exchange">
+      <wsdl:input message="tns:RequestMessage"/>
+      <wsdl:output message="tns:ResponseMessage"/>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="Binding" type="tns:PortType">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="exchange">
+      <soap:operation soapAction="urn:exchange"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+        <soap:header message="tns:SessionMessage" part="session" use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+        <soap:header message="tns:ReceiptMessage" part="receipt" use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="HeaderPresence">
+    <wsdl:port name="Port" binding="tns:Binding">
+      <soap:address location="http://localhost:9000/headers"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

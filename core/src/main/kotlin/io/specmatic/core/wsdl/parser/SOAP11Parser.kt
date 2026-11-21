@@ -3,6 +3,8 @@ package io.specmatic.core.wsdl.parser
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE
+import io.specmatic.core.value.StringValue
 import io.specmatic.core.pattern.NodeOccurrence
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.AnyPattern
@@ -70,22 +72,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
     }
 
-    private fun headerRequired(
-        portType: XMLNode,
-        operationName: String,
-        soapMessageType: SOAPMessageType,
-        bindingPartName: String
-    ): NodeOccurrence? {
-        val portOperation = portType.findByNodeNameAndAttributeOrNull("operation", "name", operationName) ?: return null
-        val portMessage = portOperation.findFirstChildByName(soapMessageType.messageTypeName) ?: return null
-        val portHeader = portMessage.findByNodeNameAndAttributeOrNull("header", "part", bindingPartName) ?: return null
-        return when (portHeader.attributes["required"]?.toStringLiteral()) {
-            "true" -> NodeOccurrence.Once
-            "false" -> NodeOccurrence.Optional
-            else -> null
-        }
-    }
-
     private fun parseOperation(
         bindingOperationNode: XMLNode,
         url: String,
@@ -119,7 +105,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
         val requestHeadersInfo = parseSoapHeaders(
             bindingOperationNode = bindingOperationNode,
-            portType = portType,
             operationName = operationName,
             soapMessageType = SOAPMessageType.Input,
             existingTypes = responseTypeInfo.types
@@ -127,7 +112,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
         val responseHeadersInfo = parseSoapHeaders(
             bindingOperationNode = bindingOperationNode,
-            portType = portType,
             operationName = operationName,
             soapMessageType = SOAPMessageType.Output,
             existingTypes = requestHeadersInfo.types
@@ -148,7 +132,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
     private fun parseSoapHeaders(
         bindingOperationNode: XMLNode,
-        portType: XMLNode,
         operationName: String,
         soapMessageType: SOAPMessageType,
         existingTypes: Map<String, Pattern>
@@ -161,14 +144,18 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         val parsedHeaders = soapHeaders.fold(SOAPHeaderAccumulator(emptyList(), existingTypes)) { accumulator, soapHeader ->
             val parsedHeader = parseSoapHeader(
                 soapHeader = soapHeader,
-                portType = portType,
-                operationName = operationName,
+                    operationName = operationName,
                 soapMessageType = soapMessageType,
                 existingTypes = accumulator.types
             )
 
+            val requiredReason = wsdl.soapHeaderRequiredReason()
+            val header = if (requiredReason == null) parsedHeader.header else parsedHeader.header.copy(
+                node = parsedHeader.header.node.copy(attributes = parsedHeader.header.node.attributes +
+                    (SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE to StringValue("$requiredReason; WSDL ${soapMessageType.messageTypeName} of operation '$operationName', header part '${soapHeader.getAttributeValue("part")}'")))
+            )
             accumulator.copy(
-                headers = accumulator.headers.plus(parsedHeader.header),
+                headers = accumulator.headers.plus(header),
                 types = parsedHeader.types
             )
         }
@@ -181,7 +168,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
     private fun parseSoapHeader(
         soapHeader: XMLNode,
-        portType: XMLNode,
         operationName: String,
         soapMessageType: SOAPMessageType,
         existingTypes: Map<String, Pattern>
@@ -192,9 +178,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             ?: throw ContractException("SOAP header in operation $operationName does not have a part attribute.")
         val bindingNamespace = soapHeader.attributes["namespace"]?.toStringLiteral()
             ?: soapHeader.resolveNamespace(bindingMessageRef)
-        val bindingOccurrence = bindingOccurrence(soapHeader)
-        val headerRequired = headerRequired(portType, operationName, soapMessageType, bindingPartName)
-        val occurrence = bindingOccurrence ?: headerRequired ?: NodeOccurrence.Once
+        val occurrence = if (wsdl.soapHeaderRequiredReason() == null) NodeOccurrence.Optional else NodeOccurrence.Once
 
         val messageName = bindingMessageRef.substringAfter(":")
         val prefix = bindingMessageRef.substringBefore(":")
@@ -219,19 +203,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             else -> throw ContractException(
                 "Part node $bindingPartName of SOAP header message $messageName should contain either an element attribute or a type attribute."
             )
-        }
-    }
-
-    private fun bindingOccurrence(soapHeader: XMLNode): NodeOccurrence? {
-        return soapHeader.attributes["minOccurs"]?.toStringLiteral().let {
-            when (it) {
-                "0" -> NodeOccurrence.Optional
-                "1" -> NodeOccurrence.Once
-                null -> null
-                else -> {
-                    if (it.toIntOrNull() != null) NodeOccurrence.Multiple else null
-                }
-            }
         }
     }
 
@@ -281,8 +252,9 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
         val fullyQualifiedMessageName = messageTypeNode.fullyQualifiedNameFromAttribute("message")
         val messageNode = wsdl.findMessageNode(fullyQualifiedMessageName)
-        val partNode = messageNode.firstNode()
-            ?: return SoapPayloadType(existingTypes, EmptySOAPPayload())
+        val partNode = messageNode.childNodes.filterIsInstance<XMLNode>().firstOrNull {
+            if (messageNode.isWSDL("message")) it.isWSDL("part") else it.name == "part"
+        } ?: return SoapPayloadType(existingTypes, EmptySOAPPayload())
 
         return when {
             partNode.attributes.containsKey("element") -> {
