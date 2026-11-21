@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.reporter.parsing.jacksonYamlMapper
 import io.specmatic.reporter.parsing.OpenApiParser
-import io.specmatic.reporter.parsing.OpenApiMode
 import com.networknt.schema.Error
 import com.networknt.schema.Schema
 import com.networknt.schema.SchemaLocation
@@ -53,10 +52,10 @@ class OpenApiSpec(private val specFile: File) {
             isValidateExternalRefs = true
         }
 
-        val result = OpenApiParser.parseFile(specFile, options = options, mode = OpenApiMode.SWAGGER_2_OR_OPENAPI_3)
+        val result = OpenApiParser.parseOpenApiV3File(specFile, parseOptions = options, auth = null)
 
-        if (result.messages.isNotEmpty() || result.openAPI == null) {
-            error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
+        if (result?.messages?.isNotEmpty() == true || result?.openAPI == null) {
+            error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result?.messages}")
         }
 
         result.openAPI

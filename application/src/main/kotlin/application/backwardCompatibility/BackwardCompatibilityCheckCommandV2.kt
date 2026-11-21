@@ -1,6 +1,6 @@
 package application.backwardCompatibility
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import io.specmatic.reporter.parsing.jacksonJsonMapper
 import io.specmatic.reporter.parsing.jacksonYamlMapper
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
@@ -36,7 +36,7 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
     }
 
     companion object {
-        private val jsonMapper = ObjectMapper()
+        private val jsonMapper = jacksonJsonMapper()
         private val yamlMapper = jacksonYamlMapper()
     }
 
