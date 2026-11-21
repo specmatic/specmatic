@@ -22,3 +22,7 @@ Create temp files locally in the "temp" directory as it is ignored by git.
 
 - Whenever ScenarioStub structure is modified, make sure the necessary changes are propagated to ExampleForFile, which is supposed to be a thin wrapper over ScenarioStub.
 - When ScenarioStub structure is modified, update the schema files named `external_example.yaml` and `external_examples.schema.json`.
+
+## Conformance expectations
+
+When supported behavior changes, check and update the affected conformance expectations in `conformance-tests/src/test/resources/specs`, including stale expected-failure markers. Verify the affected cases and run the Docker conformance suite locally as documented in `conformance-tests/README.md` before relying on post-merge conformance results.
