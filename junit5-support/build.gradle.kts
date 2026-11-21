@@ -10,7 +10,7 @@ dependencies {
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
 
-    implementation("net.minidev:json-smart:2.6.0")
+    implementation("net.minidev:json-smart:2.6.1")
     implementation("com.ezylang:EvalEx:3.8.0")
     implementation(project(":specmatic-core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
