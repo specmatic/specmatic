@@ -1,5 +1,6 @@
 package io.specmatic.core.wsdl
 
+import io.specmatic.conversions.wsdlContentToFeature
 import io.specmatic.testPort
 import io.ktor.http.ContentType
 import io.specmatic.core.CONTENT_TYPE
@@ -469,25 +470,25 @@ class WSDLParserContractBlackBoxTest {
     }
 
     @Test
-    fun `contract test for wsdl header part sends the header xml element inside the soap envelope`() {
+    fun `contract test for wsdl header part exercises present and omitted blocks`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/header_part.wsdl"))
 
+        val blockCounts = mutableListOf<Int>()
         val result = HttpStub(feature, port = testPort()).use { stub ->
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.path).isEqualTo("/header-part")
                     assertThat(request.body.toStringLiteral())
-                        .contains("soapenv:Header")
                         .contains("soapenv:Body")
                         .contains("HeaderPartRequest")
-                    assertThat(soapElementCount(request.body.toStringLiteral(), "", "ClientHeader")).isEqualTo(1)
+                    blockCounts.add(soapElementCount(request.body.toStringLiteral(), "", "ClientHeader"))
                     return stub.client.execute(request)
                 }
             })
         }
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
-        assertThat(result.successCount).isEqualTo(1)
+        assertThat(blockCounts).containsExactlyInAnyOrder(0, 1)
     }
 
     @Test
@@ -546,26 +547,29 @@ class WSDLParserContractBlackBoxTest {
             )
         )
 
+        val blockCounts = mutableListOf<Int>()
         val result = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 assertThat(request.path).isEqualTo("/response-header-part")
                 assertThat(request.body.toStringLiteral())
-                    .contains("soapenv:Header")
-                    .contains("ClientHeader")
-                    .contains("ClientId")
                     .contains("soapenv:Body")
                     .contains("HeaderPartRequest")
+                blockCounts.add(soapElementCount(request.body.toStringLiteral(), "http://specmatic.io/response-header-part/headers", "ClientHeader"))
                 return responseWithSoapHeader
             }
         })
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
-        assertThat(result.successCount).isEqualTo(1)
+        assertThat(blockCounts).containsExactlyInAnyOrder(0, 1)
     }
 
     @Test
     fun `contract test fails when mandatory wsdl response soap header is missing`() {
-        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/response_header_part.wsdl"))
+        val wsdl = File("src/test/resources/wsdl/state_machine/response_header_part.wsdl").readText().replace(
+            """<wsdl:port name="ResponseHeaderPartPort" binding="tns:ResponseHeaderPartBinding">""",
+            """<wsdl:port name="ResponseHeaderPartPort" binding="tns:ResponseHeaderPartBinding">${profileClaim()}"""
+        )
+        val feature = wsdlContentToFeature(wsdl, "required-response-header.wsdl")
         val responseWithoutSoapHeader = HttpResponse(
             200,
             body = parsedValue(
