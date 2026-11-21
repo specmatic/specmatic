@@ -30,6 +30,43 @@ import java.net.URI
 import java.util.stream.Stream
 
 internal class HttpRequestPatternTest {
+    @Test
+    fun `request pattern generation retains undeclared query parameters and headers from the request example`() {
+        val headers = mapOf("X-Declared" to "declared-header-value", "X-Unexpected" to "extra-header-value")
+        val queryParams = QueryParameters(mapOf("exampleIds" to "verify-used-example", "unexpected" to "extra-value"))
+
+        val request = HttpRequest(method = "GET", path = "/_specmatic/verify", headers = headers, queryParams = queryParams)
+        val requestPattern = HttpRequestPattern(
+            method = "GET",
+            headersPattern = HttpHeadersPattern(mapOf("X-Declared" to StringPattern())),
+            httpPathPattern = HttpPathPattern(emptyList(), "/_specmatic/verify"),
+            httpQueryParamPattern = HttpQueryParamPattern(mapOf("exampleIds" to QueryParameterScalarPattern(StringPattern()))),
+        )
+
+        val row = Row(
+            requestExample = request,
+            columnNames = listOf("exampleIds", "unexpected", "X-Declared", "X-Unexpected"),
+            values = listOf("verify-used-example", "extra-value", "declared-header-value", "extra-header-value"),
+        )
+
+        invalidRequestStatuses.plus(200).forEach { status ->
+            val generatedPattern = requestPattern.newBasedOn(row, Resolver(), status)
+                .firstNotNullOf { (it as? HasValue<HttpRequestPattern>)?.value }
+
+            assertThat(generatedPattern.httpQueryParamPattern.generate(Resolver()))
+                .containsExactly("exampleIds" to "verify-used-example", "unexpected" to "extra-value")
+            assertThat(generatedPattern.httpQueryParamPattern.queryPatterns["unexpected"])
+                .isEqualTo(ExactValuePattern(StringValue("extra-value")))
+
+            assertThat(generatedPattern.headersPattern.generate(Resolver()))
+                .isEqualTo(headers)
+            assertThat(generatedPattern.headersPattern.pattern["X-Declared"])
+                .isEqualTo(ExactValuePattern(StringValue("declared-header-value")))
+            assertThat(generatedPattern.headersPattern.pattern["X-Unexpected"])
+                .isEqualTo(ExactValuePattern(StringValue("extra-header-value")))
+        }
+    }
+
     @Nested
     inner class MatcherResolution {
         @Test

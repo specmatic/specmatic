@@ -1,12 +1,17 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpRequestMetadata
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.Row
 
 data class CompositeSecurityScheme(val schemes: List<OpenAPISecurityScheme>): OpenAPISecurityScheme {
+    override fun securityMetadata(): HttpRequestMetadata = schemes.fold(HttpRequestMetadata()) { metadata, scheme ->
+        metadata + scheme.securityMetadata()
+    }
+
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         return Result.fromResults(results = schemes.map { it.failIfInRequest(httpRequest, resolver) })
     }

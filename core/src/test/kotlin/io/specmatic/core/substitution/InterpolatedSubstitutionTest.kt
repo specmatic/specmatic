@@ -4,6 +4,8 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.value.BooleanValue
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -19,6 +21,30 @@ import org.junit.jupiter.params.provider.ValueSource
 import java.util.stream.Stream
 
 class InterpolatedSubstitutionTest {
+    @Nested
+    inner class WholeValueCaptures {
+        @Test
+        fun `captures an anyvalue object without converting it to a string`() {
+            val document = JSONObjectValue(mapOf("openapi" to StringValue("3.0.3")))
+            val result = InterpolatedSubstitution.extractVariables("(DOCUMENT:anyvalue)", document)
+            assertThat(result).isEqualTo(mapOf("DOCUMENT" to document))
+        }
+
+        @Test
+        fun `captures an anyvalue array without converting it to a string`() {
+            val document = JSONArrayValue(listOf(StringValue("openapi: 3.0.3")))
+            val result = InterpolatedSubstitution.extractVariables("(DOCUMENT:anyvalue)", document)
+            assertThat(result).isEqualTo(mapOf("DOCUMENT" to document))
+        }
+
+        @Test
+        fun `captures a multiline anyvalue string as one value`() {
+            val document = StringValue("openapi: 3.0.3\ninfo:\n  title: API\n")
+            val result = InterpolatedSubstitution.extractVariables("(DOCUMENT:anyvalue)", document)
+            assertThat(result).isEqualTo(mapOf("DOCUMENT" to document))
+        }
+    }
+
     @Test
     fun `extracts interpolated placeholder from simple string`() {
         val result = InterpolatedSubstitution.extractVariables(

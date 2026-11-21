@@ -20,6 +20,17 @@ class SubstitutionVariableExtractorTest {
         @Nested
         inner class ScalarValues {
             @Test
+            fun `preserves a whole anyvalue capture through fromValues`() {
+                val document = JSONObjectValue(mapOf("openapi" to StringValue("3.0.3")))
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("(DOCUMENT:anyvalue)"),
+                    runningValue = document
+                )
+
+                assertThat(result).isEqualTo(mapOf("DOCUMENT" to document))
+            }
+
+            @Test
             fun `extracts variable from simple string`() {
                 val result = SubstitutionVariableExtractor.fromValues(
                     originalValue = StringValue("(ID:number)"),

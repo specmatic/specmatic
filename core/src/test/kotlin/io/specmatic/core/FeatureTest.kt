@@ -3239,6 +3239,65 @@ paths:
     }
 
     @Test
+    fun `externalized free form exploded object query example is sent as a wire query parameter`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml").apply {
+            writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Free Form Query API
+              version: 1.0.0
+            paths:
+              /messages:
+                get:
+                  parameters:
+                    - in: query
+                      name: predicates
+                      required: false
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        additionalProperties:
+                          type: string
+                  responses:
+                    '200':
+                      description: OK
+            """.trimIndent())
+        }
+
+        tempDir.resolve("api_examples").mkdirs()
+        tempDir.resolve("api_examples/messages.json").writeText(
+        """
+        {
+          "name": "Filter messages by request body field",
+          "http-request": {
+            "method": "GET",
+            "path": "/messages",
+            "query": {
+              "REQUEST.BODY.requestId": "messages-array-check"
+            }
+          },
+          "http-response": {
+            "status": 200
+          }
+        }
+        """.trimIndent())
+
+        val feature = OpenApiSpecification.fromFile(specFile.absolutePath).toFeature().loadExternalisedExamples()
+        val seenQueryParams = mutableListOf<List<Pair<String, String>>>()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.paramPairs)
+                return HttpResponse(200)
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).containsExactly(listOf("REQUEST.BODY.requestId" to "messages-array-check"))
+    }
+
+    @Test
     fun `contract tests use serialized query property keys from externalized object query examples`() {
         val feature = OpenApiSpecification.fromFile(CUSTOMER_OBJECT_QUERY_PARAM_SPEC).toFeature().loadExternalisedExamples()
         val seenQueryParams = mutableListOf<Map<String, String>>()

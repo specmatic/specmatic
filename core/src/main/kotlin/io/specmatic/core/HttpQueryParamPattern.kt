@@ -85,8 +85,7 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples(resolver)
-            val queryParams = effectiveQueryPatterns(rowWithNestedObjectQueryExamples)
+            val (rowWithNestedObjectQueryExamples, queryParams) = queryPatternsWithExamples(row, resolver)
             val patternMap = rowWithNestedObjectQueryExamples.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
             queryParamCombinationsRespectingFormExplodedObjects(patternMap, resolver.resolveRow(rowWithNestedObjectQueryExamples)).flatMap { pattern ->
@@ -105,6 +104,12 @@ data class HttpQueryParamPattern(
                 }
             }
         }
+    }
+
+    private fun queryPatternsWithExamples(row: Row, resolver: Resolver): Pair<Row, Map<String, Pattern>> {
+        val exampleRow = row.withNestedObjectQueryParamExamples(resolver)
+        val effectivePatterns = effectiveQueryPatterns(exampleRow)
+        return exampleRow to (effectivePatterns + extractFromExampleQueryParamsNotInSpec(effectivePatterns, exampleRow))
     }
 
     private fun Row.withNestedObjectQueryParamExamples(resolver: Resolver): Row {
@@ -339,7 +344,8 @@ data class HttpQueryParamPattern(
         generateMandatoryEntryIfMissing: Boolean
     ): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            readFrom(effectiveQueryPatterns(row), row, resolver, generateMandatoryEntryIfMissing).map { HasValue(it) }
+            val (rowWithNestedObjectQueryExamples, queryParams) = queryPatternsWithExamples(row, resolver)
+            readFrom(queryParams, rowWithNestedObjectQueryExamples, resolver, generateMandatoryEntryIfMissing).map { HasValue(it) }
         }.map { pattern ->
             pattern.ifValue {
                 HttpQueryParamPattern(
@@ -487,6 +493,28 @@ data class HttpQueryParamPattern(
             ?: QueryParameters(emptyMap())
     }
 
+    private fun extractFromExampleQueryParamsNotInSpec(specPattern: Map<String, Pattern>, row: Row): Map<String, Pattern> {
+        return undeclaredQueryParams(row, specPattern)
+            .groupBy({ it.first }, { it.second })
+            .map { (key, values) ->
+                val value = when (values.size) {
+                    1 -> StringValue(values.single())
+                    else -> JSONArrayValue(values.map(::StringValue))
+                }
+
+                key to ExactValuePattern(value)
+            }.toMap()
+    }
+
+    private fun undeclaredQueryParams(row: Row, specPattern: Map<String, Pattern>): List<Pair<String, String>> {
+        val requestExample = row.requestExample ?: return emptyList()
+        return requestExample.queryParams.paramPairs.filterNot { (key, _) ->
+            specPattern.containsNormalizedKey(key) ||
+            requestExample.metadata.hasSecurityQueryParam(key) ||
+            nestedObjectQueryParams.any { it.shouldAttemptParse(key) }
+        }
+    }
+
     private fun invalidAdditionalQueryParamPatterns(queryParams: QueryParameters, effectivePatterns: Map<String, Pattern>, resolver: Resolver): Map<String, Pattern> {
         val additionalProperties = additionalProperties ?: return emptyMap()
         val effectiveKeys = effectivePatterns.normalizedKeys()
@@ -558,7 +586,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun effectiveQueryPatterns(row: Row): Map<String, Pattern> {
-        return activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners) { patterns, objectQueryParam ->
+        val patterns = activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners) { patterns, objectQueryParam ->
             when {
                 objectQueryParam.required || objectQueryParam.propertyKeys.any(row::containsField) ->
                     objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
@@ -567,6 +595,9 @@ data class HttpQueryParamPattern(
                 else -> patterns
             }
         }
+
+        val additionalProperties = additionalProperties ?: return patterns
+        return patterns + undeclaredQueryParams(row, patterns).associate { (key, _) -> key to additionalProperties }
     }
 
     private fun calculateQueryPatternsWithAuthoritativeCollisionOwners(): Map<String, Pattern> {

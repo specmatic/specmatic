@@ -182,6 +182,7 @@ components:
             - all
             - positive
             - negative
+            - example
 
     FixtureHooks:
       type: object

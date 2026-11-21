@@ -10,6 +10,8 @@ data class BasicAuthSecurityScheme(
     private val token: String? = null,
     override val schemeName: String? = null,
 ) : OpenAPISecurityScheme {
+    override fun securityMetadata(): HttpRequestMetadata = HttpRequestMetadata(securityHeaderNames = setOf(AUTHORIZATION))
+
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         val entry = httpRequest.headers.getCaseInsensitive(AUTHORIZATION) ?: return Result.Success()
         return Result.Failure(

@@ -1,6 +1,5 @@
 package io.specmatic.stub
 
-import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -15,7 +14,11 @@ import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
+import io.swagger.v3.core.util.Json
+import io.swagger.v3.core.util.Json31
 import io.swagger.v3.core.util.Yaml
+import io.swagger.v3.core.util.Yaml31
+import io.swagger.v3.oas.models.SpecVersion
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
@@ -999,15 +1002,24 @@ class HttpStub(
 
         val format = swaggerSpecResponseFormat(httpRequest)
             ?: throw ContractException("Unsupported swagger specification path: ${httpRequest.path.orEmpty()}")
+        val isOpenApi31 = parsedOpenApi.specVersion == SpecVersion.V31
         val response = when (format) {
             SwaggerSpecResponseFormat.YAML -> {
-                val openApiYaml = Yaml.pretty(parsedOpenApi)
+                val openApiYaml = if (isOpenApi31) {
+                    Yaml31.pretty(parsedOpenApi)
+                } else {
+                    Yaml.pretty(parsedOpenApi)
+                }
+
                 HttpResponse(status = 200, headers = mapOf(HttpHeaders.ContentType to "application/yaml"), body = StringValue(openApiYaml))
             }
             SwaggerSpecResponseFormat.JSON -> {
-                val openApiJson = ObjectMapper()
-                    .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-                    .writeValueAsString(parsedOpenApi)
+                val openApiJson = if (isOpenApi31) {
+                    Json31.pretty(parsedOpenApi)
+                } else {
+                    Json.pretty(parsedOpenApi)
+                }
+
                 HttpResponse.jsonResponse(openApiJson)
             }
         }
