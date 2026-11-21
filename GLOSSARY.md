@@ -65,3 +65,19 @@ The total number of properties present in an object, including declared properti
 
 **Satisfiable object schema**:
 An object schema for which at least one object satisfies all its constraints together, including required properties, property-count bounds and restrictions on additional properties.
+
+## SOAP headers
+
+**SOAP header block presence**:
+Whether a declared block must occur in the SOAP Header. Presence is independent
+of XSD validation of the block's content and of whether the outer wrapper is
+needed.
+
+**Service-instance claim**:
+A WSDL-attached conformance claim under a port's WSDL documentation that applies
+to the service instance represented by that port. It is scoped to that instance,
+even when ports share a binding.
+
+**Description claim**:
+A conformance claim on a reusable WSDL description construct. It does not by
+itself establish endpoint-wide message behavior.

@@ -1,0 +1,19 @@
+{
+  "name": "explicit empty SOAP Header",
+  "http-request": {
+    "method": "POST",
+    "path": "/headers",
+    "headers": {
+      "SOAPAction": "urn:exchange",
+      "Content-Type": "text/xml"
+    },
+    "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:t=\"urn:header-presence\"><s:Header s:encodingStyle=\"urn:application:example\"/><s:Body><t:Request>example</t:Request></s:Body></s:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/xml"
+    },
+    "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:t=\"urn:header-presence\"><s:Header s:encodingStyle=\"urn:application:example\"/><s:Body><t:Response>example</t:Response></s:Body></s:Envelope>"
+  }
+}

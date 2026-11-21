@@ -1,5 +1,6 @@
 package io.specmatic.core.wsdl.payload
 
+import io.specmatic.core.pattern.OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE
 import io.specmatic.core.pattern.NodeOccurrence
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
@@ -38,9 +39,11 @@ class RequestHeaders private constructor(
         if (headers.isEmpty()) return null
 
         val headerNamespaces = parentNamespaces.plus(namespaces)
-        return toXMLNode("<$HEADER_NODE_NAME/>", headerNamespaces).copy(
+        val wrapper = toXMLNode("""<$HEADER_NODE_NAME $OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE="true"/>""", headerNamespaces).copy(
             childNodes = headers.map { it.node.withNamespaceContext(headerNamespaces.plus(it.namespaces)) }
         )
+        return if (headers.all { it.node.attributes[OCCURS_ATTRIBUTE_NAME]?.toStringLiteral() == OPTIONAL_ATTRIBUTE_VALUE })
+            withOccurrence(wrapper, NodeOccurrence.Optional) else wrapper
     }
 
     companion object {
