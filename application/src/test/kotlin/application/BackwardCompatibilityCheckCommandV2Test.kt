@@ -43,6 +43,16 @@ import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
     @Test
+    fun `JSON file detection accepts a specification at the shared code point boundary`(@TempDir directory: File) {
+        val prefix = """{"openapi":"3.0.3","info":{"title":"🚀","version":"1"},"paths":{}}"""
+        val source = prefix + " ".repeat(io.specmatic.reporter.parsing.MAX_SPEC_CODE_POINTS - prefix.codePointCount(0, prefix.length))
+        val file = directory.resolve("api.json").apply { writeText(source) }
+        val command = BackwardCompatibilityCheckCommandV2()
+
+        assertThat(with(command) { file.isValidFileFormat() }).isTrue()
+    }
+
+    @Test
     fun `file detection retains YAML JSON BOM malformed input and AsyncAPI exclusion`(@TempDir directory: File) {
         val command = BackwardCompatibilityCheckCommandV2()
         val cases = listOf(
