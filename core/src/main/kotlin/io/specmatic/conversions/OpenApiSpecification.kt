@@ -57,8 +57,8 @@ import io.swagger.v3.oas.models.responses.ApiResponses
 import io.swagger.v3.oas.models.security.OAuthFlow
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
-import io.specmatic.reporter.parsing.OpenApiParser
-import io.specmatic.reporter.parsing.OpenApiMode
+import io.swagger.v3.parser.OpenAPIV3Parser
+import io.swagger.v3.parser.core.models.AuthorizationValue
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
 import io.swagger.v3.parser.reference.DereferencerContext
@@ -294,28 +294,56 @@ class OpenApiSpecification(
                     logger = logger,
                     openApiFilePath = openApiFilePath,
                     specmaticConfig = specmaticConfig,
-                    parsedOpenApi = getParsedOpenApi(openApiFilePath),
+                    parsedOpenApi = getParsedOpenApi(openApiFilePath)
                 )
             }
+        }
+
+        private fun parseOpenApiWithExtensions(
+            openApiFilePath: String,
+            auth: List<AuthorizationValue>?,
+            parseOptions: ParseOptions,
+        ): OpenAPI? {
+            return OpenAPIV3Parser().read(openApiFilePath, auth, parseOptions)
+        }
+
+        private fun parseOpenApiV3File(
+            openApiFilePath: String,
+            auth: List<AuthorizationValue>?,
+            parseOptions: ParseOptions,
+        ): SwaggerParseResult? {
+            return OpenAPIV3Parser().readLocation(openApiFilePath, auth, parseOptions)
+        }
+
+        private fun parseOpenApiV3Content(
+            yamlContent: String,
+            auth: List<AuthorizationValue>?,
+            parseOptions: ParseOptions,
+            location: String
+        ): SwaggerParseResult {
+            return OpenAPIV3Parser().readContents(yamlContent, auth, parseOptions, location)
         }
 
         fun getParsedOpenApi(openApiFilePath: String): OpenAPI {
             // TODO: This is ignoring parse errors for example it declares asyncapi files as valid and parseable
             // To fix it must check that the returned result has no messages
-            return OpenApiParser.parseLocation(openApiFilePath, options = resolveExternalReferences(), mode = OpenApiMode.SWAGGER_2_OR_OPENAPI_3).openAPI
+            return parseOpenApiWithExtensions(
+                openApiFilePath,
+                null,
+                resolveExternalReferences()
+            ) ?: throw NullPointerException("read(...) must not be null")
         }
 
         fun isParsable(openApiFilePath: String): Boolean {
             // TODO: This is ignoring parse errors for example it declares asyncapi files as valid and parseable
             // To fix it must check that the returned result has no messages
-            return OpenApiParser.parseLocation(openApiFilePath, options = resolveExternalReferences(), mode = OpenApiMode.SWAGGER_2_OR_OPENAPI_3).openAPI != null
+            return parseOpenApiWithExtensions(openApiFilePath, null, resolveExternalReferences()) != null
         }
 
         fun isParsableOpenApiDocument(openApiFilePath: String): Boolean {
             // Unlike read(), readLocation() does not fall back to parser extensions
             // that can convert ordinary YAML/JSON into an apparent OpenAPI model.
-            return OpenApiParser.parseLocation(openApiFilePath, options = resolveExternalReferences())
-                .openAPI?.openapi != null
+            return parseOpenApiV3File(openApiFilePath, null, resolveExternalReferences())?.openAPI?.openapi != null
         }
 
         fun getImplicitOverlayContent(openApiFilePath: String): String {
@@ -336,12 +364,12 @@ class OpenApiSpecification(
                 yaml = checkExists(File(openApiFilePath)).readText(),
                 collectorContext = CollectorContext()
             )
-            val parseResult: SwaggerParseResult =
-                OpenApiParser.parse(
-                    preprocessedYaml,
-                    location = openApiFilePath,
-                    options = resolveExternalReferences(),
-                )
+            val parseResult: SwaggerParseResult = parseOpenApiV3Content(
+                yamlContent = preprocessedYaml,
+                auth = null,
+                parseOptions = resolveExternalReferences(),
+                location = openApiFilePath,
+            )
             if (parseResult.openAPI == null) {
                 throw ContractException("Could not parse contract $openApiFilePath, please validate the syntax using https://editor.swagger.io")
             }
@@ -371,7 +399,6 @@ class OpenApiSpecification(
             lenientMode: Boolean = false,
             exampleDirPaths: List<String> = emptyList()
         ): OpenApiSpecification {
-            OpenApiParser.validateSize(yamlContent)
             val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
@@ -435,10 +462,11 @@ class OpenApiSpecification(
             exampleDirPaths: List<String> = emptyList(),
         ): OpenApiSpecification {
             val parseResult: SwaggerParseResult =
-                OpenApiParser.parse(
-                    yamlContent,
-                    location = openApiFilePath.replace("\\", "/"),
-                    options = resolveFullyReferences(),
+                parseOpenApiV3Content(
+                    yamlContent = yamlContent,
+                    auth = null,
+                    parseOptions = resolveFullyReferences(),
+                    location = openApiFilePath.replace("\\", "/")
                 )
             val parsedOpenApi: OpenAPI = parseResult.openAPI
                 ?: throw ContractException("Could not parse contract $openApiFilePath for change tracking, please validate the syntax using https://editor.swagger.io")
@@ -482,7 +510,7 @@ class OpenApiSpecification(
             if (hasOverlay && location.isNotBlank() && System.getenv("disableOas31Resolve").isNullOrBlank()) {
                 val root = yamlPreprocessorMapper.readTree(yaml)
                 if (root?.path("openapi")?.asText()?.startsWith("3.1") == true) {
-                    val parsed = OpenApiParser.parse(yaml, location = location, options = ParseOptions())
+                    val parsed = parseOpenApiV3Content(yaml, null, ParseOptions(), location)
                     if (parsed.openAPI != null) {
                         val dereferencer = object : OpenAPIDereferencer31() {
                             override fun buildReferenceVisitorWithContext(
@@ -504,7 +532,7 @@ class OpenApiSpecification(
                     return parsed
                 }
             }
-            return OpenApiParser.parse(yaml, location = location, options = options)
+            return parseOpenApiV3Content(yaml, null, options, location)
         }
 
         private fun resolveExternalReferences(): ParseOptions {

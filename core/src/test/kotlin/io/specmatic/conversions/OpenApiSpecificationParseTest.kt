@@ -60,12 +60,60 @@ import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
     @Test
-    fun `root code point limit includes comments and supplementary Unicode before preprocessing`() {
-        val limit = io.specmatic.reporter.parsing.MAX_SPEC_CODE_POINTS
-        val prefix = "openapi: 3.0.3\ninfo: {title: '🚀', version: '1'}\npaths: {}\n#"
-        val source = prefix + "x".repeat(limit - prefix.codePointCount(0, prefix.length))
-        assertThat(OpenApiSpecification.fromYAML(source, "boundary.yaml").parsedOpenApi.openapi).isEqualTo("3.0.3")
-        assertThrows<IllegalArgumentException> { OpenApiSpecification.fromYAML(source + "x", "boundary.yaml") }
+    fun `Swagger 2 files load through extensions while the OpenAPI 3 check stays strict`(@TempDir directory: File) {
+        val file = directory.resolve("swagger.yaml").apply { writeText("""
+            swagger: '2.0'
+            info: {title: API, version: '1'}
+            paths:
+              /ping:
+                get:
+                  responses:
+                    '200': {description: OK}
+        """.trimIndent()) }
+        assertThat(OpenApiSpecification.isParsable(file.canonicalPath)).isTrue()
+        assertThat(OpenApiSpecification.getParsedOpenApi(file.canonicalPath).paths).containsKey("/ping")
+        assertThat(OpenApiSpecification.fromFile(file.canonicalPath).parsedOpenApi.paths).containsKey("/ping")
+        assertThat(OpenApiSpecification.isParsableOpenApiDocument(file.canonicalPath)).isFalse()
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `fromYAML rejects an absent OpenAPI model even in lenient mode`(lenientMode: Boolean) {
+        val location = "invalid.yaml"
+        val (output, failure) = captureStandardOutput {
+            assertThrows<ContractException> {
+                OpenApiSpecification.fromYAML("openapi: [", location, lenientMode = lenientMode)
+            }
+        }
+        assertThat(failure.errorMessage).isEqualTo(
+            "Could not parse contract $location, please validate the syntax using https://editor.swagger.io"
+        )
+        assertThat(output).contains("FATAL: Failed to parse OpenAPI from file $location")
+    }
+
+    @Test
+    fun `fromYAML retains a parsed model and logs parser diagnostics`() {
+        val source = """
+            openapi: 3.0.3
+            info: {title: API}
+            paths: {}
+        """.trimIndent()
+        val (output, specification) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(source, "warnings.yaml")
+        }
+        assertThat(specification.parsedOpenApi.openapi).isEqualTo("3.0.3")
+        assertThat(output).contains("WARNING: The OpenAPI file warnings.yaml was read successfully but with some issues")
+        assertThat(output).contains("info.version")
+    }
+
+    @Test
+    fun `fromFile throws when fallback Swagger parser returns no model`(@TempDir directory: File) {
+        val file = directory.resolve("invalid.yaml").apply { writeText("openapi: [") }
+
+        val failure = assertThrows<NullPointerException> {
+            OpenApiSpecification.fromFile(file.canonicalPath)
+        }
+        assertThat(failure).hasMessage("read(...) must not be null")
     }
 
     @Test
