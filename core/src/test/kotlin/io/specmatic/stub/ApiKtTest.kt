@@ -40,6 +40,32 @@ import java.io.PrintStream
 
 internal class ApiKtTest {
     @Test
+    fun `loads a large OpenAPI spec through mock specification selection`(@TempDir directory: File) {
+        val file = directory.resolve("large.yaml")
+        file.writeText("openapi: 3.0.3\ninfo: {title: Large API, version: '1.0'}\npaths: {}\n#" + "x".repeat(5 * 1024 * 1024))
+        val result = loadIfSupportedAPISpecification(ContractPathData("", file.path), SpecmaticConfig())
+        assertThat(result?.second).isInstanceOf(Feature::class.java)
+    }
+
+    @Test
+    fun `OpenAPI detection accepts specs larger than the default SnakeYAML limit`(@TempDir directory: File) {
+        val file = directory.resolve("large.yaml")
+        file.writeText("openapi: 3.0.3\n#" + "x".repeat(5 * 1024 * 1024))
+        assertThat(isOpenAPI(file.path)).isTrue()
+    }
+
+    @Test
+    fun `OpenAPI detection requires a mapping with the openapi key`(@TempDir directory: File) {
+        val file = directory.resolve("api.yaml")
+        listOf("", "[]", "plain text", "- openapi", "openapi: [", "asyncapi: 3.0.0").forEach {
+            file.writeText(it)
+            assertThat(isOpenAPI(file.path, logFailure = false)).describedAs(it).isFalse()
+        }
+        file.writeText("{\"openapi\":\"3.0.3\"}")
+        assertThat(isOpenAPI(file.path)).isTrue()
+    }
+
+    @Test
     fun `given an expectation json with a key and one without, the request with the key should always match`() {
         val behaviour = parseGherkinStringToFeature("""
 Feature: Math API

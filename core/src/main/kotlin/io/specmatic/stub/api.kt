@@ -38,7 +38,7 @@ import io.specmatic.core.utilities.runWithTimeout
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
-import org.yaml.snakeyaml.Yaml
+import io.specmatic.reporter.parsing.jacksonYamlMapper
 import java.io.File
 
 const val HTTP_STUB_SHUTDOWN_TIMEOUT = 2000L
@@ -1162,7 +1162,7 @@ private fun List<ContractPathData>.excludeUnsupportedSpecifications(): List<Cont
 fun isOpenAPI(path: String, logFailure: Boolean = true): Boolean =
     try {
         File(path).reader().use { reader ->
-            Yaml().load<MutableMap<String, Any?>>(reader).contains("openapi")
+            jacksonYamlMapper().readTree(reader)?.let { it.isObject && it.has("openapi") } == true
         }
     } catch (e: Throwable) {
         if (logFailure) logger.log(e, "Could not parse $path")

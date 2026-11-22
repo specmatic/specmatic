@@ -3,7 +3,7 @@ package application
 import io.specmatic.core.config.validation.ConfigValidationOutput
 import io.specmatic.core.config.validation.ConfigValidationResult
 import io.specmatic.core.config.validation.ConfigValidationSeverity
-import org.yaml.snakeyaml.Yaml
+import io.specmatic.reporter.parsing.snakeYaml
 import org.yaml.snakeyaml.error.Mark
 import org.yaml.snakeyaml.nodes.Node
 import org.yaml.snakeyaml.nodes.AnchorNode
@@ -20,7 +20,7 @@ class ConfigValidationTextRenderer {
     }
 
     private fun renderInvalid(fileName: String, source: String, outputs: List<ConfigValidationOutput>): String {
-        val root = runCatching { Yaml().compose(source.reader()) }.getOrNull()
+        val root = runCatching { snakeYaml().compose(source.reader()) }.getOrNull()
         return buildList {
             add("Configuration is invalid: $fileName")
             add("")

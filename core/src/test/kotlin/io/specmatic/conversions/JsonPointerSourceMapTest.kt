@@ -6,6 +6,13 @@ import org.junit.jupiter.api.Test
 
 class JsonPointerSourceMapTest {
     @Test
+    fun `source mapping accepts specs larger than the default SnakeYAML limit`() {
+        val source = "openapi: 3.0.3\n#" + "x".repeat(5 * 1024 * 1024) + "\npaths: {}\n"
+        val map = JsonPointerSourceMap(source).build()
+        assertThat(map["/paths"]?.line).isEqualTo(3)
+    }
+
+    @Test
     fun `empty yaml produces empty map`() {
         val map = JsonPointerSourceMap("").build()
 

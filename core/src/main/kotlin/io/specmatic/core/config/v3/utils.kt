@@ -2,10 +2,9 @@ package io.specmatic.core.config.v3
 
 import io.specmatic.core.OPENAPI_FILE_EXTENSIONS
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.reporter.parsing.jacksonYamlMapper
 import io.specmatic.stub.isOpenAPI
-import org.yaml.snakeyaml.Yaml
 import java.io.File
-import kotlin.collections.contains
 
 sealed interface ServerOrigin {
     val port: Int? get() = null
@@ -61,7 +60,7 @@ internal fun determineSpecTypeFor(specFile: File): List<SpecType> {
 
 private fun isArazzo(path: String): Boolean = try {
     File(path).reader().use { reader ->
-        Yaml().load<MutableMap<String, Any?>>(reader).contains("arazzo")
+        jacksonYamlMapper().readTree(reader)?.let { it.isObject && it.has("arazzo") } == true
     }
 } catch (_: Throwable) {
     false
@@ -69,7 +68,7 @@ private fun isArazzo(path: String): Boolean = try {
 
 private fun isAsyncAPI(path: String): Boolean = try {
     File(path).reader().use { reader ->
-        Yaml().load<MutableMap<String, Any?>>(reader).contains("asyncapi")
+        jacksonYamlMapper().readTree(reader)?.let { it.isObject && it.has("asyncapi") } == true
     }
 } catch (_: Throwable) {
     false
