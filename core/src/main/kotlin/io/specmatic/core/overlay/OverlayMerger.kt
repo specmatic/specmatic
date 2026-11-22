@@ -78,7 +78,7 @@ class OverlayMerger {
         return JsonPath.using(
             Configuration.builder().options(Option.ALWAYS_RETURN_LIST).build()
         ).parse(
-            ObjectMapper().writeValueAsString(rootNode)
+            jacksonJsonMapper().convertValue(rootNode, Map::class.java)
         )
     }
 }
