@@ -305,6 +305,7 @@ private data class NamedSchemaLookupKey(
 )
 
 data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String, XMLNode>, val schemas: Map<String, XMLNode>, private val typesNode: XMLNode, val namespaceToPrefix: Map<String, String>, val prefixToNamespace: Map<String, String>, val rootPrefixesToNamespace: Map<String, String>, private val claimDocuments: List<Pair<XMLNode, String>> = emptyList()) {
+    internal val anyTypeContent by lazy { anyTypeContent(this) }
     private val indexes = WsdlIndexes(
         definitions = indexDefinitions(definitions),
         schemas = indexSchemas(schemas),
@@ -500,7 +501,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             attributes = contextualDeclaration.attributes.plus(otherRefAttributes).plus("form" to StringValue(form))
         )
 
-        return if(hasSimpleTypeAttribute(node)) {
+        return if (node.isAnyTypeElement()) {
+            AnyTypeElement(node, this)
+        } else if(hasSimpleTypeAttribute(node)) {
             SimpleElement(fullyQualifiedName.qName, node, this)
         } else {
             ReferredType(fullyQualifiedName.qName, node, this)
