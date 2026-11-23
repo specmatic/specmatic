@@ -72,7 +72,7 @@ data class ScenarioAsTest(
     private var endTime: Instant? = null
     private val matcherEngine: MatcherEngine? by lazy { MatcherEngine.load() }
     private val interceptor: ContractTestInterceptor? by lazy { ContractTestInterceptor.load() }
-    private val fixtureExecutionMetadata: FixtureExecutionMetadata = FixtureExecutionMetadata.from(scenario)
+    private val fixtureExecutionMetadata: FixtureExecutionMetadata = FixtureExecutionMetadata.from(scenario, feature.specmaticConfig)
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 

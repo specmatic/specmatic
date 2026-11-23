@@ -18,6 +18,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.Substitution
 import io.specmatic.core.Workflow
@@ -119,20 +120,21 @@ class ScenarioAsTestTest {
                 )
             )
 
+            val config = object : SpecmaticConfig by SpecmaticConfig() {}
             val result = withServiceLoaderEntries(
                 mapOf(
                     OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
                     ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
                 )
             ) {
-                scenarioAsTest(scenario).runTest(fixedResponseExecutor(body = "anything")).result
+                scenarioAsTest(scenario, config = config).runTest(fixedResponseExecutor(body = "anything")).result
             }
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
             assertThat(ServiceLoaderTestFixtureExecutor.receivedContexts).containsExactly(
-                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE),
-                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE)
+                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE, config),
+                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE, config)
             )
         }
 
@@ -794,8 +796,9 @@ class ScenarioAsTestTest {
         originalScenario: Scenario = scenario,
         substitution: Substitution = SubstitutionImpl.empty(),
         workflow: Workflow = Workflow(),
+        config: SpecmaticConfig = SpecmaticConfig(),
     ): ScenarioAsTest {
-        val feature = Feature(name = "feature", scenarios = scenarios, protocol = SpecmaticProtocol.HTTP)
+        val feature = Feature(name = "feature", scenarios = scenarios, protocol = SpecmaticProtocol.HTTP, specmaticConfig = config)
         return ScenarioAsTest(
             scenario = scenario,
             feature = feature,
