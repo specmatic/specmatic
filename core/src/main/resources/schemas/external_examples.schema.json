@@ -580,7 +580,7 @@
     },
     "Fixture": {
       "title": "Fixture",
-      "description": "A test-only fixture attached to a before or after hook. Currently, only HTTP fixtures are supported.",
+      "description": "A test-only HTTP or supporting-interface fixture attached to a before or after hook.",
       "examples": [
         {
           "type": "http",
@@ -595,47 +595,37 @@
               "ok": true
             }
           }
+        },
+        {
+          "type": "interface",
+          "id": "paymentAsyncApiService",
+          "exampleIds": [
+            "publishPaymentStatusExample1",
+            "publishPaymentStatusExample2"
+          ],
+          "send": {
+            "headers": {
+              "Idempotency-Key": "$(CORRELATION_ID)"
+            }
+          }
         }
       ],
       "oneOf": [
         {
           "$ref": "#/$defs/HttpFixture"
+        },
+        {
+          "$ref": "#/$defs/SupportingInterfaceFixture"
         }
       ]
     },
-    "HttpFixture": {
-      "title": "HTTP Fixture",
-      "description": "A test-only fixture that calls an HTTP endpoint before or after a contract test and validates the response.",
+    "FixtureCommon": {
+      "title": "Common Fixture Settings",
+      "description": "Settings shared by HTTP and supporting-interface fixtures.",
       "type": "object",
-      "examples": [
-        {
-          "type": "http",
-          "http-request": {
-            "baseUrl": "http://localhost:9000",
-            "method": "POST",
-            "path": "/setup",
-            "headers": {
-              "Content-Type": "application/json"
-            },
-            "body": {
-              "state": "ready"
-            }
-          },
-          "http-response": {
-            "status": 200,
-            "body": {
-              "ok": true
-            }
-          }
-        }
-      ],
       "properties": {
-        "type": {
-          "const": "http",
-          "description": "Identifies this as an HTTP fixture."
-        },
         "wait": {
-          "description": "Delay before the fixture call. Defaults to PT0S and must be an ISO 8601 duration.",
+          "description": "Delay before the fixture runs. Defaults to PT0S and must be an ISO 8601 duration.",
           "default": "PT0S",
           "oneOf": [
             {
@@ -650,7 +640,7 @@
           ]
         },
         "timeout": {
-          "description": "Maximum duration allowed for the fixture call. Defaults to PT10S and must be an ISO 8601 duration.",
+          "description": "Maximum duration allowed for the fixture. Defaults to PT10S and must be an ISO 8601 duration.",
           "default": "PT10S",
           "oneOf": [
             {
@@ -680,18 +670,119 @@
             "scenarios": "positive"
           },
           "$ref": "#/$defs/FixtureExecuteFor"
-        },
-        "http-request": {
-          "description": "Request sent to the fixture endpoint.",
-          "$ref": "#/$defs/HTTPFixtureRequest"
-        },
-        "http-response": {
-          "description": "Expected response from the fixture endpoint.",
-          "$ref": "#/$defs/HTTPFixtureResponse"
         }
       },
-      "required": ["type", "http-request", "http-response"],
       "additionalProperties": true
+    },
+    "HttpFixture": {
+      "title": "HTTP Fixture",
+      "description": "A test-only fixture that calls an HTTP endpoint before or after a contract test and validates the response.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "http",
+          "description": "Identifies this as an HTTP fixture."
+        }
+      },
+      "required": ["type"],
+      "examples": [
+        {
+          "type": "http",
+          "http-request": {
+            "baseUrl": "http://localhost:9000",
+            "method": "POST",
+            "path": "/setup",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "state": "ready"
+            }
+          },
+          "http-response": {
+            "status": 200,
+            "body": {
+              "ok": true
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+            "$ref": "#/$defs/FixtureCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "http-request": {
+              "description": "Request sent to the fixture endpoint.",
+              "$ref": "#/$defs/HTTPFixtureRequest"
+            },
+            "http-response": {
+              "description": "Expected response from the fixture endpoint.",
+              "$ref": "#/$defs/HTTPFixtureResponse"
+            }
+          },
+          "required": ["http-request", "http-response"],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "SupportingInterfaceFixture": {
+      "title": "Supporting Interface Fixture",
+      "description": "Identifies a supporting interface and one or more examples for it. Use a single-item exampleIds array when referring to one example. Additional properties contain interface-specific configuration.",
+      "examples": [
+        {
+          "type": "interface",
+          "id": "paymentAsyncApiService",
+          "exampleIds": ["publishPaymentStatusExample"],
+          "wait": "PT0S",
+          "timeout": "PT10S",
+          "retry": {"max-attempts": 2, "delay": "PT1S"},
+          "executeFor": {"scenarios": "positive"},
+          "send": {
+            "headers": {
+              "Idempotency-Key": "$(CORRELATION_ID)"
+            }
+          }
+        },
+        {
+          "type": "interface",
+          "id": "paymentAsyncApiService",
+          "exampleIds": [
+            "publishPaymentStatusExample1",
+            "publishPaymentStatusExample2"
+          ],
+          "send": {
+            "headers": {
+              "Idempotency-Key": "$(CORRELATION_ID)"
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/FixtureCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "interface"
+            },
+            "id": {
+              "type": "string"
+            },
+            "exampleIds": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string"}
+            }
+          },
+          "required": ["type", "id", "exampleIds"],
+          "additionalProperties": true
+        }
+      ]
     },
     "Retry": {
       "title": "Retry Policy",

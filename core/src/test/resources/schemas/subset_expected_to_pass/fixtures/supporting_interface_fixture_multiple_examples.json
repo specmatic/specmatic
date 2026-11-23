@@ -1,0 +1,16 @@
+{
+  "http-request": {"method": "GET", "path": "/orders"},
+  "http-response": {"status": 200},
+  "before": [
+    {
+      "type": "interface",
+      "id": "paymentAsyncApiService",
+      "exampleIds": ["publishPaymentStatusExample1", "publishPaymentStatusExample2"],
+      "wait": "PT1S",
+      "timeout": "PT10S",
+      "retry": {"max-attempts": 2, "delay": "PT1S"},
+      "executeFor": {"scenarios": "all"},
+      "send": {"headers": {"Idempotency-Key": "$(CORRELATION_ID)"}}
+    }
+  ]
+}

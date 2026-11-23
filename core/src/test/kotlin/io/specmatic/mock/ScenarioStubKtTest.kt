@@ -3,7 +3,9 @@ package io.specmatic.mock
 import io.specmatic.conversions.OpenApiSpecification
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import io.specmatic.core.*
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.ContractException
@@ -528,6 +530,227 @@ paths:
             assertThat(scenarioStub.data.jsonObject["processed"]).isEqualTo(StringValue("yes"))
             assertThat(scenarioStub.preProcessorAttributes[outputKey]).isEqualTo("stored-value")
         }
+    }
+
+    @Nested
+    @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+    inner class SupportingInterfaceFixtures {
+        @Test
+        fun `loads interface fixture with a single exampleId in exampleIds and common fixture properties`() {
+            val fixture = """
+            {
+              "wait": "PT1S",
+              "timeout": "PT10S",
+              "type": "interface",
+              "id": "paymentAsyncApiService",
+              "executeFor": { "scenarios": "all" },
+              "exampleIds": ["publishPaymentStatusExample"],
+              "retry": { "max-attempts": 2, "delay": "PT1S" },
+              "send": { "headers": { "Idempotency-Key": "$(CORRELATION_ID)" } }
+            }
+            """.trimIndent()
+
+            val scenarioStub = stubWithFixture(fixture)
+            assertThat(scenarioStub.beforeFixtures).containsExactly(parsedValue(fixture))
+        }
+
+        @Test
+        fun `loads interface fixture with exampleIds`() {
+            val fixture = """
+            {
+              "type": "interface",
+              "id": "paymentAsyncApiService",
+              "exampleIds": ["publishPaymentStatusExample1", "publishPaymentStatusExample2"]
+            }
+            """.trimIndent()
+
+            val scenarioStub = stubWithFixture(fixture)
+            assertThat(scenarioStub.beforeFixtures).containsExactly(parsedValue(fixture))
+        }
+
+        @Test
+        fun `rejects an empty list of interface fixture example IDs`() {
+            val error = catchContractException("""{"type":"interface","id":"payments","exampleIds":[]}""")
+            assertThat(error.report()).contains("before[0].exampleIds")
+        }
+
+        @Test
+        fun `rejects interface fixture without exampleIds`() {
+            val fixture = """
+            { "type": "interface", "id": "paymentAsyncApiService" }
+            """.trimIndent()
+
+            val error = catchContractException(fixture)
+            assertThat(error.report()).isEqualToNormalizingWhitespace(
+                expectedFixtureError(
+                    "exampleIds",
+                    "R2001",
+                    "Example format expected mandatory property \"exampleIds\" to be present but was missing from the example"
+                )
+            )
+        }
+
+        @Test
+        fun `rejects interface fixture using singular exampleId`() {
+            val fixture = """
+            {
+              "type": "interface",
+              "id": "paymentAsyncApiService",
+              "exampleId": "publishPaymentStatusExample"
+            }
+            """.trimIndent()
+
+            val error = catchContractException(fixture)
+            assertThat(error.report()).isEqualToNormalizingWhitespace(
+                toViolationReportString(
+                    breadCrumb = "before[0].exampleId",
+                    details = "Property \"exampleId\" is invalid. Did you mean \"exampleIds\"?",
+                    StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                )
+            )
+        }
+
+        @Test
+        fun `validates common fixture properties on interface fixtures`() {
+            val fixture = """
+            {
+              "type": "interface",
+              "id": "paymentAsyncApiService",
+              "exampleIds": ["publishPaymentStatusExample"],
+              "wait": 5
+            }
+            """.trimIndent()
+
+            val error = catchContractException(fixture)
+            assertThat(error.report()).isEqualToNormalizingWhitespace(
+                expectedFixtureError(
+                    "wait",
+                    "R1001",
+                    "Example format expected type string, but example contained value 5 of type number"
+                )
+            )
+        }
+
+        @ParameterizedTest
+        @MethodSource("invalidSupportingInterfaceFixtures")
+        fun `reports the precise error for invalid supporting interface fixture fields`(
+            fixture: String,
+            expectedDetails: List<String>,
+        ) {
+            val report = catchContractException(fixture).report()
+            assertThat(report).contains(*expectedDetails.toTypedArray())
+        }
+
+        fun invalidSupportingInterfaceFixtures(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":42}""",
+                listOf(
+                    ">> before[0].exampleIds",
+                    "R1001",
+                    "Example format expected type list of string, but example contained value 42 of type number",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":[42]}""",
+                listOf(
+                    ">> before[0].exampleIds[0]",
+                    "R1001",
+                    "Example format expected type string, but example contained value 42 of type number",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":42,"exampleIds":["publishPaymentStatusExample"]}""",
+                listOf(
+                    ">> before[0].id",
+                    "R1001",
+                    "Example format expected type string, but example contained value 42 of type number",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"http","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"]}""",
+                listOf(
+                    ">> before[0].http-request",
+                    "R2001",
+                    "mandatory property \"http-request\" to be present but was missing",
+                    ">> before[0].http-response",
+                    "mandatory property \"http-response\" to be present but was missing",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":"publishPaymentStatusExample"}""",
+                listOf(
+                    ">> before[0].exampleIds",
+                    "R1001",
+                    "Example format expected type list of string, but example contained value \"publishPaymentStatusExample\" of type string",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"timeout":5}""",
+                listOf(
+                    ">> before[0].timeout",
+                    "R1001",
+                    "Example format expected type string, but example contained value 5 of type number",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"retry":{"delay":"soon"}}""",
+                listOf(
+                    ">> before[0].retry.delay",
+                    "R1003",
+                    "expected type string that matches regex",
+                    "example contained value \"soon\" of type string",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"executeFor":{"scenarios":1}}""",
+                listOf(
+                    ">> before[0].executeFor.scenarios",
+                    "R1002",
+                    "Example format expected (\"all\" or \"positive\" or \"negative\"), but example contained 1 (number)",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"retry":{"max-attempts":"two"}}""",
+                listOf(
+                    ">> before[0].retry.max-attempts",
+                    "R1001",
+                    "Example format expected type number, but example contained value \"two\" of type string",
+                ),
+            ),
+            Arguments.of(
+                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"executeFor":{"scenarios":"invalid"}}""",
+                listOf(
+                    ">> before[0].executeFor.scenarios",
+                    "R1002",
+                    "Example format expected (\"all\" or \"positive\" or \"negative\"), but example contained \"invalid\"",
+                ),
+            ),
+        )
+
+        private fun expectedFixtureError(path: String, code: String, details: String): String {
+            val ruleViolation = when (code) {
+                "R1001" -> StandardRuleViolation.TYPE_MISMATCH
+                "R1002" -> StandardRuleViolation.VALUE_MISMATCH
+                "R1003" -> StandardRuleViolation.CONSTRAINT_VIOLATION
+                "R2001" -> StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+                else -> error("Unexpected rule violation code: $code")
+            }
+
+            return toViolationReportString("before[0].$path", details, ruleViolation)
+        }
+
+        private fun catchContractException(fixture: String): ContractException {
+            return runCatching { stubWithFixture(fixture) }.exceptionOrNull() as? ContractException
+                ?: error("Expected ContractException for fixture: $fixture")
+        }
+
+        private fun stubWithFixture(fixture: String) = ScenarioStub.parse("""
+        {
+          "http-request": { "method": "GET", "path": "/payments" },
+          "http-response": { "status": 200 },
+          "before": [$fixture]
+        }
+        """.trimIndent())
     }
 
     companion object {
