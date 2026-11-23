@@ -68,3 +68,11 @@ The total number of properties present in an object, including declared properti
 
 **Satisfiable object schema**:
 An object schema for which at least one object satisfies all its constraints together, including required properties, property-count bounds and restrictions on additional properties.
+
+## HTTP stubbing
+
+**Example match**:
+A stub example that satisfies the matching rules for an incoming request. A request can match multiple examples.
+
+**Example consumption**:
+The committed use of a selected stub example to answer one request. A reusable example can be consumed once per request it serves.

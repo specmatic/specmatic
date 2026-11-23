@@ -77,6 +77,7 @@ import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.mock.AFTER_FIXTURES
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
@@ -86,6 +87,7 @@ import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.OpenApiMockUsage
 import io.specmatic.stub.report.StubEndpoint
+import io.specmatic.reporter.ctrf.model.FixtureExecutionResult
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestSkipReason
 import io.specmatic.test.TestResultRecord
@@ -121,6 +123,9 @@ import java.net.URI
 import java.nio.charset.Charset
 import java.time.Instant
 import java.util.*
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import kotlin.math.max
@@ -206,6 +211,8 @@ class HttpStub(
     )
 
     companion object {
+        private const val AFTER_FIXTURE_REPORT_TIMEOUT_SECONDS = 10L
+
         fun setExpectation(
             stub: ScenarioStub,
             feature: Feature,
@@ -225,8 +232,24 @@ class HttpStub(
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
     private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
+    private val afterFixtureRunner = StubAfterFixtureRunner(specmaticConfigInstance, strictMode)
 
-    private val ctrfTestResultRecords = mutableListOf<TestResultRecord>()
+    private val ctrfTestResultRecords = mutableListOf<RecordedRequest>()
+    private data class PendingAfterFixture(override val errorMessage: String) : FixtureExecutionResult {
+        override val fixtureNumber = ""
+        override val fixtureKind = AFTER_FIXTURES
+    }
+
+    private data class RecordedRequest(
+        val result: TestResultRecord,
+        val afterFixtures: CompletableFuture<List<FixtureExecutionResult>?>?,
+    ) {
+        fun snapshot(pendingFixture: FixtureExecutionResult? = null): TestResultRecord {
+            val future = afterFixtures ?: return result
+            val fixtures = if (future.isDone) future.getNow(null) else pendingFixture?.let(::listOf)
+            return fixtures?.let { result.copy(afterFixtureExecutionResult = it) } ?: result
+        }
+    }
 
     val specToBaseUrlMap: Map<String, String> = getValidatedBaseUrlsOrExit(
         features.associate {
@@ -261,7 +284,9 @@ class HttpStub(
     }
 
     // used by graphql/plugins
-    fun ctrfTestResultRecords() = ctrfTestResultRecords.toList()
+    fun ctrfTestResultRecords() = synchronized(ctrfTestResultRecords) {
+        ctrfTestResultRecords.map(RecordedRequest::snapshot)
+    }
 
     //used by graphql / plugins
     fun registerHandler(requestHandler: RequestHandler) {
@@ -385,7 +410,7 @@ class HttpStub(
 
                     val responseFromRequestHandler =
                         requestHandlers.firstNotNullOfOrNull { it.handleRequest(httpRequest, requestBaseUrl) }
-                    val httpStubResponse: HttpStubResponse = when {
+                    val immediateResponse = when {
                         isFetchLogRequest(httpRequest) -> handleFetchLogRequest().copy(isInternalStubPath = true)
                         isFetchLoadLogRequest(httpRequest) -> handleFetchLoadLogRequest().copy(isInternalStubPath = true)
                         isFetchContractsRequest(httpRequest) -> handleFetchContractsRequest().copy(isInternalStubPath = true)
@@ -404,11 +429,13 @@ class HttpStub(
                         isExpectationCreation(httpRequest) -> handleExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
                         isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
                         isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest).copy(isInternalStubPath = true)
-                        else -> {
-                            val responseResult = serveStubResponse(httpRequest, baseUrl = requestBaseUrl, defaultBaseUrl = defaultBaseUrl, urlPath = requestUrlPath)
-                            if (responseResult is NotStubbed) httpLogMessage.addResult(responseResult.stubResult)
-                            responseResult.response
-                        }
+                        else -> null
+                    }
+
+                    val (httpStubResponse, matchedRequest) = immediateResponse?.let { it to null } ?: run {
+                        val selection = serveStubResponse(httpRequest, requestBaseUrl, defaultBaseUrl, requestUrlPath)
+                        if (selection.result is NotStubbed) httpLogMessage.addResult(selection.result.stubResult)
+                        selection.result.response to selection.matchedRequest
                     }
 
                     if (httpStubResponse.mock?.terminateConnection == true) {
@@ -453,7 +480,8 @@ class HttpStub(
                     }
 
                     if (httpStubResponse.isInternalStubPath.not()) {
-                        addCtrfTestResultRecord(httpLogMessage, httpRequest, httpResponse, httpStubResponse)
+                        val afterFixtures = matchedRequest?.let { afterFixtureRunner.start(it, httpStubResponse, httpResponse) }
+                        addCtrfTestResultRecord(httpLogMessage, httpRequest, httpResponse, httpStubResponse, afterFixtures)
                     }
                 } catch (e: ContractException) {
                     val response = badRequest(e.report())
@@ -523,7 +551,8 @@ class HttpStub(
         httpLogMessage: HttpLogMessage,
         httpRequest: HttpRequest,
         httpResponse: HttpResponse,
-        httpStubResponse: HttpStubResponse
+        httpStubResponse: HttpStubResponse,
+        afterFixtures: CompletableFuture<List<FixtureExecutionResult>?>? = null,
     ) {
         val path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path.orEmpty())
         val method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty()
@@ -573,7 +602,9 @@ class HttpStub(
             ),
             exampleId = httpStubResponse.mock?.scenarioStub?.id
         )
-        synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
+
+        val recordedRequest = RecordedRequest(ctrfTestResultRecord, afterFixtures)
+        synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(recordedRequest) }
     }
 
     private suspend fun handleSse(
@@ -836,12 +867,13 @@ class HttpStub(
         return hostPorts.ifEmpty { listOf(this.host to this.port) }
     }
 
+    data class StubResponseSelection(val result: StubbedResponseResult, val matchedRequest: HttpRequest?)
     fun serveStubResponse(
         httpRequest: HttpRequest,
         baseUrl: String,
         defaultBaseUrl: String,
-        urlPath: String
-    ): StubbedResponseResult {
+        urlPath: String,
+    ): StubResponseSelection {
         val url = "$baseUrl$urlPath"
         val stubBaseUrlPath = specmaticConfigInstance.stubBaseUrlPathAssociatedTo(url, defaultBaseUrl)
 
@@ -849,15 +881,16 @@ class HttpStub(
         val candidateFeatures = featuresAssociatedTo(baseUrl, features, specToBaseUrlMap, urlPath)
         val (handler, features) = httpStubHandlers.handlerForRequest(candidateFeatures, trimmedRequest)
 
-        return handler.serveStubResponse(
+        val result = handler.serveStubResponse(
             baseUrl = baseUrl,
             urlPath = urlPath,
             features = features,
             httpRequest = trimmedRequest,
             defaultBaseUrl = defaultBaseUrl,
-        ).also {
-            it.log(_logs, httpRequest)
-        }
+        )
+
+        result.log(_logs, httpRequest)
+        return StubResponseSelection(result, trimmedRequest.takeIf { handler is DefaultHttpStubHandler })
     }
 
     fun featuresForRequest(baseUrl: String, urlPath: String): List<Feature> {
@@ -1161,29 +1194,41 @@ class HttpStub(
 
     override fun close() {
         val protocols = features.map { it.protocol }.distinct()
-        if (SpecmaticProtocol.HTTP in protocols) generateReports()
         logger.debug("Stopping the server with grace period of $timeoutMillis and force timeout of $forceTimeoutMillis")
         server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = max(timeoutMillis, forceTimeoutMillis))
+        if (SpecmaticProtocol.HTTP in protocols) generateReports()
+    }
+
+    private fun finalRequestRecords(): List<TestResultRecord> {
+        val records = synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.toList() }
+        val fixtures = records.mapNotNull { it.afterFixtures }
+        val pendingFixture = try {
+            CompletableFuture.allOf(*fixtures.toTypedArray())
+                .get(AFTER_FIXTURE_REPORT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            null
+        } catch (_: TimeoutException) {
+            PendingAfterFixture("After fixtures were still running when the mock report was generated")
+        }
+
+        return records.map { it.snapshot(pendingFixture) }
     }
 
     private fun generateReports() {
-        synchronized(ctrfTestResultRecords) {
-            val mockUsage = OpenApiMockUsage()
-            mockUsage.addEndpoints(_allEndpoints)
-            ctrfTestResultRecords.forEach(mockUsage::addTestResultRecord)
-            val mockUsageReport = mockUsage.generate()
+        val mockUsage = OpenApiMockUsage()
+        mockUsage.addEndpoints(_allEndpoints)
+        finalRequestRecords().forEach(mockUsage::addTestResultRecord)
+        val mockUsageReport = mockUsage.generate()
 
-            ReportGenerator.generateReport(
-                coverageReportSpecifications = mockUsage.coverageReportSpecifications(mockUsageReport.coverageReportOperations),
-                startTime = startTime.toEpochMilli(),
-                endTime = Instant.now().toEpochMilli(),
-                coverage = mockUsageReport.coverage,
-                absoluteCoverage = mockUsageReport.absoluteCoverage,
-                reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub"),
-                reportType = RawReportType.MOCK,
-                insightsReportOptions = insightsReportOptions,
-            )
-        }
+        ReportGenerator.generateReport(
+            coverageReportSpecifications = mockUsage.coverageReportSpecifications(mockUsageReport.coverageReportOperations),
+            startTime = startTime.toEpochMilli(),
+            endTime = Instant.now().toEpochMilli(),
+            coverage = mockUsageReport.coverage,
+            absoluteCoverage = mockUsageReport.absoluteCoverage,
+            reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub"),
+            reportType = RawReportType.MOCK,
+            insightsReportOptions = insightsReportOptions,
+        )
     }
 
     init {
