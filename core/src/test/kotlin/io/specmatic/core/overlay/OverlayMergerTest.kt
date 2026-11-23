@@ -5,6 +5,38 @@ import org.junit.jupiter.api.Test
 
 class OverlayMergerTest {
     @Test
+    fun `overlay updates specifications containing deeply nested extension data`() {
+        val source = "openapi: 3.0.3\ninfo: {title: Original, version: '1'}\npaths: {}\nx-data: " +
+            "[".repeat(450) + "0" + "]".repeat(450)
+        val overlay = OverlayParser.parse("""
+            overlay: 1.0.0
+            info: {title: Update, version: '1'}
+            actions:
+              - target: ${'$'}.info.title
+                update: Changed
+        """.trimIndent())
+        val merged = OverlayMerger().merge(source, overlay)
+        assertThat(io.specmatic.reporter.parsing.jacksonYamlMapper().readTree(merged).path("info").path("title").asText()).isEqualTo("Changed")
+    }
+
+    @Test
+    fun `overlay applies to a specification at the shared code point limit`() {
+        val prefix = "openapi: 3.0.3\ninfo: {title: Original, version: '1'}\npaths: {}\nx-padding: "
+        val source = prefix + "x".repeat(io.specmatic.reporter.parsing.MAX_SPEC_CODE_POINTS - prefix.length)
+        val overlay = OverlayParser.parse("""
+            overlay: 1.0.0
+            info: {title: Update, version: '1'}
+            actions:
+              - target: ${'$'}.info.title
+                update: Changed
+        """.trimIndent())
+
+        val merged = OverlayMerger().merge(source, overlay)
+
+        assertThat(merged.substringBefore("paths:")).contains("Changed")
+    }
+
+    @Test
     fun `updating parent node after child nodes shouldn't override the changes`() {
         val yamlContent = """
             parentNode:

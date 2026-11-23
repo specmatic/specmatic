@@ -2,7 +2,8 @@ package io.specmatic.core.overlay
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.reporter.parsing.jacksonYamlFactory
+import io.specmatic.reporter.parsing.jacksonJsonMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.DocumentContext
@@ -18,7 +19,7 @@ class OverlayMerger {
     ): String {
         try {
             val yamlMapper = ObjectMapper(
-                YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+                jacksonYamlFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
             )
             val rootNode = yamlMapper.readTree(baseContent) as ObjectNode
             val documentContext = documentContextFor(rootNode)
@@ -65,7 +66,7 @@ class OverlayMerger {
             }
 
             return yamlMapper.writeValueAsString(
-                ObjectMapper().readTree(documentContext.jsonString()) as ObjectNode
+                jacksonJsonMapper().readTree(documentContext.jsonString()) as ObjectNode
             ) ?: baseContent
         } catch(e: Exception) {
             println("Failed while applying overlay over the specification content with error: ${e.message}")
@@ -77,7 +78,7 @@ class OverlayMerger {
         return JsonPath.using(
             Configuration.builder().options(Option.ALWAYS_RETURN_LIST).build()
         ).parse(
-            ObjectMapper().writeValueAsString(rootNode)
+            jacksonJsonMapper().convertValue(rootNode, Map::class.java)
         )
     }
 }

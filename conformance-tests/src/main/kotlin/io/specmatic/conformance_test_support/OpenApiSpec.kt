@@ -2,13 +2,13 @@ package io.specmatic.conformance_test_support
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.reporter.parsing.jacksonYamlMapper
+import io.specmatic.reporter.parsing.OpenApiParser
 import com.networknt.schema.Error
 import com.networknt.schema.Schema
 import com.networknt.schema.SchemaLocation
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.dialect.Dialects
-import io.swagger.parser.OpenAPIParser
 import io.swagger.v3.core.util.Json
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.oas.models.SpecVersion
@@ -52,10 +52,10 @@ class OpenApiSpec(private val specFile: File) {
             isValidateExternalRefs = true
         }
 
-        val result = OpenAPIParser().readLocation(specFile.absolutePath, null, options)
+        val result = OpenApiParser.parseOpenApiV3File(specFile, parseOptions = options, auth = null)
 
-        if (result.messages.isNotEmpty() || result.openAPI == null) {
-            error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
+        if (result?.messages?.isNotEmpty() == true || result?.openAPI == null) {
+            error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result?.messages}")
         }
 
         result.openAPI
@@ -412,7 +412,7 @@ class OpenApiSpec(private val specFile: File) {
         private val openApi31SchemaRegistry =
             SchemaRegistry.withDialect(Dialects.getOpenApi31())
 
-        private val yamlMapper = ObjectMapper(YAMLFactory())
+        private val yamlMapper = jacksonYamlMapper()
         private val jsonMapper = ObjectMapper()
 
         // Synthetic location used when building a Schema directly from a swagger Schema model

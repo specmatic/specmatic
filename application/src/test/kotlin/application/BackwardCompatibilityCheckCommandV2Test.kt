@@ -42,6 +42,34 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
+    @Test
+    fun `JSON file detection accepts specification strings beyond Jackson default limit`(@TempDir directory: File) {
+        val description = "x".repeat(21 * 1024 * 1024)
+        val source = """{"openapi":"3.0.3","info":{"title":"API","version":"1"},"paths":{},"x-description":"$description"}"""
+        val file = directory.resolve("api.json").apply { writeText(source) }
+        val command = BackwardCompatibilityCheckCommandV2()
+
+        assertThat(with(command) { file.isValidFileFormat() }).isTrue()
+    }
+
+    @Test
+    fun `file detection retains YAML JSON BOM malformed input and AsyncAPI exclusion`(@TempDir directory: File) {
+        val command = BackwardCompatibilityCheckCommandV2()
+        val cases = listOf(
+            Triple("api.yaml", "openapi: 3.0.3\npaths: {}", true),
+            Triple("bom.yml", "\uFEFFopenapi: 3.0.3\npaths: {}", true),
+            Triple("api.json", """{"openapi":"3.0.3","paths":{}}""", true),
+            Triple("async.yaml", "asyncapi: 3.0.0\nchannels: {}", false),
+            Triple("async.json", """{"asyncapi":"3.0.0","channels":{}}""", false),
+            Triple("bad.yaml", "openapi: [", false),
+            Triple("scalar.yaml", "plain scalar", false),
+        )
+        cases.forEach { (name, content, expected) ->
+            val file = directory.resolve(name).apply { writeText(content) }
+            assertThat(with(command) { file.isValidFileFormat() }).describedAs(name).isEqualTo(expected)
+        }
+    }
+
     private val objectMapper = ObjectMapper()
 
     companion object {

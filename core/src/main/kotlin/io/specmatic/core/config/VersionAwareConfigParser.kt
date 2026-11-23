@@ -2,8 +2,7 @@ package io.specmatic.core.config
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.reporter.parsing.jacksonYamlMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.v1.SpecmaticConfigV1
@@ -13,7 +12,7 @@ import io.specmatic.core.pattern.ContractException
 import java.io.File
 
 private const val SPECMATIC_CONFIG_VERSION = "version"
-internal val objectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+internal val objectMapper = jacksonYamlMapper().registerKotlinModule()
 
 internal fun parseSpecmaticConfigTree(content: String): JsonNode = objectMapper.readTree(content)
 internal fun File.toResolvedSpecmaticConfigTree(): JsonNode {

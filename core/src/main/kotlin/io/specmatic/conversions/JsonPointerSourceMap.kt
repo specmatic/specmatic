@@ -1,6 +1,6 @@
 package io.specmatic.conversions
 
-import org.yaml.snakeyaml.Yaml
+import io.specmatic.reporter.parsing.snakeYaml
 import org.yaml.snakeyaml.error.Mark
 import org.yaml.snakeyaml.nodes.AnchorNode
 import org.yaml.snakeyaml.nodes.MappingNode
@@ -29,7 +29,7 @@ internal fun internalRefTarget(rawRef: String?): String? = when {
 
 class JsonPointerSourceMap(private val yaml: String) {
     fun build(): Map<String, YamlNodeLocation> {
-        val root = Yaml().compose(yaml.reader()) ?: return emptyMap()
+        val root = snakeYaml().compose(yaml.reader()) ?: return emptyMap()
         val out = mutableMapOf<String, YamlNodeLocation>()
         walk(root, "", root.startMark, out)
         return out

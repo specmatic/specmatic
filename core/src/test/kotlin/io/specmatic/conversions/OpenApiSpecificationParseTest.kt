@@ -59,6 +59,141 @@ import java.math.BigDecimal
 import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
+    @Test
+    fun `large OpenAPI 3_1 overlay parsing retains external response schemas`(@TempDir directory: File) {
+        directory.resolve("schema.yaml").writeText("type: integer\n")
+        val source = """
+            openapi: 3.1.0
+            info: {title: Large API, version: '1'}
+            paths:
+              /health:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema: {${'$'}ref: './schema.yaml'}
+        """.trimIndent() + "\nx-padding: " + "x".repeat(5 * 1024 * 1024)
+        val overlay = """
+            actions:
+              - target: ${'$'}.paths
+                update:
+                  /added:
+                    get:
+                      responses:
+                        '204': {description: Added by overlay}
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(source, directory.resolve("api.yaml").path, overlayContent = overlay).toFeature()
+        assertThat(feature.scenarios.map { it.path }).containsExactlyInAnyOrder("/health", "/added")
+        val health = feature.scenarios.single { it.path == "/health" }
+        assertThat(health.httpResponsePattern.body.matches(NumberValue(1), health.resolver).isSuccess()).isTrue()
+        assertThat(health.httpResponsePattern.body.matches(StringValue("invalid"), health.resolver).isSuccess()).isFalse()
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["content", "file", "validation", "extensions", "detection", "strict detection", "change tracking"])
+    fun `large OpenAPI documents retain operations through each parsing entry point`(entryPoint: String, @TempDir directory: File) {
+        val source = "openapi: 3.0.3\ninfo: {title: Large API, version: '1'}\npaths:\n  /health:\n    get:\n      responses:\n        '204': {description: OK}\nx-description: " + "x".repeat(5 * 1024 * 1024)
+        val file = directory.resolve("large.yaml").apply { writeText(source) }
+        when (entryPoint) {
+            "content" -> assertThat(OpenApiSpecification.fromYAML(source, file.path).toFeature().scenarios).hasSize(1)
+            "file" -> assertThat(OpenApiSpecification.fromFile(file.path).toFeature().scenarios).hasSize(1)
+            "validation" -> OpenApiSpecification.checkSpecValidity(file.path)
+            "extensions" -> assertThat(OpenApiSpecification.getParsedOpenApi(file.path).paths).containsKey("/health")
+            "detection" -> assertThat(OpenApiSpecification.isParsable(file.path)).isTrue()
+            "strict detection" -> assertThat(OpenApiSpecification.isParsableOpenApiDocument(file.path)).isTrue()
+            "change tracking" -> assertThat(OpenApiSpecification.fromYAMLForChangeTracking(source, file.path).toFeature().scenarios).hasSize(1)
+        }
+    }
+
+    @Test
+    fun `Swagger 2 files load through extensions while the OpenAPI 3 check stays strict`(@TempDir directory: File) {
+        val file = directory.resolve("swagger.yaml").apply { writeText("""
+            swagger: '2.0'
+            info: {title: API, version: '1'}
+            paths:
+              /ping:
+                get:
+                  responses:
+                    '200': {description: OK}
+        """.trimIndent()) }
+        assertThat(OpenApiSpecification.isParsable(file.canonicalPath)).isTrue()
+        assertThat(OpenApiSpecification.getParsedOpenApi(file.canonicalPath).paths).containsKey("/ping")
+        assertThat(OpenApiSpecification.fromFile(file.canonicalPath).parsedOpenApi.paths).containsKey("/ping")
+        assertThat(OpenApiSpecification.isParsableOpenApiDocument(file.canonicalPath)).isFalse()
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `fromYAML rejects an absent OpenAPI model even in lenient mode`(lenientMode: Boolean) {
+        val location = "invalid.yaml"
+        val (output, failure) = captureStandardOutput {
+            assertThrows<ContractException> {
+                OpenApiSpecification.fromYAML("openapi: [", location, lenientMode = lenientMode)
+            }
+        }
+        assertThat(failure.errorMessage).isEqualTo(
+            "Could not parse contract $location, please validate the syntax using https://editor.swagger.io"
+        )
+        assertThat(output).contains("FATAL: Failed to parse OpenAPI from file $location")
+    }
+
+    @Test
+    fun `fromYAML retains a parsed model and logs parser diagnostics`() {
+        val source = """
+            openapi: 3.0.3
+            info: {title: API}
+            paths: {}
+        """.trimIndent()
+        val (output, specification) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(source, "warnings.yaml")
+        }
+        assertThat(specification.parsedOpenApi.openapi).isEqualTo("3.0.3")
+        assertThat(output).contains("WARNING: The OpenAPI file warnings.yaml was read successfully but with some issues")
+        assertThat(output).contains("info.version")
+    }
+
+    @Test
+    fun `fromFile throws when fallback Swagger parser returns no model`(@TempDir directory: File) {
+        val file = directory.resolve("invalid.yaml").apply { writeText("openapi: [") }
+
+        val failure = assertThrows<NullPointerException> {
+            OpenApiSpecification.fromFile(file.canonicalPath)
+        }
+        assertThat(failure).hasMessage("read(...) must not be null")
+    }
+
+    @Test
+    fun `YAML and JSON inputs retain optional body operations and response schemas`() {
+        val yaml = """
+            openapi: 3.0.3
+            info: {title: Items, version: '1'}
+            paths:
+              /items:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema: {type: object}
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema: {type: integer}
+        """.trimIndent()
+        val tree = com.fasterxml.jackson.databind.ObjectMapper(com.fasterxml.jackson.dataformat.yaml.YAMLFactory()).readTree(yaml)
+        val json = com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(tree)
+        listOf(yaml, json).forEach { source ->
+            val parsed = OpenApiSpecification.fromYAML(source, "api.yaml")
+            val operation = parsed.parsedOpenApi.paths["/items"]!!.post
+            assertThat(operation.requestBody).extracting("required").isNull()
+            assertThat(operation.responses["200"]!!.content["application/json"]!!.schema.type).isEqualTo("integer")
+            assertThat(parsed.toFeature().scenarios).isNotEmpty()
+        }
+    }
+
     @Nested
     inner class AllOfRequiredDiscriminatorProperties {
         @ParameterizedTest

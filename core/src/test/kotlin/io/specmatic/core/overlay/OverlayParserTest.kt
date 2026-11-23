@@ -6,6 +6,16 @@ import org.junit.jupiter.api.Test
 class OverlayParserTest {
 
     @Test
+    fun `large overlay retains update and removal actions`() {
+        val description = "x".repeat(5 * 1024 * 1024)
+        val (updates, removals) = OverlayParser.parse(
+            "actions:\n  - target: $.info.description\n    update: $description\n  - target: $.info.summary\n    remove: true\n"
+        )
+        assertThat(updates["$.info.description"]?.single()).isEqualTo(description)
+        assertThat(removals["$.info.summary"]).isTrue()
+    }
+
+    @Test
     fun `should parse overlay content`() {
         val overlayContent = """
             actions:

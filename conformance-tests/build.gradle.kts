@@ -3,6 +3,10 @@ plugins {
 }
 
 dependencies {
+    implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
+        exclude(group = "commons-logging", module = "commons-logging")
+        exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
+    }
     implementation("ch.qos.logback:logback-core:1.6.7")
     implementation("org.slf4j:slf4j-api:2.0.20")
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
