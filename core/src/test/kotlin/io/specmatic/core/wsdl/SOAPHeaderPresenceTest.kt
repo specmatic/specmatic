@@ -1,5 +1,8 @@
 package io.specmatic.core.wsdl
 
+import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.Row
+
 import io.specmatic.conversions.wsdlContentToFeature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Result
@@ -42,6 +45,31 @@ class SOAPHeaderPresenceTest {
                 assertThat(soapElementCount(message, "http://schemas.xmlsoap.org/soap/envelope/", "Header"))
                     .isEqualTo(soapElementCount(message, "urn:header-presence", "Session"))
                 assertThat(body.matches(body.parse(message, scenario.resolver), scenario.resolver).isSuccess()).isTrue()
+            }
+        }
+    }
+
+    @Test
+    fun `SOAP header control metadata is absent from XML pattern attributes and generated messages`() {
+        fun assertNoControlAttributes(body: io.specmatic.core.pattern.Pattern) {
+            if (body !is XMLPattern) return
+            assertThat(body.pattern.attributes.keys).doesNotContain(
+                "specmatic_omit_empty_soap_header", "specmatic_soap_header_required_reason"
+            )
+            body.pattern.nodes.forEach(::assertNoControlAttributes)
+        }
+        listOf(headerWsdl(), claimedHeaderWsdl()).forEach { text ->
+            val scenario = headerFeature(text).scenarios.single()
+            listOf(scenario.httpRequestPattern.body, scenario.httpResponsePattern.body).forEach { body ->
+                assertNoControlAttributes(body)
+                val variants = body.newBasedOn(Row(), scenario.resolver).map { it.value }.toList() +
+                    body.newBasedOn(scenario.resolver).toList()
+                variants.forEach { variant ->
+                    assertNoControlAttributes(variant)
+                    assertThat(variant.generate(scenario.resolver).toStringLiteral()).doesNotContain(
+                        "specmatic_omit_empty_soap_header", "specmatic_soap_header_required_reason"
+                    )
+                }
             }
         }
     }

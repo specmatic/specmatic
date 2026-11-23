@@ -111,6 +111,10 @@ class SOAPHeaderClaimTest {
                 val message = variant.generate(scenario.resolver)
                 assertThat(soapElementCount(message.toStringLiteral(), "urn:header-presence", block)).isEqualTo(1)
                 assertThat(body.matches(message, scenario.resolver).isSuccess()).isTrue()
+                val direction = if (block == "Session") "request" else "response"
+                val missing = variant.matches(variant.parse(envelope("", direction), scenario.resolver), scenario.resolver)
+                assertThat(missing.isSuccess()).isFalse()
+                assertThat(missing.reportString()).contains(block, "Basic Profile 1.1", "Port", "exchange")
             }
         }
     }

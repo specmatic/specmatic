@@ -14,18 +14,18 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 
-class SOAPHeaderClaimWarningsTest {
+class SOAPHeaderClaimFallbackTest {
     @TempDir lateinit var directory: File
 
     @ParameterizedTest(name = "strict={0}, {1}")
     @MethodSource("unsupportedClaims")
-    fun `unsupported claims warn without blocking loading and retain the optional fallback`(strict: Boolean, kind: String, text: String, version: String, diagnostic: String) {
+    fun `unrecognized or inapplicable claims load silently and retain the optional fallback`(strict: Boolean, kind: String, text: String, version: String) {
         val file = directory.resolve("unsupported.wsdl").apply { writeText(text) }
         val printer = ClaimLogPrinter()
         val feature = withLogger(NonVerbose(CompositePrinter(listOf(printer)))) {
             parseContractFileToFeature(file, strictMode = strict, lenientMode = !strict)
         }
-        assertThat(printer.messages.joinToString("\n")).contains("WARNING", "Claim", "unsupported.wsdl", "optional", diagnostic)
+        assertThat(printer.messages).isEmpty()
         val scenario = feature.scenarios.single()
         listOf("", "<s:Header/>").forEach { header ->
             val requestResult = scenario.httpRequestPattern.matches(headerRequest(envelope(header, version = version), version), scenario.resolver)
@@ -42,7 +42,7 @@ class SOAPHeaderClaimWarningsTest {
         val file = directory.resolve("combined.wsdl").apply { writeText(text) }
         val printer = ClaimLogPrinter()
         val feature = withLogger(NonVerbose(CompositePrinter(listOf(printer)))) { parseContractFileToFeature(file, strictMode = true) }
-        assertThat(printer.messages.joinToString("\n")).contains("WARNING", "urn:application:unsupported-profile")
+        assertThat(printer.messages).isEmpty()
         val scenario = feature.scenarios.single()
         assertThat(scenario.httpRequestPattern.matches(headerRequest(envelope("")), scenario.resolver).isSuccess()).isFalse()
         assertThat(scenario.httpResponsePattern.matchesResponse(soapResponse(""), scenario.resolver).isSuccess()).isFalse()
@@ -52,10 +52,10 @@ class SOAPHeaderClaimWarningsTest {
         @JvmStatic fun unsupportedClaims(): List<Arguments> = listOf(false, true).flatMap { strict ->
             val unknown = claimedHeaderWsdl().replace("http://ws-i.org/profiles/basic/1.1", "urn:application:other-profile")
             listOf(
-                Arguments.of(strict, "unsupported profile", unknown, "1.1", "urn:application:other-profile"),
-                Arguments.of(strict, "unsupported attachment", headerWsdl().replace("<wsdl:service name=\"HeaderPresence\">", "<wsdl:service name=\"HeaderPresence\">${profileClaim()}"), "1.1", "attachment scope"),
-                Arguments.of(strict, "SOAP 1.2 applicability", claimedHeaderWsdl().replace("http://schemas.xmlsoap.org/wsdl/soap/", "http://schemas.xmlsoap.org/wsdl/soap12/"), "1.2", "SOAP 1.2"),
-                Arguments.of(strict, "no declarations", unknown.replace(Regex("<soap:header[^>]*/>"), ""), "1.1", "urn:application:other-profile"),
+                Arguments.of(strict, "unsupported profile", unknown, "1.1"),
+                Arguments.of(strict, "unsupported attachment", headerWsdl().replace("<wsdl:service name=\"HeaderPresence\">", "<wsdl:service name=\"HeaderPresence\">${profileClaim()}"), "1.1"),
+                Arguments.of(strict, "SOAP 1.2 applicability", claimedHeaderWsdl().replace("http://schemas.xmlsoap.org/wsdl/soap/", "http://schemas.xmlsoap.org/wsdl/soap12/"), "1.2"),
+                Arguments.of(strict, "no declarations", unknown.replace(Regex("<soap:header[^>]*/>"), ""), "1.1"),
             )
         }
     }
