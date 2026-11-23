@@ -431,7 +431,20 @@ data class Scenario(
 
     private fun is4xxResponse(httpResponse: HttpResponse) = (400..499).contains(httpResponse.status)
 
-    fun newBasedOn(row: Row, flagsBased: FlagsBased): Sequence<ReturnValue<Scenario>> {
+    internal fun withAdditionalSOAPHeaders(request: HttpRequest? = null, response: HttpResponse? = null): Scenario {
+        val requestBody = (httpRequestPattern.body as? XMLPattern)?.withAdditionalSOAPHeaders(request?.body) ?: httpRequestPattern.body
+        val responseBody = (httpResponsePattern.body as? XMLPattern)?.withAdditionalSOAPHeaders(response?.body) ?: httpResponsePattern.body
+        if (requestBody == httpRequestPattern.body && responseBody == httpResponsePattern.body) return this
+        return copy(
+            httpRequestPattern = httpRequestPattern.copy(body = requestBody),
+            httpResponsePattern = httpResponsePattern.copy(body = responseBody),
+        )
+    }
+
+    fun newBasedOn(row: Row, flagsBased: FlagsBased): Sequence<ReturnValue<Scenario>> =
+        withAdditionalSOAPHeaders(row.requestExample, row.responseExample).newBasedOnExample(row, flagsBased)
+
+    private fun newBasedOnExample(row: Row, flagsBased: FlagsBased): Sequence<ReturnValue<Scenario>> {
         val ignoreFailure = this.ignoreFailure || row.name.startsWith("[WIP]")
 
         val resolver = resolver.copy(mockMode = false, mismatchMessages = ExampleMismatchMessages)
@@ -615,9 +628,10 @@ data class Scenario(
 
     private fun validateResponseExample(row: Row, resolverForExample: Resolver): Result {
         val responseExample: HttpResponse? = row.responseExample
+        val specialized = withAdditionalSOAPHeaders(response = responseExample)
 
         val httpResponsePatternBasedOnAttributeSelection =
-            newBasedOnAttributeSelectionFields(row.requestExample?.queryParams).httpResponsePattern
+            specialized.newBasedOnAttributeSelectionFields(row.requestExample?.queryParams).httpResponsePattern
 
         val fieldsToBeMadeMandatory =
             fieldsToBeMadeMandatoryBasedOnAttributeSelection(row.requestExample?.queryParams)
@@ -626,7 +640,7 @@ data class Scenario(
         } else resolverForExample
 
         if (responseExample != null) {
-            val resolvedResponse = httpResponsePattern.resolveTemplates(
+            val resolvedResponse = specialized.httpResponsePattern.resolveTemplates(
                 response = responseExample,
                 resolver = resolverForExample,
                 resolutionMode = MatcherResolutionMode.LOAD_TIME,
@@ -646,7 +660,8 @@ data class Scenario(
 
     private fun validateRequestExample(row: Row, resolverForExample: Resolver): Result {
         if (row.requestExample != null) {
-            val resolvedRequest = httpRequestPattern.resolveTemplates(
+            val specialized = withAdditionalSOAPHeaders(request = row.requestExample)
+            val resolvedRequest = specialized.httpRequestPattern.resolveTemplates(
                 request = row.requestExample,
                 resolver = resolverForExample,
                 resolutionMode = MatcherResolutionMode.LOAD_TIME,
@@ -654,7 +669,7 @@ data class Scenario(
             )
 
             val result = when (resolvedRequest) {
-                is HasValue -> matchesRequestExample(resolvedRequest.value, resolverForExample)
+                is HasValue -> specialized.matchesRequestExample(resolvedRequest.value, resolverForExample)
                 is ReturnFailure -> return resolvedRequest.toFailure().updateScenario(this)
             }
 
