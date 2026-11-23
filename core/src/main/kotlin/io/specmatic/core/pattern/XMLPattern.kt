@@ -46,7 +46,7 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
         name = node.name,
         realName = node.realName,
         attributes = attributes,
-        nodes = nodeTypes(node, isSOAP),
+        nodes = nodeTypes(node, isSOAP, isSOAPHeader),
         isSOAP = isSOAP,
         namespaceUri = node.elementNamespaceUriOrNull(),
         isSOAPHeader = isSOAPHeader,
@@ -57,10 +57,11 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
     )
 }
 
-private fun nodeTypes(node: XMLNode, isSOAP: Boolean): List<Pattern> {
+private fun nodeTypes(node: XMLNode, isSOAP: Boolean, isSOAPHeader: Boolean): List<Pattern> {
+    // Header block contents are XML data, even when their names reuse SOAP vocabulary.
     return node.childNodes.map { value ->
         when (value) {
-            is XMLNode -> XMLPattern(value, isSOAP = isSOAP, isSOAPHeader = isSOAPHeader(node, value, isSOAP))
+            is XMLNode -> XMLPattern(value, isSOAP = isSOAP && !isSOAPHeader, isSOAPHeader = isSOAPHeader(node, value, isSOAP))
             is StringValue, is CDATAValue, is BinaryValue -> value.exactMatchElseType()
         }
     }
@@ -78,7 +79,10 @@ private fun isSOAPHeader(parentName: String, parentNamespace: String?, childName
         childName == SOAP_HEADER && childNamespace == parentNamespace
 
 private fun isSOAPEnvelope(name: String, namespace: String?): Boolean =
-    name == SOAP_ENVELOPE && (namespace == SOAP_ENVELOPE_NAMESPACE || namespace == SOAP12_ENVELOPE_NAMESPACE)
+    name == SOAP_ENVELOPE && isSOAPNamespace(namespace)
+
+private fun isSOAPNamespace(namespace: String?): Boolean =
+    namespace == SOAP_ENVELOPE_NAMESPACE || namespace == SOAP12_ENVELOPE_NAMESPACE
 
 private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
     return node.attributes.mapValues { (key, value) ->
@@ -553,7 +557,8 @@ data class XMLPattern(
     ): Result {
         val firstNode = sampleData.firstNode() as? XMLNode
         if (sampleData.name.lowercase() == SOAP_BODY && firstNode?.name?.lowercase() == SOAP_FAULT &&
-            (pattern.requiredNamespaceUri == null || firstNode.elementNamespaceUriOrNull().orEmpty() == pattern.requiredNamespaceUri))
+            (pattern.requiredNamespaceUri == null ||
+                (pattern.isSOAP && isSOAPNamespace(pattern.requiredNamespaceUri) && firstNode.elementNamespaceUriOrNull() == pattern.requiredNamespaceUri)))
             return Success()
 
         val sampleChildNodes = childNodesForMatching(sampleData)
@@ -1544,6 +1549,40 @@ data class XMLPattern(
         return examplePattern.withExampleNamespaces(pattern.isSOAP)
     }
 
+    /** Specialize only this example's additional blocks; never relax the underlying contract. */
+    internal fun withAdditionalSOAPHeaders(example: Value?): XMLPattern {
+        if (!pattern.isSOAP || !isSOAPEnvelope(pattern.name, pattern.requiredNamespaceUri)) return this
+        val envelope = when (example) {
+            is XMLNode -> example
+            is StringValue -> runCatching { toXMLNode(parseXML(example.string)) }.getOrNull()
+            else -> null
+        } ?: return this
+        if (envelope.name != pattern.name || envelope.elementNamespaceUriOrNull() != pattern.requiredNamespaceUri) return this
+        val header = envelope.childNodes.filterIsInstance<XMLNode>().singleOrNull {
+            isSOAPHeader(envelope.name, envelope.elementNamespaceUriOrNull(), it.name, it.elementNamespaceUriOrNull())
+        } ?: return this
+        val declaredHeader = pattern.nodes.filterIsInstance<XMLPattern>().singleOrNull { it.pattern.isSOAPHeader }
+        val declaredNames = declaredHeader?.pattern?.nodes.orEmpty().filterIsInstance<XMLPattern>().map { it.headerName() }.toSet()
+        val additional = header.childNodes.filterIsInstance<XMLNode>().filter {
+            !it.elementNamespaceUriOrNull().isNullOrBlank() && it.headerName() !in declaredNames
+        }.map { XMLPattern(it).withExampleNamespaces(isSOAP = false) }
+        if (additional.isEmpty()) return this
+
+        val specializedHeader = if (declaredHeader != null) {
+            declaredHeader.copy(pattern = declaredHeader.pattern.copy(
+                nodes = declaredHeader.pattern.nodes + additional,
+                attributes = declaredHeader.pattern.attributes - OCCURS_ATTRIBUTE_NAME,
+                occurrences = null,
+            ))
+        } else {
+            XMLPattern(header, isSOAP = true, isSOAPHeader = true).withExampleNamespaces(isSOAP = true, isSOAPHeader = true)
+                .let { it.copy(pattern = it.pattern.copy(nodes = additional)) }
+        }
+        val nodes = if (declaredHeader != null) pattern.nodes.map { if (it === declaredHeader) specializedHeader else it }
+        else listOf(specializedHeader) + pattern.nodes
+        return copy(pattern = pattern.copy(nodes = nodes))
+    }
+
     private fun withExampleNamespaces(isSOAP: Boolean, isSOAPHeader: Boolean = false): XMLPattern =
         copy(pattern = pattern.copy(
             requiredNamespaceUri = pattern.namespaceUri.orEmpty(),
@@ -1551,7 +1590,7 @@ data class XMLPattern(
             isSOAPHeader = isSOAPHeader,
             nodes = pattern.nodes.map { child ->
                 if (child is XMLPattern)
-                    child.withExampleNamespaces(isSOAP, isSOAP && isSOAPHeader(
+                    child.withExampleNamespaces(isSOAP && !isSOAPHeader, isSOAP && isSOAPHeader(
                         pattern.name, pattern.namespaceUri, child.pattern.name, child.pattern.namespaceUri
                     ))
                 else child

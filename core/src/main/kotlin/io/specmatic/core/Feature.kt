@@ -802,7 +802,7 @@ data class Feature(
             request = request,
             responseStatus = response.status,
             prepare = { scenario ->
-                scenario.resolveExample(
+                scenario.withAdditionalSOAPHeaders(request, response).resolveExample(
                     data = data,
                     request = request,
                     response = response,
