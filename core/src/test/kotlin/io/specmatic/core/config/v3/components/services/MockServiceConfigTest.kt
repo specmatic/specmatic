@@ -87,6 +87,72 @@ class MockServiceConfigTest {
     }
 
     @Test
+    fun `getSpecification should resolve matching specification id across services`(@TempDir tempDir: File) {
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val firstService = CommonServiceConfig<MockRunOptions, MockSettings>(
+            definitions = listOf(
+                element = Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(source),
+                        specs = listOf(
+                            element = SpecificationDefinition.ObjectValue(
+                                SpecificationDefinition.Specification(
+                                    id = "first",
+                                    path = "first.yaml"
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val matchingService = CommonServiceConfig<MockRunOptions, MockSettings>(
+            definitions = listOf(
+                Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(source),
+                        specs = listOf(
+                            element = SpecificationDefinition.ObjectValue(
+                                SpecificationDefinition.Specification(
+                                    id = "target",
+                                    path = "contracts/target.yaml"
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val config = MockServiceConfig(
+            services = listOf(firstService, matchingService)
+                .map { MockServiceConfig.Value(service = RefOrValue.Value(it)) }
+        )
+
+        assertThat(config.getSpecification("target", resolver))
+            .isEqualTo(tempDir.resolve("contracts/target.yaml").canonicalFile)
+    }
+
+    @Test
+    fun `getSpecification should return null when no specification id matches`(@TempDir tempDir: File) {
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val service = CommonServiceConfig<MockRunOptions, MockSettings>(
+            definitions = listOf(
+                element = Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(source),
+                        specs = listOf(SpecificationDefinition.StringValue("contracts/target.yaml"))
+                    )
+                )
+            )
+        )
+
+        val config = MockServiceConfig(services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(service))))
+        assertThat(config.getSpecification("target", resolver)).isNull()
+    }
+
+    @Test
     fun `getSpecificationSources should preserve web source url for v3 dependencies`() {
         val source = SourceV3.create(web = SourceV3.Web(url = "http://specmatic.io/specifications"))
 

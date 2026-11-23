@@ -53,6 +53,30 @@ class SpecmaticConfigV3Test {
     }
 
     @Test
+    fun `should resolve mock specification by id`(@TempDir tempDir: Path) {
+        val yaml = """
+        version: 3
+        dependencies:
+          services:
+            - service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${tempDir.toFile().canonicalPath}
+                      specs:
+                        - spec:
+                            id: mock-api
+                            path: contracts/mock.yaml
+        """.trimIndent()
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText(yaml)
+        val config = loadConfig(yaml, dereference = false).transform(configFile.toFile()) as SpecmaticConfigV3Impl
+        assertThat(config.getMockSpecificationFor("mock-api")).isEqualTo(tempDir.resolve("contracts/mock.yaml").toFile().canonicalFile)
+        assertThat(config.getMockSpecificationFor("unknown")).isNull()
+    }
+
+    @Test
     fun `should be able to load specmatic config v3 with all of the fields specified`() {
         // TODO: Ensure it contains all the possible fields
         val configFile = File("src/test/resources/specmaticConfigFiles/v3/refed_out.yaml")

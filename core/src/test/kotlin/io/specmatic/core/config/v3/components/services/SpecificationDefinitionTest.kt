@@ -35,6 +35,20 @@ class SpecificationDefinitionTest {
     }
 
     @Test
+    fun `toFile should resolve specification path against filesystem source`(@TempDir tempDir: File) {
+        val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
+        val expectedFile = tempDir.resolve("contracts/orders.yaml")
+        val definition = SpecificationDefinition.ObjectValue(
+            SpecificationDefinition.Specification(
+                id = "orders",
+                path = "contracts/orders.yaml"
+            )
+        )
+
+        assertThat(definition.toFile(source)).isEqualTo(expectedFile.canonicalFile)
+    }
+
+    @Test
     fun `getServerOriginWithBasePath should append urlPathPrefix to server origin`() {
         val definition = SpecificationDefinition.ObjectValue(
             SpecificationDefinition.Specification(

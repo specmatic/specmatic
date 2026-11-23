@@ -169,4 +169,8 @@ sealed interface SpecificationDefinition {
         examples: List<String>?,
         getServerOrigin: (String?, File) -> ServerOrigin?
     ): SpecificationSourceEntry
+
+    fun toFile(source: SourceV3): File {
+        return source.resolveSpecification(File(getSpecificationPath()))
+    }
 }
