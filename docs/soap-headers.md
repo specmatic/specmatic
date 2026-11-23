@@ -46,15 +46,12 @@ Description-only claims on a binding, port type, its operations, or a message
 do not establish service-instance header requiredness. Other profile versions
 are not inferred from similar identifiers or SOAP envelope versions. In
 particular, Basic Profile 1.1's messaging requirements apply to SOAP 1.1; the
-same claim on a SOAP 1.2 binding produces a warning and retains the optional
-fallback.
+same claim on a SOAP 1.2 binding retains the optional fallback.
 
-Unsupported profiles and attachment scopes produce warnings in strict and
-lenient parsing. A warning identifies the claim's source and attachment and
-explains that headers remain optional unless another supported applicable
-service-instance claim requires them. An unsupported claim never cancels a
-supported applicable claim. This handling does not assess full WS-I profile
-conformance.
+Claims that do not establish header requiredness leave declared blocks optional,
+unless another supported applicable service-instance claim requires them.
+They load silently in both strict and lenient parsing. An unrelated claim never
+cancels a supported applicable claim.
 
 ## Compatibility and migration
 

@@ -50,7 +50,7 @@ class SOAPHeaderRuntimeDemonstrationTest {
                 Triple("empty", "<s:Header/>", 400),
                 Triple("valid", "<s:Header><t:Session><t:id>7</t:id></t:Session></s:Header>", 200),
             ))
-            logger.log("LOAD unsupported profile: the following warning must not block loading")
+            logger.log("LOAD unrecognized profile: loading silently retains optional headers")
             val unsupportedText = claimedHeaderWsdl().replace("http://ws-i.org/profiles/basic/1.1", "urn:application:unsupported-profile")
             directory.resolve("unsupported.wsdl").writeText(unsupportedText)
             demonstrateMock("unsupported", headerFeature(unsupportedText), directory, listOf(Triple("omitted", "", 200)))
@@ -116,7 +116,7 @@ class SOAPHeaderRuntimeDemonstrationTest {
                 assertThat(result.success()).withFailMessage(result.report()).isTrue()
             }
         }
-        assertThat(logFile.readText()).contains("SOURCE SHA:", "POST /headers", "Session", "RESPONSE VALIDATION", "GENERATED", "COMPATIBILITY", "WARNING")
+        assertThat(logFile.readText()).contains("SOURCE SHA:", "POST /headers", "Session", "RESPONSE VALIDATION", "GENERATED", "COMPATIBILITY")
     }
 
     private fun demonstrateMock(policy: String, feature: Feature, directory: File, cases: List<Triple<String, String, Int>>) {

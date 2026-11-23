@@ -89,6 +89,8 @@ data class XMLTypeData(
     val requiredNamespaceUri: String? = null,
     val namespaceBindings: Map<String, String> = emptyMap(),
     val occurrences: XMLOccurrenceRange? = null,
+    val omitEmptySOAPHeader: Boolean = false,
+    val soapHeaderRequiredReason: String? = null,
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()
