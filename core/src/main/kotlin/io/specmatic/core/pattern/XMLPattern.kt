@@ -39,7 +39,8 @@ private data class XMLHeaderName(
 )
 
 fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = false): XMLTypeData {
-    val attributes = attributeTypeMap(node)
+    val xmlNode = node.copy(attributes = node.attributes - OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE - SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE)
+    val attributes = attributeTypeMap(xmlNode)
     val isSOAP = isSOAP ?: (attributes["xmlns"] == ExactValuePattern(StringValue("http://schemas.xmlsoap.org/wsdl/")))
     return XMLTypeData(
         name = node.name,
@@ -49,7 +50,9 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
         isSOAP = isSOAP,
         namespaceUri = node.elementNamespaceUriOrNull(),
         isSOAPHeader = isSOAPHeader,
-        attributeNamespaceUris = attributeNamespaceUriMap(node),
+        attributeNamespaceUris = attributeNamespaceUriMap(xmlNode),
+        omitEmptySOAPHeader = node.attributes[OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE]?.toStringLiteral() == "true",
+        soapHeaderRequiredReason = node.attributes[SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE]?.toStringLiteral(),
         namespaceBindings = node.namespaces,
     )
 }
@@ -513,11 +516,11 @@ data class XMLPattern(
         val declaration = pattern.nodes.filterIsInstance<XMLPattern>().firstOrNull { it.pattern.isSOAPHeader } ?: return null
         val supplied = sampleData.childNodes.filterIsInstance<XMLNode>().firstOrNull { declaration.hasSameExpandedName(it) }
         val missing = declaration.pattern.nodes.filterIsInstance<XMLPattern>().firstOrNull { block ->
-            block.pattern.getAttributeValue(SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE) != null &&
+            block.pattern.soapHeaderRequiredReason != null &&
                 supplied?.childNodes?.filterIsInstance<XMLNode>()?.none { block.hasSameExpandedName(it) } != false
         } ?: return null
         val name = "{${missing.pattern.requiredNamespaceUri.orEmpty()}}${missing.pattern.name}"
-        return Failure("SOAP header block $name is missing. It is required by ${missing.pattern.getAttributeValue(SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE)}.")
+        return Failure("SOAP header block $name is missing. It is required by ${missing.pattern.soapHeaderRequiredReason}.")
             .breadCrumb("Header.${missing.pattern.name}")
     }
 
@@ -1364,6 +1367,8 @@ data class XMLPattern(
                         namespaceUri = this.pattern.namespaceUri,
                         requiredNamespaceUri = this.pattern.requiredNamespaceUri,
                         occurrences = this.pattern.occurrences,
+                        omitEmptySOAPHeader = this.pattern.omitEmptySOAPHeader || referred.pattern.omitEmptySOAPHeader,
+                        soapHeaderRequiredReason = this.pattern.soapHeaderRequiredReason ?: referred.pattern.soapHeaderRequiredReason,
                         wsdlSubstitutionGroupMembers = referred.pattern.wsdlSubstitutionGroupMembers + this.pattern.wsdlSubstitutionGroupMembers,
                     ),
                 )
@@ -1420,7 +1425,7 @@ data class XMLPattern(
         }
 
     private fun canOmitEmptySOAPHeader(childrenEmpty: Boolean, attributeNames: Set<String>): Boolean =
-        pattern.isSOAPHeader && pattern.getAttributeValue(OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE) == "true" &&
+        pattern.isSOAPHeader && pattern.omitEmptySOAPHeader &&
             childrenEmpty && attributeNames.all(::isXMLPatternMetadataAttribute)
 
     fun occurMultipleTimes(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Multiple

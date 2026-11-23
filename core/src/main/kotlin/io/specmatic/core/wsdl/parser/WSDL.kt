@@ -1,6 +1,5 @@
 package io.specmatic.core.wsdl.parser
 
-import io.specmatic.core.log.logger
 import io.specmatic.core.Feature
 import io.specmatic.core.SPECMATIC_GITHUB_ISSUES
 import io.specmatic.core.Scenario
@@ -337,19 +336,6 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         val selected = if (service != null && port != null)
             WSDLServiceInstance(rootDefinition.getAttributeValue("targetNamespace"), service.getAttributeValue("name"), port.getAttributeValue("name")) else null
         val soap11 = getSOAPVersion() == SOAPVersion.SOAP11
-        conformanceClaims.forEach { claim ->
-            val limitations = buildList {
-                if (claim.profile != BASIC_PROFILE_11) add("unsupported profile '${claim.profile ?: "missing conformsTo"}'")
-                if (claim.scope == WSDLClaimScope.Unsupported) add("unsupported attachment scope")
-                if (claim.profile == BASIC_PROFILE_11 && claim.scope == WSDLClaimScope.ServiceInstance && claim.instance == selected && !soap11)
-                    add("Basic Profile 1.1 messaging requirements apply to SOAP 1.1, not this SOAP 1.2 binding")
-            }
-            if (limitations.isNotEmpty()) logger.log(
-                "WARNING: WSDL conformance Claim in ${claim.source} at ${claim.location}: ${limitations.joinToString("; ")}. " +
-                    "Declared SOAP headers remain optional unless a supported applicable service-instance claim requires them. " +
-                    "Specmatic does not assess full profile conformance."
-            )
-        }
         val claim = conformanceClaims.firstOrNull {
             soap11 && selected != null && it.profile == BASIC_PROFILE_11 && it.scope == WSDLClaimScope.ServiceInstance && it.instance == selected
         }
@@ -435,7 +421,6 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
 
     fun toScenarioInfos(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): List<ScenarioInfo> {
         val (url, soapParser) = endpoint()
-        if (soapParser is SOAP11Parser) soapHeaderRequiredReason()
         return soapParser.toScenarioInfos(url, specmaticConfig)
     }
 
