@@ -7,7 +7,7 @@ import io.specmatic.core.value.XMLNode
 data class SimpleTypedSOAPPayload(
     val node: XMLNode,
     val namespaces: Map<String, String>,
-    val bodyPattern: XMLPattern = XMLPattern(node),
+    val bodyPattern: Pattern = XMLPattern(node),
 ) :
     SOAPPayload {
     override fun toPattern(headers: RequestHeaders): Pattern {

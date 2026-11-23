@@ -271,6 +271,14 @@ data class XMLPattern(
         val matchingType = dereferenceType(resolver)
         val sampleDataWithoutUndeclaredHeader = dropUndeclaredSOAPHeader(sampleData)
 
+        if (matchingType is XMLPattern && matchingType.pattern.anyTypeContent != null) {
+            return matchName(sampleData, resolver).ifSuccess {
+                matchingType.matchNamespaces(sampleData)
+            }.ifSuccess {
+                matchingType.pattern.anyTypeContent.matches(sampleData, resolver)
+            }.breadCrumb(pattern.name, resolver.locate(schemaPointer))
+        }
+
         if (matchingType.wsdlTypeSelectionMode() == WSDLTypeSelectionMode.Polymorphic) {
             selectWSDLType(sampleData, matchingType, resolver)?.let { selectedType ->
                 val matchResult = when (selectedType) {
@@ -1628,6 +1636,14 @@ data class XMLPattern(
             )
 
             is XMLPattern -> nodeNamesShouldBeEqual(otherResolvedPattern).ifSuccess {
+                if (pattern.anyTypeContent != null || otherResolvedPattern.pattern.anyTypeContent != null) {
+                    return@ifSuccess when {
+                        pattern.anyTypeContent != null && otherResolvedPattern.pattern.anyTypeContent != null &&
+                            pattern.anyTypeContent.hasSameDeclarationsAs(otherResolvedPattern.pattern.anyTypeContent) ->
+                            thisOccurrenceEncompassesTheOther(this, otherResolvedPattern)
+                        else -> Failure("Cannot establish compatibility between different anyType content models")
+                    }
+                }
                 attributesEncompass(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             }.ifSuccess {
                 thisOccurrenceEncompassesTheOther(this, otherResolvedPattern)
