@@ -40,7 +40,14 @@ data class XMLAllPattern(val members: List<Pattern>, override val typeAlias: Str
             consumed.filter { it.result.isSuccess() }.minByOrNull { it.remainder.size }?.let { return it }
             if (remainingMembers.all { it.matches(emptyList(), resolver).result.isSuccess() })
                 return ConsumeResult(Result.Success(), values, matches.firstNotNullOfOrNull { it.provisionalError })
-            val failure = consumed.firstOrNull { !it.result.isSuccess() } ?: matches.firstOrNull { !it.result.isSuccess() }
+            // Preserve failures reached after consuming members. Only improve the local fallback:
+            // an optional, known element can retain its content error without consuming a value.
+            val failure = consumed.firstOrNull { !it.result.isSuccess() } ?: matches.mapIndexedNotNull { index, matched ->
+                val detail = matched.provisionalError ?: (matched.result as? Result.Failure)?.let { result ->
+                    values.firstOrNull()?.let { ProvisionalError(result, remainingMembers[index], it) }
+                }
+                if (detail.matchesElementName()) matched.copy(result = requireNotNull(detail).result) else null
+            }.firstOrNull() ?: matches.firstOrNull { !it.result.isSuccess() }
             return failure?.copy(remainder = values)
                 ?: ConsumeResult(Result.Failure("Required XML all member missing or invalid"), values)
         }
