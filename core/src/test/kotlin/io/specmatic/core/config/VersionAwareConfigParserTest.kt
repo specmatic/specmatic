@@ -18,6 +18,14 @@ class VersionAwareConfigParserTest {
     lateinit var tempDir: File
 
     @Test
+    fun `configuration tree retains values beyond the default YAML code point limit`() {
+        val description = "x".repeat(5 * 1024 * 1024)
+        val tree = parseSpecmaticConfigTree("version: 2\ncontracts: []\nx-description: $description\n")
+        assertThat(tree["version"].asInt()).isEqualTo(2)
+        assertThat(tree["x-description"].asText()).isEqualTo(description)
+    }
+
+    @Test
     fun `template values parse json object into stub configuration`() {
         val configFile =
             tempDir.resolve("specmatic.yaml").apply {

@@ -12,6 +12,14 @@ import java.util.stream.Stream
 class YAMLSerialisationKtTest {
 
     @Test
+    fun `YAML value conversion retains content beyond the default code point limit`() {
+        val description = "x".repeat(5 * 1024 * 1024)
+        val value = yamlStringToValue("description: $description\nflag: true\n") as JSONObjectValue
+        assertThat(value.jsonObject["description"]).isEqualTo(StringValue(description))
+        assertThat(value.jsonObject["flag"]).isEqualTo(BooleanValue(true))
+    }
+
+    @Test
     fun `should parse a YAML string with a UTF-8 BOM`() {
         val jsonContent = "\uFEFFgreeting: hello"
         assertDoesNotThrow { yamlStringToValue(jsonContent) }

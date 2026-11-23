@@ -10,7 +10,7 @@ class UtilsTest {
     fun `detects large AsyncAPI and Arazzo specifications`(@org.junit.jupiter.api.io.TempDir directory: java.io.File) {
         val file = directory.resolve("large.yaml")
         listOf("asyncapi" to SpecType.ASYNCAPI, "arazzo" to SpecType.ARAZZO).forEach { (key, type) ->
-            file.writeText("$key: 1.0.0\n#" + "x".repeat(5 * 1024 * 1024))
+            file.writeText("x-padding: " + "x".repeat(5 * 1024 * 1024) + "\n$key: 1.0.0\n")
             assertThat(determineSpecTypeFor(file)).containsExactly(type)
         }
     }

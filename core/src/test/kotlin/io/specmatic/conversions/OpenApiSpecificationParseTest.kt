@@ -60,6 +60,54 @@ import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
     @Test
+    fun `large OpenAPI 3_1 overlay parsing retains external response schemas`(@TempDir directory: File) {
+        directory.resolve("schema.yaml").writeText("type: integer\n")
+        val source = """
+            openapi: 3.1.0
+            info: {title: Large API, version: '1'}
+            paths:
+              /health:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema: {${'$'}ref: './schema.yaml'}
+        """.trimIndent() + "\nx-padding: " + "x".repeat(5 * 1024 * 1024)
+        val overlay = """
+            actions:
+              - target: ${'$'}.paths
+                update:
+                  /added:
+                    get:
+                      responses:
+                        '204': {description: Added by overlay}
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(source, directory.resolve("api.yaml").path, overlayContent = overlay).toFeature()
+        assertThat(feature.scenarios.map { it.path }).containsExactlyInAnyOrder("/health", "/added")
+        val health = feature.scenarios.single { it.path == "/health" }
+        assertThat(health.httpResponsePattern.body.matches(NumberValue(1), health.resolver).isSuccess()).isTrue()
+        assertThat(health.httpResponsePattern.body.matches(StringValue("invalid"), health.resolver).isSuccess()).isFalse()
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["content", "file", "validation", "extensions", "detection", "strict detection", "change tracking"])
+    fun `large OpenAPI documents retain operations through each parsing entry point`(entryPoint: String, @TempDir directory: File) {
+        val source = "openapi: 3.0.3\ninfo: {title: Large API, version: '1'}\npaths:\n  /health:\n    get:\n      responses:\n        '204': {description: OK}\nx-description: " + "x".repeat(5 * 1024 * 1024)
+        val file = directory.resolve("large.yaml").apply { writeText(source) }
+        when (entryPoint) {
+            "content" -> assertThat(OpenApiSpecification.fromYAML(source, file.path).toFeature().scenarios).hasSize(1)
+            "file" -> assertThat(OpenApiSpecification.fromFile(file.path).toFeature().scenarios).hasSize(1)
+            "validation" -> OpenApiSpecification.checkSpecValidity(file.path)
+            "extensions" -> assertThat(OpenApiSpecification.getParsedOpenApi(file.path).paths).containsKey("/health")
+            "detection" -> assertThat(OpenApiSpecification.isParsable(file.path)).isTrue()
+            "strict detection" -> assertThat(OpenApiSpecification.isParsableOpenApiDocument(file.path)).isTrue()
+            "change tracking" -> assertThat(OpenApiSpecification.fromYAMLForChangeTracking(source, file.path).toFeature().scenarios).hasSize(1)
+        }
+    }
+
+    @Test
     fun `Swagger 2 files load through extensions while the OpenAPI 3 check stays strict`(@TempDir directory: File) {
         val file = directory.resolve("swagger.yaml").apply { writeText("""
             swagger: '2.0'

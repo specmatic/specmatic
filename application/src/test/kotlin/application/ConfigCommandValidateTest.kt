@@ -185,6 +185,15 @@ class ConfigCommandValidateTest {
         private val renderer = ConfigValidationTextRenderer()
 
         @Test
+        fun `large configuration diagnostics retain source line and column`() {
+            val source = "#" + "x".repeat(5 * 1024 * 1024) + "\nversion: 3\nbanana: true\n"
+            val output = ConfigValidationOutput(valid = false, error = "Unknown property.",
+                keywordLocation = "/additionalProperties", instanceLocation = "/banana")
+            val rendered = renderer.render("specmatic.yaml", source, ConfigValidationResult.Invalid(null, listOf(output)))
+            assertThat(rendered).contains("specmatic.yaml:3:1", "banana: true", "Unknown property.")
+        }
+
+        @Test
         fun `renders multiple issues with metadata and severity`() {
             val source = """
             version: 3

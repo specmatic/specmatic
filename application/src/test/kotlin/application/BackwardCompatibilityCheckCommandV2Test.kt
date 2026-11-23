@@ -43,9 +43,9 @@ import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
     @Test
-    fun `JSON file detection accepts a specification at the shared code point boundary`(@TempDir directory: File) {
-        val prefix = """{"openapi":"3.0.3","info":{"title":"🚀","version":"1"},"paths":{}}"""
-        val source = prefix + " ".repeat(io.specmatic.reporter.parsing.MAX_SPEC_CODE_POINTS - prefix.codePointCount(0, prefix.length))
+    fun `JSON file detection accepts specification strings beyond Jackson default limit`(@TempDir directory: File) {
+        val description = "x".repeat(21 * 1024 * 1024)
+        val source = """{"openapi":"3.0.3","info":{"title":"API","version":"1"},"paths":{},"x-description":"$description"}"""
         val file = directory.resolve("api.json").apply { writeText(source) }
         val command = BackwardCompatibilityCheckCommandV2()
 

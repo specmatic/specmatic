@@ -42,7 +42,7 @@ internal class ApiKtTest {
     @Test
     fun `loads a large OpenAPI spec through mock specification selection`(@TempDir directory: File) {
         val file = directory.resolve("large.yaml")
-        file.writeText("openapi: 3.0.3\ninfo: {title: Large API, version: '1.0'}\npaths: {}\n#" + "x".repeat(5 * 1024 * 1024))
+        file.writeText("openapi: 3.0.3\ninfo: {title: Large API, version: '1.0'}\npaths: {}\nx-padding: " + "x".repeat(5 * 1024 * 1024))
         val result = loadIfSupportedAPISpecification(ContractPathData("", file.path), SpecmaticConfig())
         assertThat(result?.second).isInstanceOf(Feature::class.java)
     }
@@ -50,7 +50,7 @@ internal class ApiKtTest {
     @Test
     fun `OpenAPI detection accepts specs larger than the default SnakeYAML limit`(@TempDir directory: File) {
         val file = directory.resolve("large.yaml")
-        file.writeText("openapi: 3.0.3\n#" + "x".repeat(5 * 1024 * 1024))
+        file.writeText("x-padding: " + "x".repeat(5 * 1024 * 1024) + "\nopenapi: 3.0.3\n")
         assertThat(isOpenAPI(file.path)).isTrue()
     }
 
