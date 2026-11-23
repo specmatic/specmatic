@@ -97,7 +97,8 @@ data class GitRepo(
                 specificationPath = it.path,
                 baseUrl = it.baseUrl,
                 generative = it.generative,
-                exampleDirPaths = it.exampleDirPaths
+                exampleDirPaths = it.exampleDirPaths,
+                supportingInterface = it.supportingInterface,
             )
         }
     }

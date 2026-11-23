@@ -2,6 +2,9 @@
 
 Terms used to describe API contracts and their compatibility checks.
 
+**Supporting interface**:
+An additional interface exposed by the system under test. Its contract is excluded from automatic standalone testing and can be exercised through side effects, examples, or explicit test selection.
+
 ## WSDL contracts
 
 **WSDL document**:

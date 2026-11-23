@@ -129,11 +129,19 @@ class SpecmaticConfigV3Test {
                           url: http://specmatic.io/specifications
                       specs:
                         - spec1.yaml
+                        - spec:
+                            path: events.yaml
+                            supportingInterface: true
         """.trimIndent()
 
         val config = loadConfig(yaml, dereference = false).transform(null) as SpecmaticConfigV3Impl
+        assertThat(config.getSpecificationSources().single().test.map { it.supportingInterface })
+            .containsExactly(false, true)
 
-        assertThat(config.loadSources().single()).isInstanceOf(ResolvedWebSource::class.java)
+        val source = config.loadSources().single()
+        assertThat(source).isInstanceOf(ResolvedWebSource::class.java)
+        assertThat(source.testContracts.map { it.path to it.supportingInterface })
+            .containsExactly("spec1.yaml" to false, "events.yaml" to true)
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonValue
 import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
@@ -53,6 +54,8 @@ sealed interface SpecificationDefinition {
         val id: String? = null,
         val path: String,
         val urlPathPrefix: String? = null,
+        @get:JsonInclude(JsonInclude.Include.NON_DEFAULT)
+        val supportingInterface: Boolean = false,
         @JsonIgnore private val _config: MutableMap<String, Any?> = linkedMapOf()
     ) {
         @get:JsonAnyGetter
@@ -77,14 +80,16 @@ sealed interface SpecificationDefinition {
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(spec.path))
             val serverOrigin = getServerOrigin(getSpecificationId(), specFile).let(::getServerOriginWithBasePath)
-            return source.toSpecificationSource(specFile, spec.path, serverOrigin, resiliencyTestSuite, examples)
+            return source
+                .toSpecificationSource(specFile, spec.path, serverOrigin, resiliencyTestSuite, examples)
+                .copy(supportingInterface = spec.supportingInterface)
         }
 
         override fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): SpecificationDefinition {
             return copy(spec = spec.copy(path = mapper.child("spec").child("path").map(spec.path, baseDirectory)))
         }
 
-        fun hasNoData(): Boolean = spec.urlPathPrefix == null && spec.config.isEmpty()
+        fun hasNoData(): Boolean = spec.urlPathPrefix == null && !spec.supportingInterface && spec.config.isEmpty()
 
         companion object {
             fun from(specFile: File, id: String): ObjectValue {

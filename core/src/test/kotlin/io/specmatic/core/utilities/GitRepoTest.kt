@@ -48,11 +48,14 @@ class GitRepoTest {
         val gitRepo = GitRepo(
             gitRepositoryURL = "https://github.com/specmatic/specmatic.git",
             branchName = "main",
-            testContracts = emptyList(),
+            testContracts = listOf(ContractSourceEntry("regular.yaml"), ContractSourceEntry("events.yaml", supportingInterface = true)),
             stubContracts = emptyList(),
             type = null
         )
-        gitRepo.loadContracts(workingDirectory = tempDir.canonicalPath, configFilePath = "", selector = { it.stubContracts })
+
+        val contracts = gitRepo.loadContracts(workingDirectory = tempDir.canonicalPath, configFilePath = "", selector = { it.testContracts })
+        assertThat(contracts.map { it.specificationPath to it.supportingInterface })
+            .containsExactly("regular.yaml" to false, "events.yaml" to true)
 
         verify(exactly = 1) { clone(tempDir.canonicalFile.resolve("repos"), gitRepo, any()) }
         verify(exactly = 1) { checkout(tempDir,"main") }

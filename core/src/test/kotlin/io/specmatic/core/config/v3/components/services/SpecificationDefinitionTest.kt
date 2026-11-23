@@ -3,12 +3,27 @@ package io.specmatic.core.config.v3.components.services
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class SpecificationDefinitionTest {
+    @Test
+    fun `supportingInterface should be read from specification config`() {
+        val specification = yamlMapper.readValue(
+            """
+            id: orders
+            path: contracts/orders.yaml
+            supportingInterface: true
+            """.trimIndent(),
+            SpecificationDefinition.Specification::class.java,
+        )
+
+        assertThat(specification.supportingInterface).isTrue()
+    }
+
     @Test
     fun `matchesFile should match relative spec file paths for filesystem source`(@TempDir tempDir: File) {
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))

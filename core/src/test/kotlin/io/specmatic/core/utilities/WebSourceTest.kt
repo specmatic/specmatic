@@ -6,7 +6,6 @@ import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.specmatic.testPort
-import io.specmatic.toContractSourceEntries
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -47,16 +46,14 @@ class WebSourceTest {
 
             val webSource = WebSource(
                 listOf(),
-                listOf(specificationOnTheWeb).toContractSourceEntries()
+                listOf(ContractSourceEntry(specificationOnTheWeb, supportingInterface = true))
             )
 
             val contractData = webSource.loadContracts({ source -> source.stubContracts }, directory.path, "")
 
-            assertThat(contractData).isNotEmpty
-            assertThat(contractData).allSatisfy {
-                val data = File(it.path).readText()
-                assertThat(data).isEqualTo("data")
-            }
+            val contract = contractData.single()
+            assertThat(contract.supportingInterface).isTrue()
+            assertThat(File(contract.path).readText()).isEqualTo("data")
         } finally {
             server.stop(0, 0)
         }

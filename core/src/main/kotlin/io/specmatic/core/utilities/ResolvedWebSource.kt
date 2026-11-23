@@ -48,7 +48,8 @@ data class ResolvedWebSource(
                 specificationPath = entry.path,
                 baseUrl = entry.baseUrl,
                 generative = entry.generative,
-                exampleDirPaths = entry.exampleDirPaths
+                exampleDirPaths = entry.exampleDirPaths,
+                supportingInterface = entry.supportingInterface,
             )
         }
     }
