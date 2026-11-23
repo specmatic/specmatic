@@ -91,6 +91,7 @@ data class XMLTypeData(
     val occurrences: XMLOccurrenceRange? = null,
     val omitEmptySOAPHeader: Boolean = false,
     val soapHeaderRequiredReason: String? = null,
+    val anyTypeContent: XMLAnyTypeContent? = null,
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()

@@ -14,6 +14,7 @@ data class InlineType(val parentTypeName: String, val child: XMLNode, val wsdl: 
         val specmaticTypeName = "${parentTypeName}_$elementName"
 
         val element = when {
+            child.isAnyTypeElement() -> AnyTypeElement(child, wsdl)
             hasSimpleTypeAttribute(child) || child.findFirstChildByName("simpleType") != null ->
                 SimpleElement(wsdlTypeReference, child, wsdl)
             else -> ComplexElement(wsdlTypeReference, child, wsdl)
