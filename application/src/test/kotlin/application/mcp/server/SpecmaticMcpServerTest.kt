@@ -3,27 +3,17 @@ package application.mcp.server
 import io.modelcontextprotocol.server.McpSyncServer
 import io.modelcontextprotocol.spec.McpSchema
 import io.specmatic.core.utilities.SystemExitException
-import org.junit.jupiter.api.AfterEach
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.io.ByteArrayInputStream
+import org.junit.jupiter.api.parallel.Isolated
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
+@Isolated("MCP stdio lifecycle assumes one server per JVM")
 class SpecmaticMcpServerTest {
-
-    private val server = SpecmaticMcpServer(
-        inputStream = ByteArrayInputStream(ByteArray(0)),
-        outputStream = ByteArrayOutputStream()
-    )
-
-    @AfterEach
-    fun tearDown() {
-        server.close()
-    }
 
     @Test
     fun `server should register all public MCP tools with expected schemas`() {
@@ -67,12 +57,22 @@ class SpecmaticMcpServerTest {
 
         try {
             assertThat(inputStream.readStarted.await(5, TimeUnit.SECONDS)).isTrue()
+            // Keep input open until run() is actually waiting for its stdio reader.
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (runThread.isAlive && runThread.state != Thread.State.WAITING && System.nanoTime() < deadline) {
+                Thread.sleep(1)
+            }
+            assertThat(runThread.state).isEqualTo(Thread.State.WAITING)
             assertThat(runReturned.get()).isFalse()
             assertThat(runThread.isAlive).isTrue()
         } finally {
             inputStream.close()
             runThread.join(5_000)
+            inputStream.awaitReaderStopped()
         }
+
+        assertThat(runThread.isAlive).isFalse()
+        assertThat(runReturned.get()).isTrue()
     }
 
     @Test
@@ -126,19 +126,27 @@ class SpecmaticMcpServerTest {
         return method.invoke(null, block) as McpSchema.CallToolResult
     }
 
-    private fun registeredTools() = underlyingServer().listTools().associateBy { it.name() }
-
-    private fun underlyingServer(): McpSyncServer {
-        val field = SpecmaticMcpServer::class.java.getDeclaredField("server")
-        field.isAccessible = true
-        return field.get(server) as McpSyncServer
+    private fun registeredTools(): Map<String, McpSchema.Tool> {
+        val inputStream = BlockingInputStream()
+        SpecmaticMcpServer(inputStream, ByteArrayOutputStream()).use { server ->
+            try {
+                val field = SpecmaticMcpServer::class.java.getDeclaredField("server")
+                field.isAccessible = true
+                return (field.get(server) as McpSyncServer).listTools().associateBy { it.name() }
+            } finally {
+                inputStream.close()
+                inputStream.awaitReaderStopped()
+            }
+        }
     }
 
     private class BlockingInputStream : InputStream() {
         val readStarted = CountDownLatch(1)
         private val closeLatch = CountDownLatch(1)
+        @Volatile private var reader: Thread? = null
 
         override fun read(): Int {
+            reader = Thread.currentThread()
             readStarted.countDown()
             closeLatch.await()
             return -1
@@ -146,6 +154,13 @@ class SpecmaticMcpServerTest {
 
         override fun close() {
             closeLatch.countDown()
+        }
+
+        fun awaitReaderStopped() {
+            assertThat(readStarted.await(5, TimeUnit.SECONDS)).isTrue()
+            val readerThread = checkNotNull(reader)
+            readerThread.join(5_000)
+            assertThat(readerThread.isAlive).isFalse()
         }
     }
 }
