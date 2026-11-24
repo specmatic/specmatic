@@ -619,6 +619,9 @@ data class XMLPattern(
                             }
 
                             ConsumeResult(resolver.matchesPattern(resolvedType, childValue), emptyList())
+                        } else if (sampleChildNodes.isEmpty() && pattern.nodes.size == 1 && resolvedType is XMLUnionPattern) {
+                            val emptyValue = resolvedType.parse("", resolver)
+                            ConsumeResult(resolver.matchesPattern(resolvedType, emptyValue), emptyList())
                         } else if (expectingEmpty(sampleData, resolvedType, resolver)) {
                             ConsumeResult(Success())
                         } else {
