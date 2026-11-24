@@ -208,8 +208,6 @@ fun encompasses(
     typeStack: TypeStack
 ): Result =
     when {
-        // Response compatibility compares the old response's accepted values to the new one's.
-        // Elsewhere (including request generation and mock tokens) retain the existing fallback.
         thisResolver.mismatchMessages === NewAndOldSpecificationResponseMismatches &&
             thisPattern is StringPattern && thisPattern.minLength == null &&
             thisPattern.maxLength == null && thisPattern.regex == null && otherPattern is XsdDatePattern -> Result.Success()

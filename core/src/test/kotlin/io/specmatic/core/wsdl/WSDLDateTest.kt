@@ -196,7 +196,6 @@ class WSDLDateTest {
     @ParameterizedTest
     @ValueSource(strings = ["\\c+", "[0-9 -]+"])
     fun `unsupported extra date facets remain nonblocking while primitive validity applies`(regex: String) {
-        // XSD name classes, whitespace-bearing regex tokens and ordering facets remain unsupported.
         val definitions = """<xs:simpleType name="LimitedDate"><xs:restriction base="xs:date">
             <xs:minInclusive value="2099-01-01"/><xs:pattern value="$regex"/>
         </xs:restriction></xs:simpleType>"""

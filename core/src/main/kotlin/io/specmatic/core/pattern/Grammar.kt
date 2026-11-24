@@ -236,7 +236,6 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
                     )
                     if (it.startsWith("(xsd-date) ")) XsdDatePattern(constraints) else constraints
                 } catch (e: IllegalArgumentException) {
-                    // Unsupported date restrictions must not prevent WSDL loading or erase its primitive type.
                     if (it.startsWith("(xsd-date) ")) XsdDatePattern()
                     else throw ContractException(e.message ?: "", exceptionCause = e)
                 }

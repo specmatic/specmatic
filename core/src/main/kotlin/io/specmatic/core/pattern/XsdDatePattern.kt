@@ -13,9 +13,6 @@ import io.specmatic.core.value.Value
 import javax.xml.datatype.DatatypeConstants
 import javax.xml.datatype.DatatypeFactory
 
-/** WSDL XML Schema 1.0 dates; normalization validates without rewriting authored payloads.
- * Additional date facets (for example minInclusive) remain unsupported and nonblocking.
- */
 data class XsdDatePattern(val lexicalConstraints: StringPattern = StringPattern()) : Pattern, ScalarType {
     override fun <C, R> accept(visitor: PatternVisitor<C, R>, context: C): R {
         return visitor.text(TextPatternCase(pattern = this, context = context))
@@ -82,7 +79,6 @@ data class XsdDatePattern(val lexicalConstraints: StringPattern = StringPattern(
     override val pattern = "(xsd-date)"
 
     companion object {
-        // The JDK parser accepts extra leading year zeros and offset minute 60.
         private val lexicalDate = Regex("""-?(?:[0-9]{4}|[1-9][0-9]{4,})-[0-9]{2}-[0-9]{2}(?:Z|[+-](?:(?:0[0-9]|1[0-3]):[0-5][0-9]|14:00))?""")
         private val factories = ThreadLocal.withInitial { DatatypeFactory.newDefaultInstance() }
     }

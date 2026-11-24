@@ -84,9 +84,6 @@ internal data class StringRestrictions(
         )
 }
 
-// The existing regex engine does not implement XML Schema name classes or class subtraction,
-// and the WSDL restriction token codec cannot represent whitespace-bearing regex values.
-// Leave these date facets nonblocking without silently adopting another regex dialect.
 private fun StringRestrictions.withoutUnsupportedDateRegex(): StringRestrictions =
     copy(regex = regex?.takeUnless { expression ->
         expression.any { it in " \t\r\n" } || Regex("""\\[iIcC]|\[[^\]]*-\[""").containsMatchIn(expression)

@@ -7,7 +7,6 @@ import io.specmatic.core.pattern.fold.ScalarPatternCase
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.StringValue
 
-/** An XML lexical value must validate against a member, not merely parse as one. */
 data class XMLUnionPattern(
     val members: List<Pattern>,
     val schemaTypeName: String? = null,

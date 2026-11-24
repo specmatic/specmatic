@@ -7,7 +7,6 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
-/** XML Schema lists contain lexical items in one text value, not XML child elements. */
 data class XMLListPattern(
     override val pattern: Pattern,
     val schemaTypeName: String? = null,

@@ -354,7 +354,6 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
                         firstLine + linesBetween.first() + lastLine
                     }
                     else -> {
-                        // Indent XML structure during recursion, never lines inside scalar text.
                         firstLine + lineSeparator + linesBetween.joinToString(lineSeparator) + lineSeparator + leadingIndent + lastLine
                     }
                 }
