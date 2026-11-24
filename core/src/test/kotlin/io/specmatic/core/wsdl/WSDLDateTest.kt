@@ -78,17 +78,19 @@ class WSDLDateTest {
         }
     }
 
-    @Test
-    fun `response widening from date to unrestricted string breaks even when generated strings look like dates`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["not-a-date", "2024-02-29"])
+    fun `response date compatibility retains generated string matching`(generated: String) {
         val oldFeature = load(requestType = "xs:string", responseType = "xs:date")
         val newFeature = load(requestType = "xs:string", responseType = "xs:string")
         val provider = object : StringProvider {
-            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>) = "2024-02-29"
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>) = generated
         }
         StringProviders.with(provider) {
             val result = testBackwardCompatibility(oldFeature, newFeature, InsightsReportOptions())
-            assertThat(result.success()).withFailMessage(result.report()).isFalse()
-            assertThat(result.report()).contains("RESPONSE", "Response", "XSD date", "string")
+            assertThat(result.success()).withFailMessage(result.report()).isEqualTo(generated == "2024-02-29")
+            if (generated == "not-a-date")
+                assertThat(result.report()).contains("RESPONSE", "Response", "XSD date")
         }
     }
 
@@ -222,20 +224,19 @@ class WSDLDateTest {
         }
     }
 
-    @Test
-    fun `date containment depends on explicit comparison context rather than diagnostic messages`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["not-a-date", "2024-02-29"])
+    fun `date containment is independent of diagnostic messages`(generated: String) {
         StringProviders.with(object : StringProvider {
-            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>) = "2024-02-29"
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>) = generated
         }) {
             val date = XsdDatePattern()
             val string = StringPattern()
             listOf(DefaultMismatchMessages, NewAndOldSpecificationResponseMismatches,
                 object : MismatchMessages by NewAndOldSpecificationResponseMismatches {}).forEach { messages ->
-                val responseResolver = Resolver(mismatchMessages = messages, isResponseCompatibilityCheck = true)
-                assertThat(date.encompasses(string, responseResolver, responseResolver).isSuccess()).isFalse()
-                assertThat(string.encompasses(date, responseResolver, responseResolver).isSuccess()).isTrue()
-                val ordinaryResolver = Resolver(mismatchMessages = messages)
-                assertThat(date.encompasses(string, ordinaryResolver, ordinaryResolver).isSuccess()).isTrue()
+                val resolver = Resolver(mismatchMessages = messages)
+                assertThat(date.encompasses(string, resolver, resolver).isSuccess()).isEqualTo(generated == "2024-02-29")
+                assertThat(string.encompasses(date, resolver, resolver).isSuccess()).isTrue()
             }
         }
     }
@@ -257,7 +258,7 @@ class WSDLDateTest {
     }
 
     @Test
-    fun `response-specific date compatibility rule does not affect mock pattern tokens`() {
+    fun `date matching preserves mock pattern tokens`() {
         StringProviders.with(object : StringProvider {
             override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>) = "2024-02-29"
         }) {

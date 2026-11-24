@@ -207,15 +207,6 @@ fun encompasses(
     typeStack: TypeStack
 ): Result =
     when {
-        thisResolver.isResponseCompatibilityCheck &&
-            thisPattern is StringPattern && thisPattern.minLength == null &&
-            thisPattern.maxLength == null && thisPattern.regex == null && otherPattern is XsdDatePattern -> Result.Success()
-
-        thisResolver.isResponseCompatibilityCheck &&
-            thisPattern is XsdDatePattern && otherPattern is StringPattern &&
-            otherPattern.minLength == null && otherPattern.maxLength == null && otherPattern.regex == null ->
-            patternMismatchResult(thisPattern, otherPattern, thisResolver.mismatchMessages)
-
         otherPattern is ExactValuePattern -> otherPattern.fitsWithin(
             thisPattern.patternSet(thisResolver),
             otherResolver,
