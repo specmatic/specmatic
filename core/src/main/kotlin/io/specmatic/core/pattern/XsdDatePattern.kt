@@ -55,10 +55,10 @@ data class XsdDatePattern(val lexicalConstraints: StringPattern = StringPattern(
     override fun parse(value: String, resolver: Resolver): StringValue {
         return attemptParse(this, value, resolver.mismatchMessages) {
             val normalized = value.trim(' ', '\t', '\r', '\n')
-            require(lexicalDate.matches(normalized)) { "Invalid XSD 1.0 date" }
+            require(lexicalDate.matches(normalized)) { "Invalid XSD date" }
             val calendar = factories.get().newXMLGregorianCalendar(normalized)
             require(calendar.xmlSchemaType == DatatypeConstants.DATE && calendar.isValid && calendar.eonAndYear.signum() != 0) {
-                "Invalid XSD 1.0 date"
+                "Invalid XSD date"
             }
             val constraintResult = lexicalConstraints.matches(StringValue(normalized), resolver)
             constraintResult.throwOnFailure()
