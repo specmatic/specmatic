@@ -1,6 +1,5 @@
 package io.specmatic.core.pattern
 
-import io.specmatic.core.NewAndOldSpecificationResponseMismatches
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.constraintMismatchResult
@@ -208,11 +207,11 @@ fun encompasses(
     typeStack: TypeStack
 ): Result =
     when {
-        thisResolver.mismatchMessages === NewAndOldSpecificationResponseMismatches &&
+        thisResolver.isResponseCompatibilityCheck &&
             thisPattern is StringPattern && thisPattern.minLength == null &&
             thisPattern.maxLength == null && thisPattern.regex == null && otherPattern is XsdDatePattern -> Result.Success()
 
-        thisResolver.mismatchMessages === NewAndOldSpecificationResponseMismatches &&
+        thisResolver.isResponseCompatibilityCheck &&
             thisPattern is XsdDatePattern && otherPattern is StringPattern &&
             otherPattern.minLength == null && otherPattern.maxLength == null && otherPattern.regex == null ->
             patternMismatchResult(thisPattern, otherPattern, thisResolver.mismatchMessages)

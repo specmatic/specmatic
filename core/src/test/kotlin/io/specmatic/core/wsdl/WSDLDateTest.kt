@@ -2,6 +2,8 @@ package io.specmatic.core.wsdl
 
 import io.specmatic.core.*
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.pattern.StringPattern
+import io.specmatic.core.pattern.XsdDatePattern
 import io.specmatic.core.pattern.ScalarType
 import io.specmatic.core.pattern.Examples
 import io.specmatic.core.pattern.Row
@@ -217,6 +219,24 @@ class WSDLDateTest {
             override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>) = "2024-02-29"
         }) {
             assertThat(testBackwardCompatibility(stringRequest, dateRequest, InsightsReportOptions()).success()).isTrue()
+        }
+    }
+
+    @Test
+    fun `date containment depends on explicit comparison context rather than diagnostic messages`() {
+        StringProviders.with(object : StringProvider {
+            override fun getFor(pattern: ScalarType, resolver: Resolver, path: List<String>) = "2024-02-29"
+        }) {
+            val date = XsdDatePattern()
+            val string = StringPattern()
+            listOf(DefaultMismatchMessages, NewAndOldSpecificationResponseMismatches,
+                object : MismatchMessages by NewAndOldSpecificationResponseMismatches {}).forEach { messages ->
+                val responseResolver = Resolver(mismatchMessages = messages, isResponseCompatibilityCheck = true)
+                assertThat(date.encompasses(string, responseResolver, responseResolver).isSuccess()).isFalse()
+                assertThat(string.encompasses(date, responseResolver, responseResolver).isSuccess()).isTrue()
+                val ordinaryResolver = Resolver(mismatchMessages = messages)
+                assertThat(date.encompasses(string, ordinaryResolver, ordinaryResolver).isSuccess()).isTrue()
+            }
         }
     }
 

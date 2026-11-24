@@ -189,8 +189,14 @@ class OpenApiBackwardCompatibilityChecker(
                 scenario = newScenario,
                 result = oldScenario.httpResponsePattern.encompasses(
                     other = newScenario.httpResponsePattern,
-                    olderResolver = oldScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
-                    newerResolver = newScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
+                    olderResolver = oldScenario.resolver.copy(
+                        mismatchMessages = NewAndOldSpecificationResponseMismatches,
+                        isResponseCompatibilityCheck = true,
+                    ),
+                    newerResolver = newScenario.resolver.copy(
+                        mismatchMessages = NewAndOldSpecificationResponseMismatches,
+                        isResponseCompatibilityCheck = true,
+                    ),
                 ),
                 changeStatusFor = changeStatusFor,
             )
