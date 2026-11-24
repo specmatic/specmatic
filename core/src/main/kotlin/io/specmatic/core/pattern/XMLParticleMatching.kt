@@ -86,7 +86,7 @@ internal fun xmlRepetitionCandidates(
     }.ifEmpty { listOf(ConsumeResult(failure ?: Result.Failure("Expected XML occurrence range $range"), values, failureDetail)) }
 }
 
-private fun ProvisionalError<Value>?.matchesElementName(): Boolean {
+internal fun ProvisionalError<Value>?.matchesElementName(): Boolean {
     val element = this?.type as? XMLPattern ?: return false
     val value = this.value as? XMLNode ?: return false
     return element.hasSameExpandedName(value)
