@@ -1,6 +1,9 @@
 package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.XMLListPattern
+import io.specmatic.core.pattern.XMLUnionPattern
+import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.RegexMatchMode
@@ -60,6 +63,7 @@ private enum class PrimitiveFamily {
     STRING,
     NUMBER,
     DATETIME,
+    DATE,
     BOOLEAN,
     ANYTHING
 }
@@ -80,6 +84,11 @@ internal data class StringRestrictions(
         )
 }
 
+private fun StringRestrictions.withoutUnsupportedDateRegex(): StringRestrictions =
+    copy(regex = regex?.takeUnless { expression ->
+        expression.any { it in " \t\r\n" } || Regex("""\\[iIcC]|\[[^\]]*-\[""").containsMatchIn(expression)
+    })
+
 private data class SimpleTypeReference(
     val fullyQualifiedName: FullyQualifiedName,
     val node: XMLNode,
@@ -91,20 +100,51 @@ private data class SimpleTypeReference(
 
 private data class SimpleTypeReferenceKey(val namespace: String, val localName: String)
 
-private data class ResolvedSimpleType(
+private sealed interface ResolvedSimpleType {
+    fun withRestrictions(narrower: StringRestrictions): ResolvedSimpleType
+    fun value(): StringValue
+    fun pattern(): Pattern
+    fun types(): Map<String, Pattern> = emptyMap()
+}
+
+private data class ResolvedCompositeSimpleType(val name: FullyQualifiedName, val content: Pattern) : ResolvedSimpleType {
+    private val key = "XMLSimpleValue_" + java.util.Base64.getUrlEncoder().withoutPadding()
+        .encodeToString("${name.namespace}#${name.localName}".toByteArray(Charsets.UTF_8))
+
+    override fun value() = StringValue("($key)")
+    override fun pattern() = content
+    override fun types() = mapOf(key to content)
+    override fun withRestrictions(narrower: StringRestrictions): ResolvedSimpleType {
+        if (!narrower.isEmpty) {
+            val restrictions = listOfNotNull(
+                narrower.minLength?.let { "minimum-length" },
+                narrower.maxLength?.let { "maximum-length" },
+                narrower.regex?.let { "regular-expression" }
+            ).joinToString(", ")
+            throw ContractException("Specmatic does not support $restrictions restrictions on ${content.typeName}.")
+        }
+        return this
+    }
+}
+
+private data class ResolvedAtomicSimpleType(
     val primitiveName: String,
     val family: PrimitiveFamily,
     val restrictions: StringRestrictions = StringRestrictions()
-) {
-    fun withRestrictions(narrower: StringRestrictions): ResolvedSimpleType {
+) : ResolvedSimpleType {
+    override fun withRestrictions(narrower: StringRestrictions): ResolvedSimpleType {
         return when {
             family == PrimitiveFamily.STRING -> copy(restrictions = restrictions.merge(narrower))
+            family == PrimitiveFamily.DATE -> copy(restrictions = restrictions.merge(narrower).withoutUnsupportedDateRegex())
             else -> this
         }
     }
 
-    fun value(): StringValue {
+    override fun pattern(): Pattern = parsedPattern(value().string)
+
+    override fun value(): StringValue {
         return when {
+            family == PrimitiveFamily.DATE && !restrictions.isEmpty -> constrainedStringValue(restrictions, "xsd-date")
             family == PrimitiveFamily.STRING && !restrictions.isEmpty -> constrainedStringValue(restrictions)
             else -> primitiveTypeValue(primitiveName)
         }
@@ -120,10 +160,11 @@ fun createSimpleTypeInfo(
     val resolvedElement = actualElement ?: typeSourceNode
 
     val namespaceUri = resolvedElement.fullyQualifiedName(wsdl).namespace
-    val typeInfo = createSimpleType(typeSourceNode, wsdl, resolvedElement).let { (nodes, prefix) ->
+    val resolvedType = resolveSimpleType(typeSourceNode, wsdl, emptySet())
+    val typeInfo = createSimpleType(typeSourceNode, wsdl, resolvedElement, resolvedType.value()).let { (nodes, prefix) ->
         toTypeInfo(
             nodes = nodes,
-            existingTypes = existingTypes,
+            existingTypes = existingTypes.plus(resolvedType.types()),
             prefix = prefix,
             namespaceUri = namespaceUri,
         )
@@ -132,9 +173,10 @@ fun createSimpleTypeInfo(
     return typeInfo.withWSDLTypeMetadata(typeSourceNode, wsdl)
 }
 
-fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = null): Pair<List<XMLValue>, String?> {
-    val value = simpleTypeValue(element, wsdl)
+fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = null): Pair<List<XMLValue>, String?> =
+    createSimpleType(element, wsdl, actualElement, simpleTypeValue(element, wsdl))
 
+private fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode?, value: StringValue): Pair<List<XMLValue>, String?> {
     val resolvedElement = actualElement ?: element
 
     val specmaticAttributes = deriveSpecmaticAttributes(resolvedElement)
@@ -254,7 +296,7 @@ private fun XMLNode.findRestrictionPattern(): String? =
         ?.attributes?.get("value")
         ?.toStringLiteral()
 
-private fun constrainedStringValue(restrictions: StringRestrictions): StringValue {
+private fun constrainedStringValue(restrictions: StringRestrictions, tokenName: String = "string"): StringValue {
     val restrictionClauses = listOfNotNull(
         restrictions.minLength?.let { "minLength $it" },
         restrictions.maxLength?.let { "maxLength $it" },
@@ -263,9 +305,9 @@ private fun constrainedStringValue(restrictions: StringRestrictions): StringValu
     )
 
     val token = if (restrictionClauses.isEmpty()) {
-        "(string)"
+        "($tokenName)"
     } else {
-        "(string) ${restrictionClauses.joinToString(" ")})"
+        "($tokenName) ${restrictionClauses.joinToString(" ")})"
     }
 
     return StringValue(token)
@@ -277,21 +319,71 @@ fun elementTypeValue(element: XMLNode): StringValue =
 fun simpleTypeValue(element: XMLNode, wsdl: WSDL): StringValue =
     resolveSimpleType(element, wsdl, emptySet()).value()
 
-private fun resolveSimpleType(element: XMLNode, wsdl: WSDL, visited: Set<SimpleTypeReferenceKey>): ResolvedSimpleType {
+private fun unsupportedInlineSimpleType(kind: String): Nothing =
+    throw ContractException("Specmatic does not support inline XSD ${kind}s. Define and reference a named XSD $kind.")
+
+private fun resolveSimpleType(element: XMLNode, wsdl: WSDL, visited: Set<SimpleTypeReferenceKey>, requireSupportedPrimitive: Boolean = false): ResolvedSimpleType {
+    val inlineType = element.findFirstChildByName("simpleType")
+    if (inlineType?.findFirstChildByName("union") != null) unsupportedInlineSimpleType("union")
+    if (inlineType?.findFirstChildByName("list") != null) unsupportedInlineSimpleType("list")
+    element.findFirstChildByName("union")?.let { union ->
+        if (element.name != "simpleType" || !element.attributes.containsKey("name"))
+            unsupportedInlineSimpleType("union")
+        val name = element.namedTypeFullyQualifiedName(wsdl)
+        val references = union.attributes["memberTypes"]?.string?.trim()?.split(Regex("[ \t\r\n]+"))
+            ?.filter(String::isNotEmpty).orEmpty()
+        if (union.childNodes.filterIsInstance<XMLNode>().any { it.name != "annotation" })
+            throw ContractException("Specmatic does not support inline member definitions in XSD union '${name.localName}'. Reference named XSD types instead.")
+        if (references.isEmpty())
+            throw ContractException("XSD union '${name.localName}' must name at least one member type.")
+        val key = SimpleTypeReferenceKey(name.namespace, name.localName)
+        val members = references.map { qName ->
+            try {
+                resolveSimpleType(union.copy(attributes = union.attributes.plus("type" to StringValue(qName))), wsdl, visited + key, requireSupportedPrimitive = true).pattern()
+            } catch (e: ContractException) {
+                throw ContractException("XSD union '${name.localName}' cannot use member type '$qName'.", exceptionCause = e)
+            }
+        }
+        return ResolvedCompositeSimpleType(name, XMLUnionPattern(members, name.localName, references))
+    }
+    element.findFirstChildByName("list")?.let { list ->
+        if (element.name != "simpleType" || !element.attributes.containsKey("name"))
+            unsupportedInlineSimpleType("list")
+        val name = element.namedTypeFullyQualifiedName(wsdl)
+        val itemType = list.attributes["itemType"]?.string
+        if (list.childNodes.filterIsInstance<XMLNode>().any { it.name != "annotation" })
+            throw ContractException("Specmatic does not support inline item definitions in XSD list '${name.localName}'. Reference a named XSD type instead.")
+        if (itemType.isNullOrBlank())
+            throw ContractException("XSD list '${name.localName}' must name an item type.")
+        val item = try {
+            resolveSimpleType(list.copy(attributes = list.attributes.plus("type" to StringValue(itemType))), wsdl,
+                visited + SimpleTypeReferenceKey(name.namespace, name.localName), requireSupportedPrimitive = true).pattern()
+        } catch (e: ContractException) {
+            throw ContractException("XSD list '${name.localName}' cannot use item type '$itemType'.", exceptionCause = e)
+        }
+        return ResolvedCompositeSimpleType(name, XMLListPattern(item, name.localName, itemType))
+    }
     val reference = simpleTypeReference(element)
         ?: throw ContractException("Could not find type for node ${element.displayableValue()}")
     val base = reference.fullyQualifiedName
 
     val resolvedBase = when {
-        base.isKnownPrimitiveType() -> ResolvedSimpleType(base.localName, base.primitiveFamily())
-        base.isUnsupportedPrimitiveType() -> unsupportedPrimitiveType(base)
-        reference.key in visited -> throw ContractException("Recursive simple type/simple content base reference ${base.qName} found")
+        base.isKnownPrimitiveType() -> ResolvedAtomicSimpleType(base.localName, base.primitiveFamily())
+        base.isUnsupportedPrimitiveType() -> {
+            if (requireSupportedPrimitive) throw ContractException("Specmatic does not recognize XSD type '${base.qName}'.")
+            unsupportedPrimitiveType(base)
+        }
+        reference.key in visited -> {
+            val message = if (requireSupportedPrimitive) "XSD type '${base.qName}' has a circular type reference."
+                else "Recursive simple type/simple content base reference ${base.qName} found"
+            throw ContractException(message)
+        }
         else -> {
             val simpleType = wsdl.findSimpleType(reference.node, reference.attributeName)
 
             when {
-                simpleType != null -> resolveSimpleType(simpleType, wsdl, visited.plus(reference.key))
-                else -> resolveComplexSimpleContentBase(reference, base, wsdl, visited.plus(reference.key))
+                simpleType != null -> resolveSimpleType(simpleType, wsdl, visited.plus(reference.key), requireSupportedPrimitive)
+                else -> resolveComplexSimpleContentBase(reference, base, wsdl, visited.plus(reference.key), requireSupportedPrimitive)
             }
         }
     }
@@ -303,10 +395,12 @@ private fun resolveComplexSimpleContentBase(
     reference: SimpleTypeReference,
     base: FullyQualifiedName,
     wsdl: WSDL,
-    visited: Set<SimpleTypeReferenceKey>
+    visited: Set<SimpleTypeReferenceKey>,
+    requireSupportedPrimitive: Boolean
 ): ResolvedSimpleType {
     val complexType = wsdl.findComplexTypeOrNull(reference.node, reference.attributeName)
-        ?: throw ContractException("Type with name ${base.qName} in ${reference.attributeName} of node ${reference.node.name} could not be found")
+        ?: throw ContractException(if (requireSupportedPrimitive) "XSD simple type '${base.qName}' was not found."
+            else "Type with name ${base.qName} in ${reference.attributeName} of node ${reference.node.name} could not be found")
 
     val derivation = complexType.findSimpleContentDerivation(base)
 
@@ -353,7 +447,7 @@ private fun XMLNode.baseAsTypeNode(): XMLNode =
 
 private fun unsupportedPrimitiveType(base: FullyQualifiedName): ResolvedSimpleType {
     logger.debug("Unsupported XML Schema primitive type ${base.qName}; treating it as string")
-    return ResolvedSimpleType("string", PrimitiveFamily.STRING)
+    return ResolvedAtomicSimpleType("string", PrimitiveFamily.STRING)
 }
 
 private fun FullyQualifiedName.isKnownPrimitiveType(): Boolean {
@@ -374,6 +468,7 @@ private fun FullyQualifiedName.primitiveFamily(): PrimitiveFamily =
     primitiveFamily(localName)
 
 private fun primitiveFamily(typeName: String): PrimitiveFamily = when (typeName) {
+    "date" -> PrimitiveFamily.DATE
     in primitiveStringTypes -> PrimitiveFamily.STRING
     in constrainedPrimitiveNumberTypes, in primitiveNumberTypes -> PrimitiveFamily.NUMBER
     in primitiveDateTypes -> PrimitiveFamily.DATETIME
@@ -383,6 +478,7 @@ private fun primitiveFamily(typeName: String): PrimitiveFamily = when (typeName)
 }
 
 private fun primitiveTypeValue(typeName: String): StringValue = when (typeName) {
+    "date" -> StringValue("(xsd-date)")
     in primitiveStringTypes -> StringValue("(string)")
     in constrainedPrimitiveNumberTypes -> constrainedNumberValue(constrainedPrimitiveNumberTypes.getValue(typeName))
     in primitiveNumberTypes -> StringValue("(number)")

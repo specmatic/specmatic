@@ -48,6 +48,7 @@ internal val builtInPatterns = mapOf(
     "(null)" to NullPattern,
     "(empty)" to EmptyStringPattern,
     "(date)" to DatePattern,
+    "(xsd-date)" to XsdDatePattern(),
     "(datetime)" to DateTimePattern,
     "(time)" to TimePattern,
     "(uuid)" to UUIDPattern,
@@ -222,19 +223,21 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
             it.startsWith("{") -> toJSONObjectPattern(it, typeAlias = typeAlias)
             it.startsWith("[") -> JSONArrayPattern(it, typeAlias = typeAlias)
             it.startsWith("<") -> XMLPattern(it, typeAlias = typeAlias, isSOAP = isWSDL)
-            isStringPatternWithRestrictions(it) -> {
+            isStringPatternWithRestrictions(it) || (it.startsWith("(xsd-date) ")) -> {
                 val tokens = it.split(" ")
                 val restrictions = restrictionValues(tokens)
                 try {
-                    StringPattern(
+                    val constraints = StringPattern(
                         typeAlias = typeAlias,
                         minLength = restrictions["minLength"]?.toIntOrNull(),
                         maxLength = restrictions["maxLength"]?.toIntOrNull(),
                         regex = restrictions["regex"],
                         matchMode = restrictions["matchMode"]?.let(RegexMatchMode::valueOf) ?: RegexMatchMode.SEARCH,
                     )
+                    if (it.startsWith("(xsd-date) ")) XsdDatePattern(constraints) else constraints
                 } catch (e: IllegalArgumentException) {
-                    throw ContractException(e.message ?: "", exceptionCause = e)
+                    if (it.startsWith("(xsd-date) ")) XsdDatePattern()
+                    else throw ContractException(e.message ?: "", exceptionCause = e)
                 }
             }
 

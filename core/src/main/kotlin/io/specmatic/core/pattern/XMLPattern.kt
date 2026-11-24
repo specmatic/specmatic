@@ -606,6 +606,7 @@ data class XMLPattern(
                             val childValue = when (val childNode = sampleChildNodes[index]) {
                                 is StringValue -> when {
                                     childNode.isPatternToken() -> childNode.trimmed()
+                                    resolvedType is XMLUnionPattern -> resolvedType.parse(childNode.string, resolver)
                                     else -> {
                                         attempt(
                                             "Couldn't read value ${childNode.string} as type ${resolvedType.pattern}",
@@ -618,6 +619,9 @@ data class XMLPattern(
                             }
 
                             ConsumeResult(resolver.matchesPattern(resolvedType, childValue), emptyList())
+                        } else if (sampleChildNodes.isEmpty() && pattern.nodes.size == 1 && resolvedType is XMLUnionPattern) {
+                            val emptyValue = resolvedType.parse("", resolver)
+                            ConsumeResult(resolver.matchesPattern(resolvedType, emptyValue), emptyList())
                         } else if (expectingEmpty(sampleData, resolvedType, resolver)) {
                             ConsumeResult(Success())
                         } else {
@@ -871,7 +875,8 @@ data class XMLPattern(
 
     private fun expectingEmpty(sampleData: XMLNode, type: Pattern, resolver: Resolver): Boolean {
         val resolvedPatternSet = type.patternSet(resolver).map { resolvedHop(it, resolver) }
-        return sampleData.childNodes.isEmpty() && pattern.nodes.size == 1 && (EmptyStringPattern in resolvedPatternSet || StringPattern() in resolvedPatternSet)
+        return sampleData.childNodes.isEmpty() && pattern.nodes.size == 1 && (EmptyStringPattern in resolvedPatternSet || StringPattern() in resolvedPatternSet ||
+            (type is XMLListPattern && type.matches(StringValue(""), resolver).isSuccess()))
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {

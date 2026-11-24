@@ -80,7 +80,7 @@ class WSDLReferenceSchemaContextTest {
     }
 
     @ParameterizedTest
-    @CsvSource("primitive,false", "primitive,true", "named,false", "named,true", "inline,false", "inline,true")
+    @CsvSource("primitive,false", "primitive,true", "named,false", "named,true", "inline,false", "inline,true", "union,false", "union,true", "list,false", "list,true")
     fun `referenced simple elements retain namespace and restrictions without the caller prefix`(kind: String, targetDeclaresPrefix: Boolean) {
         val file = writeSpecification(targetDeclaresPrefix)
         val restriction = """<xs:restriction base="xs:string"><xs:minLength value="3"/>
@@ -89,10 +89,25 @@ class WSDLReferenceSchemaContextTest {
             "primitive" -> """<xs:element name="Notes" type="xs:string"/>"""
             "named" -> """<xs:element name="Notes" type="ShortCode"/>
                 <xs:simpleType name="ShortCode">$restriction</xs:simpleType>"""
+            "union", "list" -> {
+                val body = if (kind == "union") """<xs:union memberTypes="xs:boolean own:CodeBase"/>"""
+                    else """<xs:list itemType="own:CodeBase"/>"""
+                """<xs:element name="Notes" type="ShortCode"/>
+                    <xs:simpleType name="ShortCode">$body</xs:simpleType>
+                    <xs:simpleType name="CodeBase">$restriction</xs:simpleType>"""
+            }
             else -> """<xs:element name="Notes"><xs:simpleType>$restriction</xs:simpleType></xs:element>"""
         }
         val detail = directory.resolve("detail.xsd")
-        detail.writeText(detail.readText().replace("""<xs:element name="Notes" type="NotesType"/>""", declaration))
+        detail.writeText(detail.readText()
+            .replace("<xs:schema ", """<xs:schema xmlns:own="urn:reference:detail" """)
+            .replace("""<xs:element name="Notes" type="NotesType"/>""", declaration))
+        if (kind == "union" || kind == "list") {
+            val caller = directory.resolve("types.xsd")
+            caller.writeText(caller.readText().replace("</xs:schema>", """
+                <xs:simpleType name="CodeBase"><xs:restriction base="xs:string"><xs:pattern value="[0-9]+"/></xs:restriction></xs:simpleType>
+                </xs:schema>"""))
+        }
         val scenario = parseContractFileToFeature(file).scenarios.single()
         val generated = scenario.generateHttpRequest()
         validatePayload(generated.body.toStringLiteral())
