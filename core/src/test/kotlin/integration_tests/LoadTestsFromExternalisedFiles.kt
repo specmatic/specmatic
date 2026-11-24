@@ -23,6 +23,8 @@ import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.listener.MockEvent
+import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.test.TestExecutor
 import io.specmatic.test.FixtureExecutionDetails
 import io.specmatic.test.fixtures.FixtureExecutionMetadata
@@ -42,6 +44,8 @@ import java.math.BigDecimal
 import java.net.ServerSocket
 import java.net.URLClassLoader
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit.SECONDS
 
 private val doubleMax = BigDecimal(Double.MAX_VALUE)
 private val doubleMin = BigDecimal(-Double.MAX_VALUE)
@@ -99,7 +103,19 @@ class LoadTestsFromExternalisedFiles {
             assertThat(generatedResults.successCount).isEqualTo(3)
 
             val externalExamples = ExampleModule(SpecmaticConfig()).getExamplesFor(DEFAULT_RESPONSE_STATUS_SELECTION_SPEC)
-            HttpStub(feature = feature, port = freePort(), strictMode = true, scenarioStubs = externalExamples.map { it.scenarioStub }).use { stub ->
+            val requestsCompleted = CountDownLatch(2)
+            val completionListener = object : MockEventListener {
+                override fun onRespond(data: MockEvent) {
+                    if (data.request.path == "/items") requestsCompleted.countDown()
+                }
+            }
+            HttpStub(
+                feature = feature,
+                port = freePort(),
+                strictMode = true,
+                scenarioStubs = externalExamples.map { it.scenarioStub },
+                listeners = listOf(completionListener)
+            ).use { stub ->
                 val responses = listOf("explicit", "fallback").map { kind ->
                     stub.client.execute(
                         request = HttpRequest(
@@ -117,6 +133,10 @@ class LoadTestsFromExternalisedFiles {
                         parsedJSONObject("""{"message": "unavailable"}""")
                     )
                 )
+                // Response delivery can finish before the handler records its reporting result.
+                assertThat(requestsCompleted.await(5, SECONDS))
+                    .withFailMessage("Both mock request handlers must complete before inspecting their reporting records")
+                    .isTrue()
                 assertThat(stub.ctrfTestResultRecords().map { it.matchesResponseIdentifiers })
                     .containsExactly(true, true)
             }

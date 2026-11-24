@@ -15,6 +15,8 @@ import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 
 const val SPECMATIC_XML_ATTRIBUTE_PREFIX = "${APPLICATION_NAME_LOWER_CASE}_"
+const val SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE = "specmatic_soap_header_required_reason"
+const val OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE = "specmatic_omit_empty_soap_header"
 const val TYPE_ATTRIBUTE_NAME = "specmatic_type"
 const val SOAP_BODY = "body"
 const val SOAP_FAULT = "fault"
@@ -37,7 +39,8 @@ private data class XMLHeaderName(
 )
 
 fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = false): XMLTypeData {
-    val attributes = attributeTypeMap(node)
+    val xmlNode = node.copy(attributes = node.attributes - OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE - SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE)
+    val attributes = attributeTypeMap(xmlNode)
     val isSOAP = isSOAP ?: (attributes["xmlns"] == ExactValuePattern(StringValue("http://schemas.xmlsoap.org/wsdl/")))
     return XMLTypeData(
         name = node.name,
@@ -47,7 +50,9 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
         isSOAP = isSOAP,
         namespaceUri = node.elementNamespaceUriOrNull(),
         isSOAPHeader = isSOAPHeader,
-        attributeNamespaceUris = attributeNamespaceUriMap(node),
+        attributeNamespaceUris = attributeNamespaceUriMap(xmlNode),
+        omitEmptySOAPHeader = node.attributes[OMIT_EMPTY_SOAP_HEADER_ATTRIBUTE]?.toStringLiteral() == "true",
+        soapHeaderRequiredReason = node.attributes[SOAP_HEADER_REQUIRED_REASON_ATTRIBUTE]?.toStringLiteral(),
         namespaceBindings = node.namespaces,
     )
 }
@@ -258,6 +263,7 @@ data class XMLPattern(
     private fun matchesXMLNode(sampleData: XMLNode, resolver: Resolver): Result {
         if (pattern.isSOAP && isSOAPEnvelope(pattern.name, pattern.requiredNamespaceUri)) {
             sampleData.namespaceValidationFailure()?.let { return it.breadCrumb(pattern.name, resolver.locate(schemaPointer)) }
+            missingRequiredSOAPHeader(sampleData)?.let { return it }
         }
         val matchingType = dereferenceType(resolver)
         val sampleDataWithoutEmptyHeader = dropEmptySOAPHeader(sampleData)
@@ -504,6 +510,18 @@ data class XMLPattern(
             materializedPattern.isAbstractWSDLType() -> WSDLTypeSelection.Abstract(payloadElementName, declaredWSDLType)
             else -> WSDLTypeSelection.Use(materializedPattern)
         }
+    }
+
+    private fun missingRequiredSOAPHeader(sampleData: XMLNode): Failure? {
+        val declaration = pattern.nodes.filterIsInstance<XMLPattern>().firstOrNull { it.pattern.isSOAPHeader } ?: return null
+        val supplied = sampleData.childNodes.filterIsInstance<XMLNode>().firstOrNull { declaration.hasSameExpandedName(it) }
+        val missing = declaration.pattern.nodes.filterIsInstance<XMLPattern>().firstOrNull { block ->
+            block.pattern.soapHeaderRequiredReason != null &&
+                supplied?.childNodes?.filterIsInstance<XMLNode>()?.none { block.hasSameExpandedName(it) } != false
+        } ?: return null
+        val name = "{${missing.pattern.requiredNamespaceUri.orEmpty()}}${missing.pattern.name}"
+        return Failure("SOAP header block $name is missing. It is required by ${missing.pattern.soapHeaderRequiredReason}.")
+            .breadCrumb("Header.${missing.pattern.name}")
     }
 
     private fun dropEmptySOAPHeader(sampleData: XMLNode): XMLNode {
@@ -886,6 +904,9 @@ data class XMLPattern(
         val generatedAttributes = resolvedPattern.generateAttributesForXMLNode(resolver, pattern.name)
         val generatedChildNodes = resolvedPattern.generateChildrenForCurrentNode(resolver, state, pattern.name)
 
+        if (resolvedPattern.canOmitEmptySOAPHeader(generatedChildNodes.nodes.isEmpty(), generatedAttributes.keys))
+            return GeneratedNodes.none(generatedChildNodes.nextState)
+
         return GeneratedNodes.fromGeneratedValue(
             resolvedPattern.pattern.generatedXMLNode(generatedAttributes, generatedChildNodes.nodes),
             generatedChildNodes.nextState
@@ -959,7 +980,9 @@ data class XMLPattern(
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
         newBasedOnWithOccurrences(row, resolver).map { generatedPattern ->
             generatedPattern.ifValue { it.withoutXMLOccurrenceMarkers() }
-        }
+        }.distinctSOAPVariants()
+
+    private fun <T> Sequence<T>.distinctSOAPVariants(): Sequence<T> = if (pattern.isSOAP) distinct() else this
 
     private fun newBasedOnWithOccurrences(
         row: Row,
@@ -1093,7 +1116,7 @@ data class XMLPattern(
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<XMLPattern> =
-        newBasedOnWithOccurrences(resolver).map { it.withoutXMLOccurrenceMarkers() as XMLPattern }
+        newBasedOnWithOccurrences(resolver).map { it.withoutXMLOccurrenceMarkers() as XMLPattern }.distinctSOAPVariants()
 
     private fun newBasedOnWithOccurrences(resolver: Resolver): Sequence<XMLPattern> {
         if (pattern.occurrences != null) return occurrenceParticle().newBasedOn(resolver).map { restoreElementOccurrence(it) }
@@ -1344,6 +1367,8 @@ data class XMLPattern(
                         namespaceUri = this.pattern.namespaceUri,
                         requiredNamespaceUri = this.pattern.requiredNamespaceUri,
                         occurrences = this.pattern.occurrences,
+                        omitEmptySOAPHeader = this.pattern.omitEmptySOAPHeader || referred.pattern.omitEmptySOAPHeader,
+                        soapHeaderRequiredReason = this.pattern.soapHeaderRequiredReason ?: referred.pattern.soapHeaderRequiredReason,
                         wsdlSubstitutionGroupMembers = referred.pattern.wsdlSubstitutionGroupMembers + this.pattern.wsdlSubstitutionGroupMembers,
                     ),
                 )
@@ -1384,7 +1409,9 @@ data class XMLPattern(
             is XMLPattern -> copy(
                 pattern = pattern.copy(
                     attributes = pattern.attributes - OCCURS_ATTRIBUTE_NAME,
-                    nodes = pattern.nodes.map { it.withoutXMLOccurrenceMarkers() }
+                    nodes = pattern.nodes.map { it.withoutXMLOccurrenceMarkers() }.filterNot {
+                        it is XMLPattern && it.canOmitEmptySOAPHeader(it.pattern.nodes.isEmpty(), it.pattern.attributes.keys)
+                    }
                 )
             )
 
@@ -1396,6 +1423,10 @@ data class XMLPattern(
             is AnyPattern -> copy(pattern = pattern.map { it.withoutXMLOccurrenceMarkers() })
             else -> this
         }
+
+    private fun canOmitEmptySOAPHeader(childrenEmpty: Boolean, attributeNames: Set<String>): Boolean =
+        pattern.isSOAPHeader && pattern.omitEmptySOAPHeader &&
+            childrenEmpty && attributeNames.all(::isXMLPatternMetadataAttribute)
 
     fun occurMultipleTimes(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Multiple
 

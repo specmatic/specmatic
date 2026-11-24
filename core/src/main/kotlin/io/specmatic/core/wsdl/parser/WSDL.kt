@@ -209,7 +209,7 @@ fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
     val schemaPrefixes: Map<String, String> = schemaPrefixesFrom(schemas, rootPrefixes)
     val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
 
-    return WSDL(rootDefinition, definitions, schemas, typesNode, schemaPrefixes.plus(namespaceToPrefixMap(rootDefinition)), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
+    return WSDL(rootDefinition, definitions, schemas, typesNode, schemaPrefixes.plus(namespaceToPrefixMap(rootDefinition)), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition), definitionDocuments.map { it.definition to it.file.path })
 }
 
 fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> =
@@ -304,7 +304,7 @@ private data class NamedSchemaLookupKey(
     val localName: String
 )
 
-data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String, XMLNode>, val schemas: Map<String, XMLNode>, private val typesNode: XMLNode, val namespaceToPrefix: Map<String, String>, val prefixToNamespace: Map<String, String>, val rootPrefixesToNamespace: Map<String, String>) {
+data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String, XMLNode>, val schemas: Map<String, XMLNode>, private val typesNode: XMLNode, val namespaceToPrefix: Map<String, String>, val prefixToNamespace: Map<String, String>, val rootPrefixesToNamespace: Map<String, String>, private val claimDocuments: List<Pair<XMLNode, String>> = emptyList()) {
     private val indexes = WsdlIndexes(
         definitions = indexDefinitions(definitions),
         schemas = indexSchemas(schemas),
@@ -316,9 +316,33 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     fun allNamespaces(): Map<String, String> {
         return prefixToNamespace.plus(rootPrefixesToNamespace)
     }
+    private fun selectedService(): XMLNode? =
+        if (rootDefinition.isWSDL("definitions")) rootDefinition.childNodes.filterIsInstance<XMLNode>().firstOrNull { it.isWSDL("service") }
+        else rootDefinition.findFirstChildByName("service")
+
+    private fun selectedServicePort(): XMLNode? =
+        if (rootDefinition.isWSDL("definitions")) selectedService()?.childNodes?.filterIsInstance<XMLNode>()?.firstOrNull { it.isWSDL("port") }
+        else selectedService()?.findFirstChildByName("port")
+
     fun getServiceName() =
-        rootDefinition.findFirstChildByName("service")?.attributes?.get("name")
+        selectedService()?.attributes?.get("name")
             ?: throw ContractException("Couldn't find attribute name in node service")
+
+    private val conformanceClaims by lazy { claimDocuments.flatMap { (definition, source) -> wsdlConformanceClaims(definition, source) } }
+
+    private val resolvedHeaderRequiredReason: String? by lazy {
+        val service = selectedService()
+        val port = selectedServicePort()
+        val selected = if (service != null && port != null)
+            WSDLServiceInstance(rootDefinition.getAttributeValue("targetNamespace"), service.getAttributeValue("name"), port.getAttributeValue("name")) else null
+        val soap11 = getSOAPVersion() == SOAPVersion.SOAP11
+        val claim = conformanceClaims.firstOrNull {
+            soap11 && selected != null && it.profile == BASIC_PROFILE_11 && it.scope == WSDLClaimScope.ServiceInstance && it.instance == selected
+        }
+        claim?.let { "Basic Profile 1.1 service-instance claim on WSDL port '${selected?.port}' in service '${selected?.service}' (${it.source})" }
+    }
+
+    internal fun soapHeaderRequiredReason(): String? = resolvedHeaderRequiredReason
 
     fun getPortType(): XMLNode {
         val binding = getBinding()
@@ -362,7 +386,8 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             ?: throw ContractException(missingMessage ?: "Couldn't find a node named $tagName with attribute name=\"$localName\"")
     }
 
-    private fun getServicePort() = rootDefinition.getXMLNodeByPath("service.port")
+    private fun getServicePort(): XMLNode = selectedServicePort()
+        ?: throw ContractException("Could not find a WSDL service port")
 
     fun getNamespaces(typeInfo: WSDLTypeInfo): Map<String, String> {
         return typeInfo.getNamespaces(prefixToNamespace)
@@ -400,7 +425,7 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     private fun endpoint(): Pair<String, SOAPParser> {
-        val port = rootDefinition.getXMLNodeOrNull("service.port")
+        val port = selectedServicePort()
         val endpoint = rootDefinition.getXMLNodeOrNull("service.endpoint")
 
         return when {
