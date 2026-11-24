@@ -4017,7 +4017,7 @@ Then status 200
                         every { protocol } returns SpecmaticProtocol.HTTP
                     }
                 )
-                HttpStub(features = features, port = multiPortTestPort()).use { stub ->
+                HttpStub(features = emptyList(), port = 0).use { stub ->
                     val result = stub.featuresAssociatedTo(
                         "http://localhost:${7070}",
                         features,

@@ -46,7 +46,7 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
         name = node.name,
         realName = node.realName,
         attributes = attributes,
-        nodes = nodeTypes(node, isSOAP),
+        nodes = nodeTypes(node, isSOAP, isSOAPHeader),
         isSOAP = isSOAP,
         namespaceUri = node.elementNamespaceUriOrNull(),
         isSOAPHeader = isSOAPHeader,
@@ -57,10 +57,10 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
     )
 }
 
-private fun nodeTypes(node: XMLNode, isSOAP: Boolean): List<Pattern> {
+private fun nodeTypes(node: XMLNode, isSOAP: Boolean, isSOAPHeader: Boolean): List<Pattern> {
     return node.childNodes.map { value ->
         when (value) {
-            is XMLNode -> XMLPattern(value, isSOAP = isSOAP, isSOAPHeader = isSOAPHeader(node, value, isSOAP))
+            is XMLNode -> XMLPattern(value, isSOAP = isSOAP && !isSOAPHeader, isSOAPHeader = isSOAPHeader(node, value, isSOAP))
             is StringValue, is CDATAValue, is BinaryValue -> value.exactMatchElseType()
         }
     }
@@ -78,7 +78,10 @@ private fun isSOAPHeader(parentName: String, parentNamespace: String?, childName
         childName == SOAP_HEADER && childNamespace == parentNamespace
 
 private fun isSOAPEnvelope(name: String, namespace: String?): Boolean =
-    name == SOAP_ENVELOPE && (namespace == SOAP_ENVELOPE_NAMESPACE || namespace == SOAP12_ENVELOPE_NAMESPACE)
+    name == SOAP_ENVELOPE && isSOAPNamespace(namespace)
+
+private fun isSOAPNamespace(namespace: String?): Boolean =
+    namespace == SOAP_ENVELOPE_NAMESPACE || namespace == SOAP12_ENVELOPE_NAMESPACE
 
 private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
     return node.attributes.mapValues { (key, value) ->
@@ -266,7 +269,7 @@ data class XMLPattern(
             missingRequiredSOAPHeader(sampleData)?.let { return it }
         }
         val matchingType = dereferenceType(resolver)
-        val sampleDataWithoutEmptyHeader = dropEmptySOAPHeader(sampleData)
+        val sampleDataWithoutUndeclaredHeader = dropUndeclaredSOAPHeader(sampleData)
 
         if (matchingType.wsdlTypeSelectionMode() == WSDLTypeSelectionMode.Polymorphic) {
             selectWSDLType(sampleData, matchingType, resolver)?.let { selectedType ->
@@ -276,7 +279,7 @@ data class XMLPattern(
                     is WSDLTypeSelection.MalformedQName,
                     is WSDLTypeSelection.Abstract -> failureForWSDLTypeSelection(selectedType)
 
-                    is WSDLTypeSelection.Use -> matchWithSelectedType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
+                    is WSDLTypeSelection.Use -> matchWithSelectedType(selectedType.pattern, sampleDataWithoutUndeclaredHeader, resolver)
                 }
 
                 return matchResult.breadCrumb(pattern.name, resolver.locate(schemaPointer))
@@ -302,23 +305,23 @@ data class XMLPattern(
 
         return when (matchingType) {
             is XMLPattern -> {
-                matchName(sampleDataWithoutEmptyHeader, resolver).ifSuccess {
-                    matchingType.matchNamespaces(sampleDataWithoutEmptyHeader)
+                matchName(sampleDataWithoutUndeclaredHeader, resolver).ifSuccess {
+                    matchingType.matchNamespaces(sampleDataWithoutUndeclaredHeader)
                 }.ifSuccess {
-                    matchingType.matchAttributes(sampleDataWithoutEmptyHeader, resolver)
+                    matchingType.matchAttributes(sampleDataWithoutUndeclaredHeader, resolver)
                 }.ifSuccess {
-                    matchingType.matchNodes(sampleDataWithoutEmptyHeader, resolver)
+                    matchingType.matchNodes(sampleDataWithoutUndeclaredHeader, resolver)
                 }
             }
 
-            is AnyPattern -> matchingType.matches(sampleDataWithoutEmptyHeader, resolver)
+            is AnyPattern -> matchingType.matches(sampleDataWithoutUndeclaredHeader, resolver)
             else -> {
-                if (sampleDataWithoutEmptyHeader.childNodes.size != 1) {
-                    return valueMismatchResult("single node", sampleDataWithoutEmptyHeader, resolver.mismatchMessages)
+                if (sampleDataWithoutUndeclaredHeader.childNodes.size != 1) {
+                    return valueMismatchResult("single node", sampleDataWithoutUndeclaredHeader, resolver.mismatchMessages)
                 }
 
                 val valueToMatch =
-                    matchingType.parse(sampleDataWithoutEmptyHeader.firstChild().toStringLiteral(), resolver)
+                    matchingType.parse(sampleDataWithoutUndeclaredHeader.firstChild().toStringLiteral(), resolver)
                 matchingType.matches(valueToMatch, resolver)
             }
         }.breadCrumb(pattern.name, resolver.locate(schemaPointer))
@@ -524,7 +527,7 @@ data class XMLPattern(
             .breadCrumb("Header.${missing.pattern.name}")
     }
 
-    private fun dropEmptySOAPHeader(sampleData: XMLNode): XMLNode {
+    private fun dropUndeclaredSOAPHeader(sampleData: XMLNode): XMLNode {
         if (!pattern.isSOAP || (pattern.requiredNamespaceUri != null && !isSOAPEnvelope(pattern.name, pattern.requiredNamespaceUri))) {
             return sampleData
         }
@@ -539,12 +542,16 @@ data class XMLPattern(
                 .asSequence()
                 .filterIsInstance<XMLNode>()
                 .firstOrNull { mightBeSOAPHeader ->
-                    mightBeSOAPHeader.name == "Header" && mightBeSOAPHeader.childNodes.isEmpty() &&
+                    mightBeSOAPHeader.name == "Header" &&
+                        (mightBeSOAPHeader.childNodes.isEmpty() ||
+                            (pattern.requiredNamespaceUri != null && sampleData.childNodes.firstOrNull() === mightBeSOAPHeader && mightBeSOAPHeader.childNodes.all {
+                                it is XMLNode && !it.elementNamespaceUriOrNull().isNullOrBlank()
+                            })) &&
                         (pattern.requiredNamespaceUri == null || mightBeSOAPHeader.elementNamespaceUriOrNull().orEmpty() == pattern.requiredNamespaceUri)
                 }
 
-        val sampleDataWithoutEmptyHeader = soapHeader?.let { sampleData.remove(it) } ?: sampleData
-        return sampleDataWithoutEmptyHeader
+        val sampleDataWithoutUndeclaredHeader = soapHeader?.let { sampleData.remove(it) } ?: sampleData
+        return sampleDataWithoutUndeclaredHeader
     }
 
     private fun matchNodes(
@@ -553,7 +560,8 @@ data class XMLPattern(
     ): Result {
         val firstNode = sampleData.firstNode() as? XMLNode
         if (sampleData.name.lowercase() == SOAP_BODY && firstNode?.name?.lowercase() == SOAP_FAULT &&
-            (pattern.requiredNamespaceUri == null || firstNode.elementNamespaceUriOrNull().orEmpty() == pattern.requiredNamespaceUri))
+            (pattern.requiredNamespaceUri == null ||
+                (pattern.isSOAP && isSOAPNamespace(pattern.requiredNamespaceUri) && firstNode.elementNamespaceUriOrNull() == pattern.requiredNamespaceUri)))
             return Success()
 
         val sampleChildNodes = childNodesForMatching(sampleData)
@@ -628,7 +636,11 @@ data class XMLPattern(
             return sampleData.childNodes
         }
 
-        return sampleData.childNodes.withIndex().sortedWith(
+        val children = if (pattern.requiredNamespaceUri != null) sampleData.childNodes.filter { child ->
+            child !is XMLNode || child.elementNamespaceUriOrNull().isNullOrBlank() || child.headerName() in headerOrder
+        } else sampleData.childNodes
+
+        return children.withIndex().sortedWith(
             compareBy<IndexedValue<XMLValue>> { indexedValue ->
                 val childNode = indexedValue.value as XMLNode
                 headerOrder[childNode.headerName()] ?: Int.MAX_VALUE
@@ -1544,6 +1556,39 @@ data class XMLPattern(
         return examplePattern.withExampleNamespaces(pattern.isSOAP)
     }
 
+    internal fun withAdditionalSOAPHeaders(example: Value?): XMLPattern {
+        if (!pattern.isSOAP || !isSOAPEnvelope(pattern.name, pattern.requiredNamespaceUri)) return this
+        val envelope = when (example) {
+            is XMLNode -> example
+            is StringValue -> runCatching { toXMLNode(parseXML(example.string)) }.getOrNull()
+            else -> null
+        } ?: return this
+        if (envelope.name != pattern.name || envelope.elementNamespaceUriOrNull() != pattern.requiredNamespaceUri) return this
+        val header = envelope.childNodes.filterIsInstance<XMLNode>().singleOrNull {
+            isSOAPHeader(envelope.name, envelope.elementNamespaceUriOrNull(), it.name, it.elementNamespaceUriOrNull())
+        } ?: return this
+        val declaredHeader = pattern.nodes.filterIsInstance<XMLPattern>().singleOrNull { it.pattern.isSOAPHeader }
+        val declaredNames = declaredHeader?.pattern?.nodes.orEmpty().filterIsInstance<XMLPattern>().map { it.headerName() }.toSet()
+        val additional = header.childNodes.filterIsInstance<XMLNode>().filter {
+            !it.elementNamespaceUriOrNull().isNullOrBlank() && it.headerName() !in declaredNames
+        }.map { XMLPattern(it).withExampleNamespaces(isSOAP = false) }
+        if (additional.isEmpty()) return this
+
+        val specializedHeader = if (declaredHeader != null) {
+            declaredHeader.copy(pattern = declaredHeader.pattern.copy(
+                nodes = declaredHeader.pattern.nodes + additional,
+                attributes = declaredHeader.pattern.attributes - OCCURS_ATTRIBUTE_NAME,
+                occurrences = null,
+            ))
+        } else {
+            XMLPattern(header, isSOAP = true, isSOAPHeader = true).withExampleNamespaces(isSOAP = true, isSOAPHeader = true)
+                .let { it.copy(pattern = it.pattern.copy(nodes = additional)) }
+        }
+        val nodes = if (declaredHeader != null) pattern.nodes.map { if (it === declaredHeader) specializedHeader else it }
+        else listOf(specializedHeader) + pattern.nodes
+        return copy(pattern = pattern.copy(nodes = nodes))
+    }
+
     private fun withExampleNamespaces(isSOAP: Boolean, isSOAPHeader: Boolean = false): XMLPattern =
         copy(pattern = pattern.copy(
             requiredNamespaceUri = pattern.namespaceUri.orEmpty(),
@@ -1551,7 +1596,7 @@ data class XMLPattern(
             isSOAPHeader = isSOAPHeader,
             nodes = pattern.nodes.map { child ->
                 if (child is XMLPattern)
-                    child.withExampleNamespaces(isSOAP, isSOAP && isSOAPHeader(
+                    child.withExampleNamespaces(isSOAP && !isSOAPHeader, isSOAP && isSOAPHeader(
                         pattern.name, pattern.namespaceUri, child.pattern.name, child.pattern.namespaceUri
                     ))
                 else child

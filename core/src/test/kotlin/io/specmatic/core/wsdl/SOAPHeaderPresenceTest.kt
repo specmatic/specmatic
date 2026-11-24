@@ -87,7 +87,7 @@ class SOAPHeaderPresenceTest {
 
     @ParameterizedTest
     @MethodSource("soapVersions")
-    fun `empty wrappers without declarations are allowed but undeclared blocks remain rejected`(version: String) {
+    fun `empty wrappers and qualified undeclared blocks without declarations are allowed`(version: String) {
         val text = headerWsdl().replace(Regex("<soap:header[^>]*/>"), "")
         val scenario = headerFeature(text, version).scenarios.single()
         listOf("", "<s:Header/>").forEach { header ->
@@ -95,7 +95,7 @@ class SOAPHeaderPresenceTest {
             assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
         }
         val unexpected = scenario.httpRequestPattern.matches(headerRequest(envelope("<s:Header><t:Extra>inert</t:Extra></s:Header>", "request", version), version), scenario.resolver)
-        assertThat(unexpected.isSuccess()).isFalse()
+        assertThat(unexpected.isSuccess()).isTrue()
     }
 
     @Test
@@ -195,8 +195,8 @@ class SOAPHeaderPresenceTest {
                     Triple("valid block", "<s:Header><t:$block><t:id>7</t:id></t:$block></s:Header>", true),
                     Triple("invalid content", "<s:Header><t:$block><t:id>wrong</t:id></t:$block></s:Header>", false),
                     Triple("missing required child", "<s:Header><t:$block/></s:Header>", false),
-                    Triple("wrong namespace", "<s:Header><$block xmlns=\"urn:wrong\"><id>7</id></$block></s:Header>", false),
-                    Triple("undeclared block", "<s:Header><t:Extra>inert</t:Extra></s:Header>", false),
+                    Triple("wrong namespace", "<s:Header><$block xmlns=\"urn:wrong\"><id>7</id></$block></s:Header>", true),
+                    Triple("undeclared block", "<s:Header><t:Extra>inert</t:Extra></s:Header>", true),
                 ).map { (description, header, accepted) -> Arguments.of(version, direction, description, header, accepted) }
             }
         }

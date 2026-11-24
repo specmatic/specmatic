@@ -20,6 +20,8 @@ Create temp files locally in the "temp" directory as it is ignored by git.
 
 ## Examples
 
+- When changing mock matching, trace both example selection and spec fallback. Verify a matching example, a request that misses every example but satisfies the spec, and a request that violates the spec. Assert whether each response comes from an example, generation, or rejection. Preserve configured strict-mode behavior.
+
 - Whenever ScenarioStub structure is modified, make sure the necessary changes are propagated to ExampleForFile, which is supposed to be a thin wrapper over ScenarioStub.
 - When ScenarioStub structure is modified, update the schema files named `external_example.yaml` and `external_examples.schema.json`.
 
