@@ -53,7 +53,7 @@ internal class HttpStubAfterFixturesTest {
                     assertThat(records.map(::fixtureResults))
                         .containsExactlyElementsOf(selections.map { listOf(success) })
                     assertThat(calls.toList()).containsExactlyInAnyOrderElementsOf(selections.map { id ->
-                        FixtureCall(id, "after", interfaceFixtures, StringValue("order-123"))
+                        FixtureCall(id, "after", mockFixtures, StringValue("order-123"))
                     })
                 },
             ) { _, client ->
@@ -273,7 +273,7 @@ internal class HttpStubAfterFixturesTest {
         id = id,
         stubToken = stubToken,
         response = HttpResponse.ok(StringValue(id)),
-        afterFixtures = interfaceFixtures,
+        afterFixtures = mockFixtures,
         beforeFixtures = listOf(StringValue("before")),
         request = request.copy(headers = mapOf("X-Order" to "(ORDER:string)")),
     )
@@ -341,11 +341,11 @@ internal class HttpStubAfterFixturesTest {
     companion object {
         private const val SIGNAL_TIMEOUT_SECONDS = 60L
         private val success = FixtureResult("1", "after")
-        private val interfaceFixtures = ScenarioStub.parse("""
+        private val mockFixtures = ScenarioStub.parse("""
         {
           "http-request": {"method": "GET", "path": "/orders"},
           "http-response": {"status": 200},
-          "after": [{"type": "interface", "id": "notifications", "exampleIds": ["order-created"]}]
+          "after": [{"type": "mock", "id": "notifications", "exampleIds": ["order-created"]}]
         }
         """.trimIndent()).afterFixtures
         private val request = HttpRequest(method = "GET", path = "/orders", headers = mapOf("X-Order" to "order-123"))

@@ -62,7 +62,6 @@ internal class StubAfterFixtureRunner(private val config: SpecmaticConfig, priva
         )
 
         if (!execution.combinedResult.isSuccess()) {
-
             logger.log("After fixtures failed for mock example $exampleIdentifier: ${execution.combinedResult.reportString()}")
         }
 
@@ -75,8 +74,8 @@ internal class StubAfterFixtureRunner(private val config: SpecmaticConfig, priva
             data = example.data,
             resolver = resolver,
             runningRequest = request,
-            strictMode = config.getStubStrictMode(stub.feature?.path?.let(::File)) ?: strictMode,
             originalRequest = stub.resolveOriginalRequest() ?: example.requestElsePartialRequest(),
+            strictMode = config.getStubStrictMode(stub.feature?.path?.let(::File)) ?: strictMode,
         )
 
         return requestSubstitution.upsertStoreUsing(

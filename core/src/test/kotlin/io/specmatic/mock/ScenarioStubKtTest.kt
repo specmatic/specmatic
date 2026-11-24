@@ -534,14 +534,14 @@ paths:
 
     @Nested
     @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-    inner class SupportingInterfaceFixtures {
+    inner class MockFixtures {
         @Test
-        fun `loads interface fixture with a single exampleId in exampleIds and common fixture properties`() {
+        fun `loads mock fixture with a single exampleId in exampleIds and common fixture properties`() {
             val fixture = """
             {
               "wait": "PT1S",
               "timeout": "PT10S",
-              "type": "interface",
+              "type": "mock",
               "id": "paymentAsyncApiService",
               "executeFor": { "scenarios": "all" },
               "exampleIds": ["publishPaymentStatusExample"],
@@ -555,10 +555,10 @@ paths:
         }
 
         @Test
-        fun `loads interface fixture with exampleIds`() {
+        fun `loads mock fixture with exampleIds`() {
             val fixture = """
             {
-              "type": "interface",
+              "type": "mock",
               "id": "paymentAsyncApiService",
               "exampleIds": ["publishPaymentStatusExample1", "publishPaymentStatusExample2"]
             }
@@ -569,15 +569,15 @@ paths:
         }
 
         @Test
-        fun `rejects an empty list of interface fixture example IDs`() {
-            val error = catchContractException("""{"type":"interface","id":"payments","exampleIds":[]}""")
+        fun `rejects an empty list of mock fixture example IDs`() {
+            val error = catchContractException("""{"type":"mock","id":"payments","exampleIds":[]}""")
             assertThat(error.report()).contains("before[0].exampleIds")
         }
 
         @Test
-        fun `rejects interface fixture without exampleIds`() {
+        fun `rejects mock fixture without exampleIds`() {
             val fixture = """
-            { "type": "interface", "id": "paymentAsyncApiService" }
+            { "type": "mock", "id": "paymentAsyncApiService" }
             """.trimIndent()
 
             val error = catchContractException(fixture)
@@ -591,10 +591,10 @@ paths:
         }
 
         @Test
-        fun `rejects interface fixture using singular exampleId`() {
+        fun `rejects mock fixture using singular exampleId`() {
             val fixture = """
             {
-              "type": "interface",
+              "type": "mock",
               "id": "paymentAsyncApiService",
               "exampleId": "publishPaymentStatusExample"
             }
@@ -611,10 +611,10 @@ paths:
         }
 
         @Test
-        fun `validates common fixture properties on interface fixtures`() {
+        fun `validates common fixture properties on mock fixtures`() {
             val fixture = """
             {
-              "type": "interface",
+              "type": "mock",
               "id": "paymentAsyncApiService",
               "exampleIds": ["publishPaymentStatusExample"],
               "wait": 5
@@ -632,8 +632,8 @@ paths:
         }
 
         @ParameterizedTest
-        @MethodSource("invalidSupportingInterfaceFixtures")
-        fun `reports the precise error for invalid supporting interface fixture fields`(
+        @MethodSource("invalidMockFixtures")
+        fun `reports the precise error for invalid mock fixture fields`(
             fixture: String,
             expectedDetails: List<String>,
         ) {
@@ -641,9 +641,9 @@ paths:
             assertThat(report).contains(*expectedDetails.toTypedArray())
         }
 
-        fun invalidSupportingInterfaceFixtures(): Stream<Arguments> = Stream.of(
+        fun invalidMockFixtures(): Stream<Arguments> = Stream.of(
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":42}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":42}""",
                 listOf(
                     ">> before[0].exampleIds",
                     "R1001",
@@ -651,7 +651,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":[42]}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":[42]}""",
                 listOf(
                     ">> before[0].exampleIds[0]",
                     "R1001",
@@ -659,7 +659,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":42,"exampleIds":["publishPaymentStatusExample"]}""",
+                """{"type":"mock","id":42,"exampleIds":["publishPaymentStatusExample"]}""",
                 listOf(
                     ">> before[0].id",
                     "R1001",
@@ -677,7 +677,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":"publishPaymentStatusExample"}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":"publishPaymentStatusExample"}""",
                 listOf(
                     ">> before[0].exampleIds",
                     "R1001",
@@ -685,7 +685,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"timeout":5}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"timeout":5}""",
                 listOf(
                     ">> before[0].timeout",
                     "R1001",
@@ -693,7 +693,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"retry":{"delay":"soon"}}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"retry":{"delay":"soon"}}""",
                 listOf(
                     ">> before[0].retry.delay",
                     "R1003",
@@ -702,7 +702,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"executeFor":{"scenarios":1}}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"executeFor":{"scenarios":1}}""",
                 listOf(
                     ">> before[0].executeFor.scenarios",
                     "R1002",
@@ -710,7 +710,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"retry":{"max-attempts":"two"}}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"retry":{"max-attempts":"two"}}""",
                 listOf(
                     ">> before[0].retry.max-attempts",
                     "R1001",
@@ -718,7 +718,7 @@ paths:
                 ),
             ),
             Arguments.of(
-                """{"type":"interface","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"executeFor":{"scenarios":"invalid"}}""",
+                """{"type":"mock","id":"paymentAsyncApiService","exampleIds":["publishPaymentStatusExample"],"executeFor":{"scenarios":"invalid"}}""",
                 listOf(
                     ">> before[0].executeFor.scenarios",
                     "R1002",

@@ -69,6 +69,11 @@ The total number of properties present in an object, including declared properti
 **Satisfiable object schema**:
 An object schema for which at least one object satisfies all its constraints together, including required properties, property-count bounds and restrictions on additional properties.
 
+## Fixtures
+
+**Mock fixture**:
+A fixture attached to a before or after hook that selects examples from a configured mock specification to execute as part of a contract test.
+
 ## HTTP stubbing
 
 **Example match**:

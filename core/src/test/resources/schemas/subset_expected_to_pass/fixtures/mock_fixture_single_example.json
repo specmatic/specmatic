@@ -3,9 +3,10 @@
   "http-response": {"status": 200},
   "before": [
     {
-      "type": "interface",
+      "type": "mock",
       "id": "paymentAsyncApiService",
-      "exampleId": "publishPaymentStatusExample"
+      "exampleIds": ["publishPaymentStatusExample"],
+      "send": {"headers": {"Idempotency-Key": "$(CORRELATION_ID)"}}
     }
   ]
 }

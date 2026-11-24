@@ -74,7 +74,7 @@ class ExternalExampleSchemaCorpusTest {
             "AnyValue",
             "AnyValueOrTemplateValueExpression",
             "HttpFixture",
-            "SupportingInterfaceFixture",
+            "MockFixture",
             "FixtureHooks",
             "RequestSchema",
             "MultiPartFile",

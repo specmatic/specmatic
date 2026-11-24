@@ -85,7 +85,7 @@ object FuzzyExampleJsonValidator {
     fun matches(value: JSONObjectValue): Result {
         return try {
             val examplePattern = resolvePatternToUse(value.jsonObject)
-            examplePattern.matches(value, resolver).withNonEmptyInterfaceExamples(value)
+            examplePattern.matches(value, resolver).withNonEmptyMockFixtures(value)
         } catch (e: Exception) {
             logger.log(e, "Unexpected error during External Example validation")
             Result.Failure("Critical internal error validating external example: ${e.message}")
@@ -109,13 +109,13 @@ object FuzzyExampleJsonValidator {
     }
 
     // TODO: Temporary workaround until we have a proper support for minItems in array schema
-    private fun Result.withNonEmptyInterfaceExamples(value: JSONObjectValue): Result {
+    private fun Result.withNonEmptyMockFixtures(value: JSONObjectValue): Result {
         val failures = listOf(BEFORE_FIXTURES, AFTER_FIXTURES).flatMap { hook ->
             val fixtures = value.jsonObject[hook] as? JSONArrayValue
             fixtures?.list.orEmpty().mapIndexedNotNull { index, fixture ->
                 val fields = (fixture as? JSONObjectValue)?.jsonObject ?: return@mapIndexedNotNull null
                 val exampleIds = fields["exampleIds"] as? JSONArrayValue
-                if (fields["type"] != StringValue("interface") || exampleIds?.list?.isEmpty() != true) {
+                if (fields["type"] != StringValue("mock") || exampleIds?.list?.isEmpty() != true) {
                     return@mapIndexedNotNull null
                 }
 

@@ -3,7 +3,7 @@
   "http-response": {"status": 200},
   "before": [
     {
-      "type": "interface",
+      "type": "mock",
       "id": "paymentAsyncApiService",
       "exampleIds": [42]
     }

@@ -580,7 +580,7 @@
     },
     "Fixture": {
       "title": "Fixture",
-      "description": "A test-only HTTP or supporting-interface fixture attached to a before or after hook.",
+      "description": "A test-only HTTP or mock fixture attached to a before or after hook.",
       "examples": [
         {
           "type": "http",
@@ -597,7 +597,7 @@
           }
         },
         {
-          "type": "interface",
+          "type": "mock",
           "id": "paymentAsyncApiService",
           "exampleIds": [
             "publishPaymentStatusExample1",
@@ -615,13 +615,13 @@
           "$ref": "#/$defs/HttpFixture"
         },
         {
-          "$ref": "#/$defs/SupportingInterfaceFixture"
+          "$ref": "#/$defs/MockFixture"
         }
       ]
     },
     "FixtureCommon": {
       "title": "Common Fixture Settings",
-      "description": "Settings shared by HTTP and supporting-interface fixtures.",
+      "description": "Settings shared by HTTP and mock fixtures.",
       "type": "object",
       "properties": {
         "wait": {
@@ -728,12 +728,12 @@
         }
       ]
     },
-    "SupportingInterfaceFixture": {
-      "title": "Supporting Interface Fixture",
-      "description": "Identifies a supporting interface and one or more examples for it. Use a single-item exampleIds array when referring to one example. Additional properties contain interface-specific configuration.",
+    "MockFixture": {
+      "title": "Mock Fixture",
+      "description": "Identifies a mock and one or more examples for it. Use a single-item exampleIds array when referring to one example. Additional properties contain mock-specific configuration.",
       "examples": [
         {
-          "type": "interface",
+          "type": "mock",
           "id": "paymentAsyncApiService",
           "exampleIds": ["publishPaymentStatusExample"],
           "wait": "PT0S",
@@ -747,7 +747,7 @@
           }
         },
         {
-          "type": "interface",
+          "type": "mock",
           "id": "paymentAsyncApiService",
           "exampleIds": [
             "publishPaymentStatusExample1",
@@ -768,7 +768,7 @@
           "type": "object",
           "properties": {
             "type": {
-              "const": "interface"
+              "const": "mock"
             },
             "id": {
               "type": "string"

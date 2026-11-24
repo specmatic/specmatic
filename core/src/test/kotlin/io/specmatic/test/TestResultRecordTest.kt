@@ -5,6 +5,8 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
+import io.specmatic.reporter.ctrf.model.HttpFixtureExecutionResult
+import io.specmatic.reporter.ctrf.model.MockFixtureExecutionResult
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -77,6 +79,41 @@ class TestResultRecordTest {
                 result = it,  specType = SpecType.OPENAPI
             )
             assertFalse(record.isCovered, "Record should not be considered covered for result $it")
+        }
+    }
+
+    @Nested
+    inner class FixtureExecutionMetadata {
+        @Test
+        fun `retains fixture results in their respective phases`() {
+            val before = HttpFixtureExecutionResult(
+                fixtureKind = "HTTP",
+                fixtureNumber = "1",
+                request = "POST /setup",
+                response = "200 OK",
+            )
+
+            val after = MockFixtureExecutionResult(
+                fixtureKind = "MOCK",
+                fixtureNumber = "1",
+                exampleResults = mapOf("publishOrder" to mapOf("topic" to "orders")),
+            )
+
+            val record = TestResultRecord(
+                path = "/orders",
+                method = "POST",
+                responseStatus = 202,
+                request = null,
+                response = null,
+                result = TestResult.Success,
+                specType = SpecType.OPENAPI,
+                beforeFixtureExecutionResult = listOf(before),
+                afterFixtureExecutionResult = listOf(after),
+            )
+
+            val metadata = record.extraFields()
+            assertThat(metadata.beforeFixtureExecutionResults).containsExactly(before)
+            assertThat(metadata.afterFixtureExecutionResults).containsExactly(after)
         }
     }
 

@@ -433,7 +433,7 @@ class HttpStub(
                     }
 
                     val (httpStubResponse, matchedRequest) = immediateResponse?.let { it to null } ?: run {
-                        val selection = serveStubResponse(httpRequest, requestBaseUrl, defaultBaseUrl, requestUrlPath)
+                        val selection = serveStubResponse(httpRequest, baseUrl = requestBaseUrl, defaultBaseUrl = defaultBaseUrl, urlPath = requestUrlPath)
                         if (selection.result is NotStubbed) httpLogMessage.addResult(selection.result.stubResult)
                         selection.result.response to selection.matchedRequest
                     }
@@ -1195,8 +1195,11 @@ class HttpStub(
     override fun close() {
         val protocols = features.map { it.protocol }.distinct()
         logger.debug("Stopping the server with grace period of $timeoutMillis and force timeout of $forceTimeoutMillis")
-        server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = max(timeoutMillis, forceTimeoutMillis))
-        if (SpecmaticProtocol.HTTP in protocols) generateReports()
+        try {
+            server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = max(timeoutMillis, forceTimeoutMillis))
+        } finally {
+            if (SpecmaticProtocol.HTTP in protocols) generateReports()
+        }
     }
 
     private fun finalRequestRecords(): List<TestResultRecord> {

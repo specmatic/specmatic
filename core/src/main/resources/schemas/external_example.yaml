@@ -198,12 +198,12 @@ components:
     Fixture:
       oneOf:
         - $ref: "#/components/schemas/HttpFixture"
-        - $ref: "#/components/schemas/SupportingInterfaceFixture"
+        - $ref: "#/components/schemas/MockFixture"
       discriminator:
         propertyName: type
         mapping:
           http: "#/components/schemas/HttpFixture"
-          interface: "#/components/schemas/SupportingInterfaceFixture"
+          mock: "#/components/schemas/MockFixture"
 
     MultiPartFormData:
       oneOf:
@@ -321,7 +321,7 @@ components:
             - http-request
             - http-response
 
-    SupportingInterfaceFixture:
+    MockFixture:
       allOf:
         - $ref: "#/components/schemas/FixtureCommon"
         - type: object
@@ -330,7 +330,7 @@ components:
             type:
               type: string
               enum:
-                - interface
+                - mock
             id:
               type: string
             exampleIds:
