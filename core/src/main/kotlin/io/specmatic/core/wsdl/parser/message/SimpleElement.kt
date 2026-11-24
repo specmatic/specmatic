@@ -63,6 +63,7 @@ private enum class PrimitiveFamily {
     STRING,
     NUMBER,
     DATETIME,
+    DATE,
     BOOLEAN,
     ANYTHING
 }
@@ -82,6 +83,14 @@ internal data class StringRestrictions(
             regex = narrower.regex ?: regex
         )
 }
+
+// The existing regex engine does not implement XML Schema name classes or class subtraction,
+// and the WSDL restriction token codec cannot represent whitespace-bearing regex values.
+// Leave these date facets nonblocking without silently adopting another regex dialect.
+private fun StringRestrictions.withoutUnsupportedDateRegex(): StringRestrictions =
+    copy(regex = regex?.takeUnless { expression ->
+        expression.any { it in " \t\r\n" } || Regex("""\\[iIcC]|\[[^\]]*-\[""").containsMatchIn(expression)
+    })
 
 private data class SimpleTypeReference(
     val fullyQualifiedName: FullyQualifiedName,
@@ -129,6 +138,7 @@ private data class ResolvedAtomicSimpleType(
     override fun withRestrictions(narrower: StringRestrictions): ResolvedSimpleType {
         return when {
             family == PrimitiveFamily.STRING -> copy(restrictions = restrictions.merge(narrower))
+            family == PrimitiveFamily.DATE -> copy(restrictions = restrictions.merge(narrower).withoutUnsupportedDateRegex())
             else -> this
         }
     }
@@ -137,6 +147,7 @@ private data class ResolvedAtomicSimpleType(
 
     override fun value(): StringValue {
         return when {
+            family == PrimitiveFamily.DATE && !restrictions.isEmpty -> constrainedStringValue(restrictions, "xsd-date")
             family == PrimitiveFamily.STRING && !restrictions.isEmpty -> constrainedStringValue(restrictions)
             else -> primitiveTypeValue(primitiveName)
         }
@@ -288,7 +299,7 @@ private fun XMLNode.findRestrictionPattern(): String? =
         ?.attributes?.get("value")
         ?.toStringLiteral()
 
-private fun constrainedStringValue(restrictions: StringRestrictions): StringValue {
+private fun constrainedStringValue(restrictions: StringRestrictions, tokenName: String = "string"): StringValue {
     val restrictionClauses = listOfNotNull(
         restrictions.minLength?.let { "minLength $it" },
         restrictions.maxLength?.let { "maxLength $it" },
@@ -297,9 +308,9 @@ private fun constrainedStringValue(restrictions: StringRestrictions): StringValu
     )
 
     val token = if (restrictionClauses.isEmpty()) {
-        "(string)"
+        "($tokenName)"
     } else {
-        "(string) ${restrictionClauses.joinToString(" ")})"
+        "($tokenName) ${restrictionClauses.joinToString(" ")})"
     }
 
     return StringValue(token)
@@ -460,6 +471,7 @@ private fun FullyQualifiedName.primitiveFamily(): PrimitiveFamily =
     primitiveFamily(localName)
 
 private fun primitiveFamily(typeName: String): PrimitiveFamily = when (typeName) {
+    "date" -> PrimitiveFamily.DATE
     in primitiveStringTypes -> PrimitiveFamily.STRING
     in constrainedPrimitiveNumberTypes, in primitiveNumberTypes -> PrimitiveFamily.NUMBER
     in primitiveDateTypes -> PrimitiveFamily.DATETIME
@@ -469,6 +481,7 @@ private fun primitiveFamily(typeName: String): PrimitiveFamily = when (typeName)
 }
 
 private fun primitiveTypeValue(typeName: String): StringValue = when (typeName) {
+    "date" -> StringValue("(xsd-date)")
     in primitiveStringTypes -> StringValue("(string)")
     in constrainedPrimitiveNumberTypes -> constrainedNumberValue(constrainedPrimitiveNumberTypes.getValue(typeName))
     in primitiveNumberTypes -> StringValue("(number)")

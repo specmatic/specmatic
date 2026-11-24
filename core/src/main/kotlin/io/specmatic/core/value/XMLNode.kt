@@ -318,7 +318,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
         return this.nodeToString("  ", System.lineSeparator())
     }
 
-    private fun nodeToString(indent: String, lineSeparator: String, inheritedDefaultNamespace: String = ""): String {
+    private fun nodeToString(indent: String, lineSeparator: String, inheritedDefaultNamespace: String = "", leadingIndent: String = ""): String {
         val defaultNamespace = attributes["xmlns"]?.string ?: inheritedDefaultNamespace
         val serializedAttributes = if (attributes["xmlns"]?.string == "" && inheritedDefaultNamespace.isEmpty())
             attributes - "xmlns"
@@ -335,16 +335,16 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
 
         return when {
             childNodes.isEmpty() -> {
-                "<$realName$attributesString/>"
+                "$leadingIndent<$realName$attributesString/>"
             }
             else -> {
-                val firstLine = "<$realName$attributesString>"
+                val firstLine = "$leadingIndent<$realName$attributesString>"
                 val lastLine = "</$realName>"
 
                 val linesBetween = childNodes.map {
                     when(it) {
-                        is XMLNode -> it.nodeToString(indent, lineSeparator, defaultNamespace)
-                        is CDATAValue -> it.nodeToString(indent, lineSeparator)
+                        is XMLNode -> it.nodeToString(indent, lineSeparator, defaultNamespace, leadingIndent + indent)
+                        is CDATAValue -> leadingIndent + indent + it.nodeToString(indent, lineSeparator)
                         else -> it.toStringLiteral()
                     }
                 }
@@ -354,7 +354,8 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
                         firstLine + linesBetween.first() + lastLine
                     }
                     else -> {
-                        firstLine + lineSeparator + linesBetween.joinToString(lineSeparator).prependIndent(indent) + lineSeparator + lastLine
+                        // Indent XML structure during recursion, never lines inside scalar text.
+                        firstLine + lineSeparator + linesBetween.joinToString(lineSeparator) + lineSeparator + leadingIndent + lastLine
                     }
                 }
             }
