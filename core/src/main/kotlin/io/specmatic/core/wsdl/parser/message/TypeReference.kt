@@ -11,6 +11,7 @@ data class TypeReference(val child: XMLNode, val wsdl: WSDL): ChildElementType {
         val specmaticTypeName = toSpecmaticTypeName(wsdlTypeReference)
 
         val element = when {
+            child.isAnyTypeElement() -> AnyTypeElement(child, wsdl)
             hasSimpleTypeAttribute(child) -> SimpleElement(wsdlTypeReference, child, wsdl)
             else -> ReferredType(wsdlTypeReference, child, wsdl)
         }

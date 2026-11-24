@@ -115,6 +115,7 @@ private fun WSDLElement.isAbstractSubstitutionHead(): Boolean =
     when (this) {
         is ReferredType -> element.isAbstractGlobalElement()
         is SimpleElement -> element.isAbstractGlobalElement()
+        is AnyTypeElement -> element.attributes["abstract"]?.toStringLiteral() in setOf("true", "1")
         else -> false
     }
 
