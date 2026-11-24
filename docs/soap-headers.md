@@ -1,73 +1,28 @@
-# SOAP header presence in WSDL 1.1
+# SOAP header maintenance notes
 
-Specmatic treats a declared SOAP header block as optional unless a supported,
-applicable service-instance conformance claim makes it required. This is
-Specmatic's policy for the presence behavior that WSDL 1.1 leaves unspecified;
-it is not a requirement that WSDL makes headers optional.
+Keep block presence, XSD content validation and envelope Header presence separate.
+Optional-by-default is a deliberate Specmatic policy for WSDL 1.1 ambiguity.
+Do not restore binding `minOccurs` or port-type `required` shortcuts: a fixture
+using those attributes does not establish the presence policy.
 
-For example, declaring a `Session` block on a binding's `wsdl:input` allows a
-caller to omit `Session`. If the caller supplies it, Specmatic validates its
-entire XSD content, including required children, value constraints and XML
-namespaces. Output declarations independently control response validation.
-A request declaration does not declare the same block on the response. These
-rules also apply to header-only messages with an empty SOAP Body.
+Claim scope belongs to the selected service instance, not its shared binding.
+When changing import resolution or endpoint selection, keep the endpoint,
+binding and claim identity aligned. Basic Profile 1.1 messaging requirements
+apply to SOAP 1.1; matching version numbers alone do not establish applicability.
+Leave claims that do not establish requiredness silent: their presence alone is
+not a WSDL error.
 
-When all declared blocks are optional, both an absent SOAP `Header` and an empty
-`Header` are accepted. Generated positive tests exercise block presence and
-absence. Generated requests and mock responses omit the wrapper when no blocks
-are selected, and include it when blocks are selected. Explicit examples retain
-their chosen representation, including an empty wrapper and its attributes.
+Keep SOAP control metadata in `XMLTypeData` fields. Consume XML-node transport
+markers at the conversion boundary so pattern attribute maps and visitors cannot
+expose them as XML attributes. Preserve these fields through type resolution
+and both derivation paths.
 
-## Basic Profile 1.1 service-instance claims
+Schema-generated empty Header wrappers may be omitted; explicit examples must
+retain their chosen representation and meaningful attributes. Keep this handling
+SOAP-specific so generic XML matching is unaffected.
 
-For a SOAP 1.1 binding, a claim using the exact profile identifier
-`http://ws-i.org/profiles/basic/1.1` under the selected port's WSDL documentation
-makes its declared input and output header blocks required (Basic Profile 1.1,
-R2738):
-
-```xml
-<wsdl:service name="ExampleService">
-  <wsdl:port name="ExamplePort" binding="tns:ExampleBinding">
-    <wsdl:documentation>
-      <wsi:Claim xmlns:wsi="http://ws-i.org/schemas/conformanceClaim/"
-                 conformsTo="http://ws-i.org/profiles/basic/1.1"/>
-    </wsdl:documentation>
-    <soap:address location="http://localhost:9000/example"/>
-  </wsdl:port>
-</wsdl:service>
-```
-
-Here `wsdl` denotes `http://schemas.xmlsoap.org/wsdl/` and `soap` denotes
-`http://schemas.xmlsoap.org/wsdl/soap/`. Equivalent namespace prefixes work.
-The claim follows the selected port's binding references, including imports;
-it does not make headers required for another port sharing the binding.
-
-Description-only claims on a binding, port type, its operations, or a message
-do not establish service-instance header requiredness. Other profile versions
-are not inferred from similar identifiers or SOAP envelope versions. In
-particular, Basic Profile 1.1's messaging requirements apply to SOAP 1.1; the
-same claim on a SOAP 1.2 binding retains the optional fallback.
-
-Claims that do not establish header requiredness leave declared blocks optional,
-unless another supported applicable service-instance claim requires them.
-They load silently in both strict and lenient parsing. An unrelated claim never
-cancels a supported applicable claim.
-
-## Compatibility and migration
-
-Binding-level `soap:header/@minOccurs` and port-type header `required` shortcuts
-are no longer interpreted. XSD occurrence constraints inside the block remain
-in force. Use an applicable service-instance claim when the endpoint makes that
-profile commitment; otherwise omission is allowed.
-
-Backward compatibility checks retain these presence rules. Making a request
-header required narrows accepted requests; making a response header optional
-widens possible responses and can break existing consumers.
-
-Additional undeclared header blocks still fail matching. This change does not
-implement undeclared-header support, WS-Security, WS-Policy, or SOAP processing
-rules such as `mustUnderstand`.
-
-References: [WSDL 1.1 SOAP headers](https://www.w3.org/TR/wsdl.html#_soap:header),
-[Basic Profile 1.1](https://ws-i.org/Profiles/BasicProfile-1.1.html), and
-[Conformance Claim Attachment Mechanisms 1.0](https://www.ws-i.org/Profiles/ConformanceClaims-1.0-2004-11-15.html).
+Use the public WSDL loading, request/response matching, generation and
+compatibility seams covered by `SOAPHeader*Test` in the
+[WSDL tests](../core/src/test/kotlin/io/specmatic/core/wsdl/). Check both derivation
+overloads, shared-binding port isolation, supplied-content negatives and explicit
+empty-wrapper examples when changing these paths.
