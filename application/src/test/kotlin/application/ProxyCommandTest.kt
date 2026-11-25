@@ -138,6 +138,36 @@ class ProxyCommandTest {
         assertThat(cmd.capturedPort).isEqualTo(5000)
     }
 
+    @Test
+    fun `uses v3 listener certificate for the effective target origin`(@TempDir tempDir: File) {
+        val store = createEmptyKeyStore(tempDir.resolve("selected.jks"), "selected-test")
+        val configFile = writeSpecmaticYaml(tempDir, """
+            version: 3
+            proxies:
+              - proxy:
+                  target: https://default.example
+                  cert:
+                    keyStore:
+                      file: ${tempDir.resolve("unavailable.jks").absolutePath}
+              - proxy:
+                  target: https://selected.example:443
+                  cert:
+                    keyStorePassword: selected-test
+                    keyStore:
+                      file: ${store.absolutePath}
+                      alias: selected
+        """.trimIndent())
+
+        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            TestProxyCommand().apply {
+                targetBaseURL = "https://selected.example/service"
+                proxyDumpDirectory = tempDir.resolve("recordings")
+            }
+        }
+        assertThrows<ProxyStartedTestException> { cmd.call() }
+        assertThat(cmd.capturedKeyData?.keyAlias).isEqualTo("selected")
+    }
+
     private fun writeSpecmaticYaml(dir: File, content: String): File = dir.resolve("specmatic.yaml").also { it.writeText(content) }
 
     private fun createEmptyKeyStore(file: File, password: String): File {

@@ -6,11 +6,15 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.netty.handler.ssl.ClientAuth
+import io.netty.handler.ssl.SslContextBuilder
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.specmatic.core.*
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.HttpRequestFilterContext
 import io.specmatic.core.filters.HttpResponseFilterContext
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -32,6 +36,8 @@ import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.File
 import java.net.URI
+import java.security.PrivateKey
+import java.security.cert.X509Certificate
 import java.util.*
 
 fun interface RequestObserver {
@@ -114,6 +120,27 @@ class Proxy(
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
+    private val proxyTls = specmaticConfigInstance.resolveProxyTls(baseURL)
+    private val targetOrigin = ProxyTargetOrigin.from(baseURL)
+    private val clientKeyData = proxyTls.clientCert?.loadKeyData()
+    private val incomingMtlsContext = if (proxyTls.cert?.isMtlsEnabled() == true) {
+        if (keyData == null) {
+            throw ContractException("Incoming proxy mTLS requires HTTPS server key material")
+        }
+        val privateKey = keyData.keyStore.getKey(keyData.keyAlias, keyData.keyPassword.toCharArray()) as? PrivateKey
+            ?: throw ContractException("Incoming proxy mTLS requires a private key for alias '${keyData.keyAlias}'")
+        val certificateChain = keyData.keyStore.getCertificateChain(keyData.keyAlias)
+            ?.map { it as X509Certificate }
+            ?: throw ContractException("Incoming proxy mTLS requires a certificate chain for alias '${keyData.keyAlias}'")
+        SslContextBuilder.forServer(privateKey, *certificateChain.toTypedArray())
+            .trustManager(InsecureTrustManagerFactory.INSTANCE)
+            .clientAuth(ClientAuth.REQUIRE)
+            .build()
+    } else {
+        null
+    }
+    val listenerScheme: String = if (keyData == null) "http" else "https"
+
     private val isRecordingEnabled = specmaticConfigInstance.isProxyRecordEnabled() ?: true
     private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
     private val exampleTransformer = ExampleTransformer.from(
@@ -217,10 +244,15 @@ class Proxy(
                                         } ?: httpRequest
 
                                     // continue as before, if not matching filter
+                                    val forwardingBaseUrl = proxyURL(httpRequest, baseURL)
+                                    val forwardingKeyData = clientKeyData?.takeIf {
+                                        ProxyTargetOrigin.from(requestToSend.getURL(forwardingBaseUrl)) == targetOrigin
+                                    }
                                     val httpResponse =
                                         HttpClient(
-                                            proxyURL(httpRequest, baseURL),
+                                            forwardingBaseUrl,
                                             timeoutInMilliseconds = timeoutInMilliseconds,
+                                            keyData = forwardingKeyData,
                                         ).use { client ->
                                             client
                                                 .execute(requestToSend)
@@ -317,8 +349,8 @@ class Proxy(
                 }
             }
 
-            when (keyData) {
-                null ->
+            when {
+                keyData == null || incomingMtlsContext != null ->
                     connector {
                         this.host = host
                         this.port = port
@@ -329,7 +361,7 @@ class Proxy(
                         keyStore = keyData.keyStore,
                         keyAlias = keyData.keyAlias,
                         privateKeyPassword = { keyData.keyPassword.toCharArray() },
-                        keyStorePassword = { keyData.keyPassword.toCharArray() },
+                        keyStorePassword = { keyData.keyStorePassword.toCharArray() },
                     ) {
                         this.host = host
                         this.port = port
@@ -366,6 +398,11 @@ class Proxy(
             this.callGroupSize = 5
             this.connectionGroupSize = 20
             this.workerGroupSize = 20
+            incomingMtlsContext?.let { context ->
+                this.channelPipelineConfig = {
+                    addFirst("ssl", context.newHandler(channel().alloc()))
+                }
+            }
         })
 
     private fun proxyURL(

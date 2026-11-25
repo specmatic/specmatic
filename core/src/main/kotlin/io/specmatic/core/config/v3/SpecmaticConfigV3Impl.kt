@@ -81,6 +81,7 @@ import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.SuccessCriterion
 import io.specmatic.core.defaultReportDirPath
 import io.specmatic.core.normalizeFilesystemSpecificationPath
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.FileAssociation
@@ -107,6 +108,8 @@ import io.specmatic.core.utilities.LocalFileSystemSource
 import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
+import io.specmatic.proxy.ProxyTargetOrigin
+import io.specmatic.proxy.ProxyTlsConfig
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
@@ -625,6 +628,19 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     override fun getProxyConfig(): ProxyConfig? {
         val proxyConfig = specmaticConfig.proxies?.firstOrNull()?.proxy ?: return null
         return proxyConfig.toCommonConfig(resolver)
+    }
+
+    internal fun resolveProxyTls(origin: ProxyTargetOrigin): ProxyTlsConfig {
+        val matches = specmaticConfig.proxies.orEmpty().filter { ProxyTargetOrigin.from(it.proxy.target) == origin }
+        if (matches.size > 1) {
+            throw ContractException("Multiple proxy entries match the effective target origin ${origin.scheme}://${origin.host}:${origin.port}")
+        }
+        val proxy = matches.singleOrNull()?.proxy
+        val configDirectory = if (file == null) effectiveWorkingFile else effectiveWorkingFile.parentFile
+        return ProxyTlsConfig(
+            cert = proxy?.cert?.resolveElseThrow(resolver),
+            clientCert = proxy?.clientCert?.resolveFile(configDirectory),
+        )
     }
 
     override fun getDefaultPatternValues(): Map<String, Any> {
