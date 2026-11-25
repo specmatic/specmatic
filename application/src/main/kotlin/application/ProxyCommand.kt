@@ -122,6 +122,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
         val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
         val fromConfig = specmaticConfig.resolveProxyTls(effectiveTarget).cert
+        if (fromConfig == null && configProxy.getHttpsConfig() != null) {
+            throw ContractException("No listener certificate is configured for the effective proxy target. Add a matching proxy entry with cert settings.")
+        }
         val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
         return createProxy(
             filter = filter,

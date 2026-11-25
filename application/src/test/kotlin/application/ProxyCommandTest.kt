@@ -139,6 +139,25 @@ class ProxyCommandTest {
     }
 
     @Test
+    fun `rejects a v3 target override that would drop the configured HTTPS listener`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticYaml(tempDir, """
+            version: 3
+            proxies:
+              - proxy:
+                  target: https://default.example
+                  cert:
+                    keyStore:
+                      file: listener.jks
+        """.trimIndent())
+        val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            TestProxyCommand().apply { targetBaseURL = "https://different.example" }
+        }
+
+        val error = assertThrows<ContractException> { cmd.call() }
+        assertThat(error.report()).contains("No listener certificate is configured")
+    }
+
+    @Test
     fun `uses v3 listener certificate for the effective target origin`(@TempDir tempDir: File) {
         val store = createEmptyKeyStore(tempDir.resolve("selected.p12"), "selected-test", type = "PKCS12")
         val configFile = writeSpecmaticYaml(tempDir, """
