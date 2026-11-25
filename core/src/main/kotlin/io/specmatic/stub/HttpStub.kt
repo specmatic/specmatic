@@ -16,6 +16,7 @@ import io.ktor.util.pipeline.*
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.swagger.v3.core.util.Yaml
+import io.specmatic.core.incomingMtlsContextBuilder
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
@@ -94,15 +95,12 @@ import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import io.specmatic.test.normalizedContentType
 import io.specmatic.test.internalHeadersToKtorHeaders
-import io.netty.handler.ssl.ClientAuth
 import io.netty.handler.ssl.ApplicationProtocolConfig
 import io.netty.handler.ssl.ApplicationProtocolNames
 import io.netty.handler.ssl.SslContext
-import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslHandler
 import io.netty.handler.ssl.SslProvider
 import io.netty.handler.ssl.SupportedCipherSuiteFilter
-import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.codec.http2.Http2SecurityUtil
 import io.specmatic.core.lifecycle.SpecmaticLifecycle
 import io.specmatic.core.utilities.FileAssociation
@@ -126,8 +124,6 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-import java.security.PrivateKey
-import java.security.cert.X509Certificate
 import kotlin.math.max
 import kotlin.text.toCharArray
 
@@ -786,12 +782,7 @@ class HttpStub(
     }
 
     private fun incomingMtlsServerContext(keyData: KeyData): SslContext {
-        @Suppress("UNCHECKED_CAST")
-        val certificateChain = keyData.keyStore.getCertificateChain(keyData.keyAlias).toList() as List<X509Certificate>
-        val privateKey = keyData.keyStore.getKey(keyData.keyAlias, keyData.keyPassword.toCharArray()) as PrivateKey
-        val sslContextBuilder = SslContextBuilder.forServer(privateKey, *certificateChain.toTypedArray())
-            .trustManager(InsecureTrustManagerFactory.INSTANCE)
-            .clientAuth(ClientAuth.REQUIRE)
+        val sslContextBuilder = incomingMtlsContextBuilder(keyData)
 
         findAlpnProvider()?.let { alpnProvider ->
             sslContextBuilder.sslProvider(alpnProvider)
