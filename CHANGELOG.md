@@ -50,7 +50,7 @@ Each release section should stand on its own and describe the behavior shipped i
 
 - Backward-compatibility checks use parsed V3 configuration to determine which OpenAPI specifications are eligible, avoiding standalone checks of config-defined or otherwise ineligible specifications.
 - HTTP mocks decode gzip request bodies before parsing and schema matching, including JSON, URL-encoded forms, and multipart forms.
-- Specmatic uses shared reporter parsing APIs for JSON, YAML, and OpenAPI inputs, applying the reporter's common input size limit.
+- Specmatic uses shared reporter parsing APIs for JSON, YAML, and OpenAPI inputs, applying the reporter's common input size limit of 25 Mi code points.
 - Insights reports include the reporter's latest customer-facing updates: mock fixture results in CTRF reports, shared parsing APIs for specification metadata, Insights publishing readiness, typed server and client metadata, and Arazzo recognition.
 
 ### Fixed
