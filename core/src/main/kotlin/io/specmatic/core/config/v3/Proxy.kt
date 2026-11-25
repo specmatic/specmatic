@@ -21,6 +21,7 @@ data class ProxyConfigV3(
     val mock: List<String>? = null,
     val cert: RefOrValue<HttpsConfiguration>? = null,
     val recordingsDirectory: String? = null,
+    val clientCert: ProxyClientCertificate? = null,
 ) {
     internal fun validate(context: ValidationContext): List<ConfigValidationOutput> {
         val adaptersOutput = adapters?.let { reference ->
@@ -43,6 +44,7 @@ data class ProxyConfigV3(
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ProxyConfigV3  {
         return copy(
             cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },
+            clientCert = clientCert?.mapPaths(mapper.child("clientCert"), configDirectory),
             adapters = adapters?.mapValue { it.mapPaths(mapper.child("adapters"), configDirectory) },
             mock = mock?.mapIndexed { i, path ->
                 mapper.child("mock").child(i).map(path, configDirectory)

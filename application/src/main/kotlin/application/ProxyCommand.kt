@@ -21,6 +21,7 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.proxy.Proxy
+import io.specmatic.proxy.resolveProxyTls
 import io.specmatic.stub.SpecmaticConfigSource
 import picocli.CommandLine.*
 import java.io.File
@@ -104,17 +105,13 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         configureLogging(LoggingFromOpts(debug = debugLog))
         val configSource = specmaticConfigSource()
         val specmaticConfigLoaded = configSource.load().config
-        val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
-        val fromConfig = specmaticConfigLoaded.getProxyConfig()?.getHttpsConfig()
-        val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
-
-        proxy = createProxyServer(specmaticConfigLoaded, keyStoreData, configSource)
+        proxy = createProxyServer(specmaticConfigLoaded, configSource)
         registerShutdown()
         logger.boundary()
         while(true) sleep(10000)
     }
 
-    private fun createProxyServer(specmaticConfig: SpecmaticConfig, keyStoreData: KeyData?, configSource: SpecmaticConfigSource): Proxy {
+    private fun createProxyServer(specmaticConfig: SpecmaticConfig, configSource: SpecmaticConfigSource): Proxy {
         val configProxy = specmaticConfig.getProxyConfig() ?: ProxyConfig(targetUrl = "")
         val effectiveHost = host ?: configProxy.getHostOrDefault()
         val effectivePort = port.takeUnless { it == 0 || it == -1 } ?: configProxy.getPortOrDefault()
@@ -123,6 +120,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         val effectiveTarget = targetBaseURL?.takeUnless(String::isBlank) ?: configProxy.getTargetUrl {
             throw ContractException("Proxy targetURL must be provided through CLI or Specmatic Config")
         }
+        val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
+        val fromConfig = specmaticConfig.resolveProxyTls(effectiveTarget).cert
+        val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
         return createProxy(
             filter = filter,
             host = effectiveHost,
