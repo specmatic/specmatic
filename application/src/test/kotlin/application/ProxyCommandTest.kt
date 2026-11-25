@@ -140,7 +140,7 @@ class ProxyCommandTest {
 
     @Test
     fun `uses v3 listener certificate for the effective target origin`(@TempDir tempDir: File) {
-        val store = createEmptyKeyStore(tempDir.resolve("selected.jks"), "selected-test")
+        val store = createEmptyKeyStore(tempDir.resolve("selected.p12"), "selected-test", type = "PKCS12")
         val configFile = writeSpecmaticYaml(tempDir, """
             version: 3
             proxies:
@@ -170,8 +170,8 @@ class ProxyCommandTest {
 
     private fun writeSpecmaticYaml(dir: File, content: String): File = dir.resolve("specmatic.yaml").also { it.writeText(content) }
 
-    private fun createEmptyKeyStore(file: File, password: String): File {
-        val keyStore = KeyStore.getInstance("JKS")
+    private fun createEmptyKeyStore(file: File, password: String, type: String = "JKS"): File {
+        val keyStore = KeyStore.getInstance(type)
         keyStore.load(null, password.toCharArray())
         FileOutputStream(file).use { keyStore.store(it, password.toCharArray()) }
         return file

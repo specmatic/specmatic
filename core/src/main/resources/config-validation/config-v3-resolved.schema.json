@@ -1028,6 +1028,24 @@
           "title": "Proxy certificate",
           "description": "TLS certificate settings or a reference to a named certificate."
         },
+        "clientCert": {
+          "type": "object",
+          "title": "Target client certificate",
+          "description": "Client certificate and private key presented by the proxy to its configured target.",
+          "additionalProperties": false,
+          "required": [
+            "keyStore"
+          ],
+          "properties": {
+            "keyStore": {
+              "$ref": "#/definitions/KeyStoreFileConfiguration"
+            },
+            "keyStorePassword": {
+              "type": "string",
+              "title": "Keystore password"
+            }
+          }
+        },
         "recordingsDirectory": {
           "type": "string",
           "title": "Recordings directory",
