@@ -2187,6 +2187,12 @@ class ConfigSchemaValidationTest {
                 proxies:
                   - proxy:
                       target: https://one.example.test
+                      clientCert:
+                        keyStore:
+                          file: outbound.p12
+                          alias: proxy-client
+                          password: example-key-password
+                        keyStorePassword: example-store-password
                   - proxy:
                       target: https://two.example.test
                 mcp:

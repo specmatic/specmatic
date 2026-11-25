@@ -38,7 +38,7 @@ class SpecmaticProxyMtlsTest {
         val recorderPort = testPort(1)
         val target = "https://localhost:$targetPort"
         val recorder = "https://localhost:$recorderPort"
-        val server = identity("recorder")
+        identity("recorder")
         val caller = if (incomingMtls) identity("caller") else null
         val clientCert = if (outgoingMtls) {
             identity("upstream-client")
@@ -52,12 +52,15 @@ class SpecmaticProxyMtlsTest {
                   target: $target/ignored-path
                   cert:
                     mtlsEnabled: $incomingMtls
+                    keyStorePassword: fixture-password
                     keyStore:
                       file: recorder.jks
+                      alias: recorder
+                      password: fixture-password
         """.trimIndent() + clientCert)
 
         targetStub(targetPort, outgoingMtls).use {
-            startProxy(recorderPort, target, server, configSource).use {
+            startProxy(recorderPort, target, configSource).use {
                 if (incomingMtls) {
                     HttpClient(recorder).use { client ->
                         assertThrows<IOException> { client.execute(HttpRequest("GET", "/hello")) }
@@ -187,14 +190,12 @@ class SpecmaticProxyMtlsTest {
     private fun startProxy(
         port: Int,
         target: String,
-        server: KeyData? = null,
         configSource: SpecmaticConfigSource,
     ) = Proxy(
         host = "localhost",
         port = port,
         baseURL = target,
         proxySpecmaticDataDir = tempDir.resolve("recordings").path,
-        keyData = server,
         timeoutInMilliseconds = 6000,
         filter = "",
         specmaticConfigSource = configSource,
