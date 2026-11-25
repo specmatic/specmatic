@@ -35,7 +35,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest, self-hosted-mac, self-hosted-windows ]
+        os: [ ubuntu-latest, self-hosted-mac, self-hosted-windows ]
     runs-on: ${{ matrix.os }}
     env:
       SPECMATIC_MCP_E2E_ENABLED: ${{ matrix.os == 'self-hosted-mac' }}
