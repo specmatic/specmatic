@@ -51,7 +51,8 @@ data class LocalFileSystemSource(
                 specificationPath = normalizedSpecificationPath,
                 baseUrl = it.baseUrl,
                 generative = it.generative,
-                exampleDirPaths = it.exampleDirPaths
+                exampleDirPaths = it.exampleDirPaths,
+                supportingInterface = it.supportingInterface,
             )
         }
     }

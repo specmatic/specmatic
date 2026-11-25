@@ -198,6 +198,12 @@ components:
     Fixture:
       oneOf:
         - $ref: "#/components/schemas/HttpFixture"
+        - $ref: "#/components/schemas/MockFixture"
+      discriminator:
+        propertyName: type
+        mapping:
+          http: "#/components/schemas/HttpFixture"
+          mock: "#/components/schemas/MockFixture"
 
     MultiPartFormData:
       oneOf:
@@ -283,13 +289,9 @@ components:
         - name
         - filename
 
-    HttpFixture:
+    FixtureCommon:
       type: object
       properties:
-        type:
-          type: string
-          enum:
-            - http
         wait:
           $ref: "#/components/schemas/DurationString"
         timeout:
@@ -298,14 +300,48 @@ components:
           $ref: "#/components/schemas/Retry"
         executeFor:
           $ref: "#/components/schemas/FixtureExecuteFor"
-        http-request:
-          $ref: "#/components/schemas/HTTPFixtureRequest"
-        http-response:
-          $ref: "#/components/schemas/HTTPFixtureResponse"
+
+    HttpFixture:
+      properties:
+        type:
+          type: string
+          enum:
+            - http
       required:
         - type
-        - http-request
-        - http-response
+      allOf:
+        - $ref: "#/components/schemas/FixtureCommon"
+        - type: object
+          properties:
+            http-request:
+              $ref: "#/components/schemas/HTTPFixtureRequest"
+            http-response:
+              $ref: "#/components/schemas/HTTPFixtureResponse"
+          required:
+            - http-request
+            - http-response
+
+    MockFixture:
+      allOf:
+        - $ref: "#/components/schemas/FixtureCommon"
+        - type: object
+          additionalProperties: true
+          properties:
+            type:
+              type: string
+              enum:
+                - mock
+            id:
+              type: string
+            exampleIds:
+              type: array
+              minItems: 1
+              items:
+                type: string
+          required:
+            - type
+            - id
+            - exampleIds
 
     Retry:
       type: object

@@ -2,6 +2,9 @@
 
 Terms used to describe API contracts and their compatibility checks.
 
+**Supporting interface**:
+An additional interface exposed by the system under test. Its contract is excluded from automatic standalone testing and can be exercised through side effects, examples, or explicit test selection.
+
 ## WSDL contracts
 
 **WSDL document**:
@@ -73,3 +76,16 @@ The total number of properties present in an object, including declared properti
 
 **Satisfiable object schema**:
 An object schema for which at least one object satisfies all its constraints together, including required properties, property-count bounds and restrictions on additional properties.
+
+## Fixtures
+
+**Mock fixture**:
+A fixture attached to a before or after hook that selects examples from a configured mock specification to execute as part of a contract test.
+
+## HTTP stubbing
+
+**Example match**:
+A stub example that satisfies the matching rules for an incoming request. A request can match multiple examples.
+
+**Example consumption**:
+The committed use of a selected stub example to answer one request. A reusable example can be consumed once per request it serves.

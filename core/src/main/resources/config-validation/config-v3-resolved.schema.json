@@ -442,6 +442,10 @@
             "orders.yaml"
           ]
         },
+        "supportingInterface": {
+          "type": "boolean",
+          "description": "Marks this specification as a supporting interface of the service"
+        },
         "urlPathPrefix": {
           "type": "string",
           "title": "URL path prefix",

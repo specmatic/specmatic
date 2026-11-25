@@ -131,6 +131,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         specmaticConfig.systemUnderTest?.getSettings(globalTestSettings, resolver) ?: globalTestSettings ?: TestSettings()
     }
 
+    fun getMockSpecificationFor(specId: String): File? {
+        return specmaticConfig.dependencies?.getSpecification(specId, resolver)
+    }
+
     private fun getMockService(specFile: File): CommonServiceConfig<MockRunOptions, MockSettings>? {
         return specmaticConfig.dependencies?.getService(specFile, resolver)
     }

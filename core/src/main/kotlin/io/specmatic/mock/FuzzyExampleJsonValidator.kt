@@ -13,7 +13,9 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.utilities.capitalizeFirstChar
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 class NoLogPrinter: CompositePrinter() {
@@ -83,7 +85,7 @@ object FuzzyExampleJsonValidator {
     fun matches(value: JSONObjectValue): Result {
         return try {
             val examplePattern = resolvePatternToUse(value.jsonObject)
-            examplePattern.matches(value, resolver)
+            examplePattern.matches(value, resolver).withNonEmptyMockFixtures(value)
         } catch (e: Exception) {
             logger.log(e, "Unexpected error during External Example validation")
             Result.Failure("Critical internal error validating external example: ${e.message}")
@@ -104,6 +106,24 @@ object FuzzyExampleJsonValidator {
             logger.log(e, "Unexpected error during inline example validation")
             Result.Failure("Critical internal error validating inline example: ${e.message}")
         }
+    }
+
+    // TODO: Temporary workaround until we have a proper support for minItems in array schema
+    private fun Result.withNonEmptyMockFixtures(value: JSONObjectValue): Result {
+        val failures = listOf(BEFORE_FIXTURES, AFTER_FIXTURES).flatMap { hook ->
+            val fixtures = value.jsonObject[hook] as? JSONArrayValue
+            fixtures?.list.orEmpty().mapIndexedNotNull { index, fixture ->
+                val fields = (fixture as? JSONObjectValue)?.jsonObject ?: return@mapIndexedNotNull null
+                val exampleIds = fields["exampleIds"] as? JSONArrayValue
+                if (fields["type"] != StringValue("mock") || exampleIds?.list?.isEmpty() != true) {
+                    return@mapIndexedNotNull null
+                }
+
+                Result.Failure("Expected at least one example ID").breadCrumb("$hook[$index].exampleIds")
+            }
+        }
+
+        return Result.fromResults(listOf(this).plus(failures))
     }
 
     fun fix(value: JSONObjectValue): JSONObjectValue {

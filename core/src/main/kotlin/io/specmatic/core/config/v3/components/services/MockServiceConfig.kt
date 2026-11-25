@@ -74,6 +74,19 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
     )
 
     @JsonIgnore
+    fun getSpecification(specId: String, resolver: RefOrValueResolver): File? {
+        return services.firstNotNullOfOrNull { service ->
+            val serviceConfig = service.service.resolveElseThrow(resolver)
+            serviceConfig.definitions.firstNotNullOfOrNull { entry ->
+                val definition = entry.definition
+                definition.specs
+                    .firstOrNull { it.getSpecificationId() == specId }
+                    ?.toFile(definition.source.resolveElseThrow(resolver))
+            }
+        }
+    }
+
+    @JsonIgnore
     fun getService(specFile: File, resolver: RefOrValueResolver): CommonServiceConfig<MockRunOptions, MockSettings>? {
         return this.services.firstOrNull { service ->
             val serviceConfig = service.service.resolveElseThrow(resolver)

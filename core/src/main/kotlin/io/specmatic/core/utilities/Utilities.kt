@@ -20,6 +20,7 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.reporter.model.SpecType
 import org.eclipse.jgit.api.TransportConfigCallback
 import org.eclipse.jgit.transport.SshTransport
 import org.eclipse.jgit.transport.TransportHttp
@@ -366,6 +367,7 @@ data class ContractPathData(
     val port: Int? = null,
     val lenientMode: Boolean? = null,
     val exampleDirPaths: List<String>? = null,
+    val supportingInterface: Boolean = false,
 ) {
     companion object {
         fun List<ContractPathData>.specToBaseUrlMap(): Map<String, String?> = this.associate { File(it.path).path to it.baseUrl }
@@ -617,4 +619,19 @@ fun LogStrategy.isolateInstanceForInfoLogModification(): LogStrategy {
             if (infoLoggingEnabled) this@isolateInstanceForInfoLogModification.log(msg)
         }
     }
+}
+
+fun List<ContractPathData>.runnableContractsOrThrowIfAllSupporting(specType: SpecType): List<ContractPathData> {
+    val (supportingInterfaces, runnableContracts) = this.partition { it.supportingInterface }
+    if (runnableContracts.isEmpty() && supportingInterfaces.isNotEmpty()) {
+        throw ContractException("""
+        No runnable contracts were found.
+        Every configured ${specType.value} contract has supportingInterface set to true.
+        Set supportingInterface to false for at least one contract to run it as a standalone test.
+        Supporting contracts:
+        ${supportingInterfaces.joinToString("\n        ") { "  - ${it.path}" }}
+        """.trimIndent())
+    }
+
+    return runnableContracts
 }

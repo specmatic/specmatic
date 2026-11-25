@@ -60,13 +60,14 @@ class ResolvedWebSourceTest {
         try {
             val source = ResolvedWebSource(
                 baseUrl = "http://localhost:$port/specifications",
-                testContracts = listOf("spec1.yaml").toContractSourceEntries(),
+                testContracts = listOf(ContractSourceEntry("spec1.yaml", supportingInterface = true)),
                 stubContracts = emptyList()
             )
 
             val contractData = source.loadContracts({ it.testContracts }, directory.path, directory.resolve("specmatic.yaml").path)
 
             assertThat(contractData.single().path).endsWith("spec1.yaml")
+            assertThat(contractData.single().supportingInterface).isTrue()
             assertThat(File(contractData.single().path).readText()).isEqualTo("openapi: 3.0.0")
         } finally {
             server.stop(0, 0)

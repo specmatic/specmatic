@@ -47,6 +47,7 @@ import io.specmatic.test.reports.coverage.Endpoint
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
@@ -155,6 +156,165 @@ class SpecmaticJunitSupportTest {
             }
         }
     }
+
+    @Nested
+    inner class SupportingInterfaces {
+        @Test
+        fun `contractTest runs OpenAPI scenarios only from non supporting interfaces`(@TempDir tempDir: File) {
+            val regularSpec = tempDir.resolve("regular.yaml").apply {
+                writeText(openApiSpec("Regular API", "/regular", "regular"))
+            }
+
+            tempDir.resolve("supporting.yaml").writeText(openApiSpec("Supporting API", "/supporting", "supporting"))
+            val configFile = writeConfig(
+                tempDir,
+                SpecificationDefinition.Specification(path = regularSpec.name),
+                SpecificationDefinition.Specification(path = "supporting.yaml", supportingInterface = true),
+            )
+
+            MockHttpServer().use { server ->
+                var regularRequests = 0
+                server.on("/regular", "GET") {
+                    regularRequests++
+                    respond(HttpResponse(status = 200, body = parsedJsonValue("""{"value":"regular"}""")))
+                }
+
+                val settings = ContractTestSettings(generative = false, testBaseURL = server.baseUrl, configFile = configFile.canonicalPath)
+                withContractTestSettings(settings) {
+                    val tests = SpecmaticJUnitSupport().contractTest().toList()
+                    assertThat(tests.map { it.displayName })
+                        .hasSize(1)
+                        .allSatisfy { assertThat(it).contains("GET /regular").doesNotContain("/supporting") }
+
+                    tests.single().executable.execute()
+                    assertThat(regularRequests).isEqualTo(1)
+                }
+            }
+        }
+
+        @Test
+        fun `contractTest reports supporting interfaces when no runnable OpenAPI contracts exist`(@TempDir tempDir: File) {
+            tempDir.resolve("supporting.yaml").writeText(openApiSpec("Supporting API", "/supporting", "supporting"))
+            val configFile = writeConfig(
+                tempDir,
+                SpecificationDefinition.Specification(path = "supporting.yaml", supportingInterface = true),
+            )
+
+            withContractTestSettings(ContractTestSettings(configFile = configFile.canonicalPath)) {
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+                assertThat(tests).hasSize(1)
+
+                val error = assertThrows<AssertionError> { tests.single().executable.execute() }
+                assertThat(error.message).isEqualTo(
+                    """
+                    No runnable contracts were found.
+                    Every configured openapi contract has supportingInterface set to true.
+                    Set supportingInterface to false for at least one contract to run it as a standalone test.
+                    Supporting contracts:
+                      - ${tempDir.resolve("supporting.yaml").canonicalPath}
+                    """.trimIndent()
+                )
+            }
+        }
+
+        @Test
+        fun `contractTest runs a directly selected supporting interface`(@TempDir tempDir: File) {
+            val supportingSpec = tempDir.resolve("supporting.yaml").apply {
+                writeText(openApiSpec("Supporting API", "/supporting", "supporting"))
+            }
+
+            val configFile = writeConfig(
+                tempDir,
+                SpecificationDefinition.Specification(path = supportingSpec.name, supportingInterface = true),
+            )
+
+            MockHttpServer().use { server ->
+                var supportingRequests = 0
+                server.on("/supporting", "GET") {
+                    supportingRequests++
+                    respond(HttpResponse(status = 200, body = parsedJsonValue("""{"value":"supporting"}""")))
+                }
+
+                withContractTestSettings(
+                    ContractTestSettings(
+                        generative = false,
+                        testBaseURL = server.baseUrl,
+                        configFile = configFile.canonicalPath,
+                        contractPaths = supportingSpec.canonicalPath,
+                    )
+                ) {
+                    val tests = SpecmaticJUnitSupport().contractTest().toList()
+                    assertThat(tests.map { it.displayName })
+                        .hasSize(1)
+                        .allSatisfy { assertThat(it).contains("GET /supporting") }
+
+                    tests.single().executable.execute()
+                    assertThat(supportingRequests).isEqualTo(1)
+                }
+            }
+        }
+
+        private fun writeConfig(tempDir: File, vararg specs: SpecificationDefinition.Specification): File {
+            val source = SourceV3(
+                git = null,
+                web = null,
+                fileSystem = SourceV3.FileSystem(directory = tempDir.canonicalPath),
+            )
+
+            val definition = Definition(
+                Definition.Value(
+                    source = RefOrValue.Value(source),
+                    specs = specs.map(SpecificationDefinition::ObjectValue),
+                )
+            )
+
+            val service = CommonServiceConfig<TestRunOptions, TestSettings>(definitions = listOf(definition))
+            val config = SpecmaticConfigV3(
+                version = SpecmaticConfigVersion.VERSION_3,
+                systemUnderTest = TestServiceConfig(RefOrValue.Value(service)),
+            )
+
+            return tempDir.resolve("specmatic.yaml").apply {
+                writeText(yamlMapper.writeValueAsString(config))
+            }
+        }
+
+        private fun withContractTestSettings(settings: ContractTestSettings, block: () -> Unit) {
+            SpecmaticJUnitSupport.settingsStaging.set(settings)
+            try {
+                block()
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    private fun openApiSpec(title: String, path: String, value: String) =
+    """
+    openapi: 3.0.3
+    info:
+      title: $title
+      version: 1.0.0
+    paths:
+      $path:
+        get:
+          responses:
+            '200':
+              description: OK
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      value:
+                        type: string
+                    required:
+                      - value
+                  examples:
+                    example:
+                      value:
+                        value: $value
+    """.trimIndent()
 
     @Test
     fun `without agentMode HttpClient traffic dumps still appear`(@TempDir tempDir: File) {
