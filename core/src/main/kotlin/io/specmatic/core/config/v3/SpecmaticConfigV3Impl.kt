@@ -52,6 +52,7 @@ import io.specmatic.core.WorkflowDetails
 import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.BackwardCompatibilityConfig
 import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.KeyStoreConfiguration
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.MockMode
@@ -638,10 +639,17 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         val proxy = matches.singleOrNull()?.proxy
         val configDirectory = if (file == null) effectiveWorkingFile else effectiveWorkingFile.parentFile
         return ProxyTlsConfig(
-            cert = proxy?.cert?.resolveElseThrow(resolver),
+            cert = proxy?.cert?.resolveElseThrow(resolver)?.resolveKeyStorePath(configDirectory),
             clientCert = proxy?.clientCert?.resolveFile(configDirectory),
         )
     }
+
+    private fun HttpsConfiguration.resolveKeyStorePath(configDirectory: File): HttpsConfiguration =
+        copy(keyStore = when (val store = keyStore) {
+            is KeyStoreConfiguration.FileBasedConfig -> store.copy(file = configDirectory.resolve(store.file).path)
+            is KeyStoreConfiguration.DirectoryBasedConfig -> store.copy(directory = configDirectory.resolve(store.directory).path)
+            else -> store
+        })
 
     override fun getDefaultPatternValues(): Map<String, Any> {
         return emptyMap()

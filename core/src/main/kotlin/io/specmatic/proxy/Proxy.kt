@@ -123,15 +123,16 @@ class Proxy(
     private val proxyTls = specmaticConfigInstance.resolveProxyTls(baseURL)
     private val targetOrigin = ProxyTargetOrigin.from(baseURL)
     private val clientKeyData = proxyTls.clientCert?.loadKeyData()
+    private val serverKeyData = keyData ?: proxyTls.cert?.toKeyData(aliasSuffix = "proxy")
     private val incomingMtlsContext = if (proxyTls.cert?.isMtlsEnabled() == true) {
-        if (keyData == null) {
+        if (serverKeyData == null) {
             throw ContractException("Incoming proxy mTLS requires HTTPS server key material")
         }
-        val privateKey = keyData.keyStore.getKey(keyData.keyAlias, keyData.keyPassword.toCharArray()) as? PrivateKey
-            ?: throw ContractException("Incoming proxy mTLS requires a private key for alias '${keyData.keyAlias}'")
-        val certificateChain = keyData.keyStore.getCertificateChain(keyData.keyAlias)
+        val privateKey = serverKeyData.keyStore.getKey(serverKeyData.keyAlias, serverKeyData.keyPassword.toCharArray()) as? PrivateKey
+            ?: throw ContractException("Incoming proxy mTLS requires a private key for alias '${serverKeyData.keyAlias}'")
+        val certificateChain = serverKeyData.keyStore.getCertificateChain(serverKeyData.keyAlias)
             ?.map { it as X509Certificate }
-            ?: throw ContractException("Incoming proxy mTLS requires a certificate chain for alias '${keyData.keyAlias}'")
+            ?: throw ContractException("Incoming proxy mTLS requires a certificate chain for alias '${serverKeyData.keyAlias}'")
         SslContextBuilder.forServer(privateKey, *certificateChain.toTypedArray())
             .trustManager(InsecureTrustManagerFactory.INSTANCE)
             .clientAuth(ClientAuth.REQUIRE)
@@ -139,7 +140,7 @@ class Proxy(
     } else {
         null
     }
-    val listenerScheme: String = if (keyData == null) "http" else "https"
+    val listenerScheme: String = if (serverKeyData == null) "http" else "https"
 
     private val isRecordingEnabled = specmaticConfigInstance.isProxyRecordEnabled() ?: true
     private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
@@ -350,7 +351,7 @@ class Proxy(
             }
 
             when {
-                keyData == null || incomingMtlsContext != null ->
+                serverKeyData == null || incomingMtlsContext != null ->
                     connector {
                         this.host = host
                         this.port = port
@@ -358,10 +359,10 @@ class Proxy(
 
                 else ->
                     sslConnector(
-                        keyStore = keyData.keyStore,
-                        keyAlias = keyData.keyAlias,
-                        privateKeyPassword = { keyData.keyPassword.toCharArray() },
-                        keyStorePassword = { keyData.keyStorePassword.toCharArray() },
+                        keyStore = serverKeyData.keyStore,
+                        keyAlias = serverKeyData.keyAlias,
+                        privateKeyPassword = { serverKeyData.keyPassword.toCharArray() },
+                        keyStorePassword = { serverKeyData.keyStorePassword.toCharArray() },
                     ) {
                         this.host = host
                         this.port = port
