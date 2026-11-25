@@ -6,9 +6,6 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.netty.handler.ssl.ClientAuth
-import io.netty.handler.ssl.SslContextBuilder
-import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.specmatic.core.*
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.HttpRequestFilterContext
@@ -36,8 +33,6 @@ import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.File
 import java.net.URI
-import java.security.PrivateKey
-import java.security.cert.X509Certificate
 import java.util.*
 
 fun interface RequestObserver {
@@ -128,15 +123,7 @@ class Proxy(
         if (serverKeyData == null) {
             throw ContractException("Incoming proxy mTLS requires HTTPS server key material")
         }
-        val privateKey = serverKeyData.keyStore.getKey(serverKeyData.keyAlias, serverKeyData.keyPassword.toCharArray()) as? PrivateKey
-            ?: throw ContractException("Incoming proxy mTLS requires a private key for alias '${serverKeyData.keyAlias}'")
-        val certificateChain = serverKeyData.keyStore.getCertificateChain(serverKeyData.keyAlias)
-            ?.map { it as X509Certificate }
-            ?: throw ContractException("Incoming proxy mTLS requires a certificate chain for alias '${serverKeyData.keyAlias}'")
-        SslContextBuilder.forServer(privateKey, *certificateChain.toTypedArray())
-            .trustManager(InsecureTrustManagerFactory.INSTANCE)
-            .clientAuth(ClientAuth.REQUIRE)
-            .build()
+        incomingMtlsContextBuilder(serverKeyData).build()
     } else {
         null
     }
