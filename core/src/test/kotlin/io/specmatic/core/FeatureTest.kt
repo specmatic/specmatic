@@ -4787,38 +4787,37 @@ paths:
                 exampleSource = PreLoadedExampleObjects(examples = examples)
             )
 
-            val results = ContractTestInterceptor.withLoaderForTest (
-                loader = {
-                    object : ContractTestInterceptor {
-                        override fun updateRequest(
-                            testScenario: Scenario,
-                            originalScenario: Scenario,
-                            httpRequest: HttpRequest,
-                            substitution: Substitution
-                        ): InterceptResult<HttpRequest> {
-                            return InterceptResult.Processed(
-                                value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
-                            )
-                        }
-
-                        override fun updateSubstitution(
-                            testScenario: Scenario,
-                            originalScenario: Scenario,
-                            httpResponse: HttpResponse,
-                            substitution: Substitution
-                        ): InterceptResult<Substitution> {
-                            return InterceptResult.PassThrough
-                        }
-                    }
-                },
-                block = {
-                    updatedFeature.executeTests(object : TestExecutor {
-                        override fun execute(request: HttpRequest): HttpResponse {
-                            throw IllegalStateException("Should not be called")
-                        }
-                    })
+            val interceptor = object : ContractTestInterceptor {
+                override fun updateRequest(
+                    feature: Feature,
+                    testScenario: Scenario,
+                    originalScenario: Scenario,
+                    httpRequest: HttpRequest,
+                    substitution: Substitution
+                ): InterceptResult<HttpRequest> {
+                    return InterceptResult.Processed(
+                        value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+                    )
                 }
-            )
+
+                override fun updateSubstitution(
+                    feature: Feature,
+                    testScenario: Scenario,
+                    originalScenario: Scenario,
+                    httpRequest: HttpRequest,
+                    httpResponse: HttpResponse,
+                    substitution: Substitution
+                ): InterceptResult<Substitution> {
+                    return InterceptResult.PassThrough
+                }
+            }
+            val results = ContractTestInterceptor.withInterceptor(interceptor) {
+                updatedFeature.executeTests(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        throw IllegalStateException("Should not be called")
+                    }
+                })
+            }
 
             assertThat(results.success()).withFailMessage { results.report() }.isFalse
             assertThat(results.failureCount).withFailMessage { results.report() }.isEqualTo(1)
@@ -4848,39 +4847,39 @@ paths:
                 exampleSource = PreLoadedExampleObjects(examples = examples)
             )
 
-            val results = ContractTestInterceptor.withLoaderForTest (
-                loader = {
-                    object : ContractTestInterceptor {
-                        override fun updateRequest(
-                            testScenario: Scenario,
-                            originalScenario: Scenario,
-                            httpRequest: HttpRequest,
-                            substitution: Substitution
-                        ): InterceptResult<HttpRequest> {
-                            return InterceptResult.Processed(
-                                value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
-                            )
-                        }
-
-                        override fun updateSubstitution(
-                            testScenario: Scenario,
-                            originalScenario: Scenario,
-                            httpResponse: HttpResponse,
-                            substitution: Substitution
-                        ): InterceptResult<Substitution> {
-                            return InterceptResult.PassThrough
-                        }
-                    }
-                },
-                block = {
-                    updatedFeature.executeTests(object : TestExecutor {
-                        override fun execute(request: HttpRequest): HttpResponse {
-                            assertThat(request.body.toStringLiteral()).doesNotContain("$(MISSING_ID)")
-                            return HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
-                        }
-                    })
+            val interceptor = object : ContractTestInterceptor {
+                override fun updateRequest(
+                    feature: Feature,
+                    testScenario: Scenario,
+                    originalScenario: Scenario,
+                    httpRequest: HttpRequest,
+                    substitution: Substitution
+                ): InterceptResult<HttpRequest> {
+                    return InterceptResult.Processed(
+                        value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+                    )
                 }
-            )
+
+                override fun updateSubstitution(
+                    feature: Feature,
+                    testScenario: Scenario,
+                    originalScenario: Scenario,
+                    httpRequest: HttpRequest,
+                    httpResponse: HttpResponse,
+                    substitution: Substitution
+                ): InterceptResult<Substitution> {
+                    return InterceptResult.PassThrough
+                }
+            }
+
+            val results = ContractTestInterceptor.withInterceptor(interceptor) {
+                updatedFeature.executeTests(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse {
+                        assertThat(request.body.toStringLiteral()).doesNotContain("$(MISSING_ID)")
+                        return HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
+                    }
+                })
+            }
 
             assertThat(results.success()).withFailMessage { results.report() }.isTrue
             assertThat(results.successCount).withFailMessage { results.report() }.isEqualTo(1)

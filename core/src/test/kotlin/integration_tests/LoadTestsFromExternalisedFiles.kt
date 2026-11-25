@@ -2029,6 +2029,7 @@ class RowValueLookupFixtureExecutor : OpenAPIFixtureExecutor {
 
 class RowValueLookupContractTestInterceptor : ContractTestInterceptor {
     override fun updateRequest(
+        feature: Feature,
         testScenario: Scenario,
         originalScenario: Scenario,
         httpRequest: HttpRequest,
@@ -2040,8 +2041,10 @@ class RowValueLookupContractTestInterceptor : ContractTestInterceptor {
     }
 
     override fun updateSubstitution(
+        feature: Feature,
         testScenario: Scenario,
         originalScenario: Scenario,
+        httpRequest: HttpRequest,
         httpResponse: HttpResponse,
         substitution: Substitution,
     ): InterceptResult<Substitution> {

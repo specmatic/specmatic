@@ -1,6 +1,12 @@
 package io.specmatic.test
 
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.ContractException
+import io.specmatic.test.interceptor.ContractTestInterceptorContext
+import io.specmatic.test.interceptor.ContractTestInterceptorProvider
 import io.specmatic.core.utilities.Flags
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.ContractStub
@@ -14,13 +20,26 @@ import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.api.extension.ConditionEvaluationResult
+import org.junit.jupiter.api.extension.ExecutionCondition
+import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.extension.ExtensionContext
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
+import org.junit.jupiter.api.parallel.Isolated
+import org.junit.platform.engine.discovery.DiscoverySelectors.selectClass
+import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder
+import org.junit.platform.launcher.core.LauncherFactory
+import org.junit.platform.launcher.listeners.SummaryGeneratingListener
 import org.opentest4j.TestAbortedException
 import java.net.ServerSocket
 import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.atomic.AtomicReference
 import java.util.stream.Stream
 
 private const val MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND = "No tests found to run"
 
+@Isolated
 class FilterIntegrationTest {
     @ParameterizedTest
     @MethodSource("filterProvider")
@@ -82,7 +101,78 @@ class FilterIntegrationTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("factoryExecutionModes")
+    fun `provider receives the filtered scenarios and the effective JUnit execution mode`(factory: Class<*>, enabled: Boolean, parallel: Boolean) {
+        val previousFilter = System.getProperty("filter")
+        val captured = AtomicReference<ContractTestInterceptorContext>()
+        System.setProperty("filter", "PATH='/findAvailableProducts' && METHOD='GET' && STATUS='200'")
+        try {
+            mockkObject(ContractTestInterceptorProvider.Companion)
+            every { ContractTestInterceptorProvider.interceptorsFor(any<ContractTestInterceptorContext>()) } answers {
+                captured.set(firstArg())
+                throw ContractException("Resource workflow setup failed")
+            }
+
+            val request = LauncherDiscoveryRequestBuilder.request()
+                .selectors(selectClass(factory))
+                .configurationParameter("junit.jupiter.execution.parallel.enabled", enabled.toString())
+                .configurationParameter("junit.jupiter.execution.parallel.mode.default", "same_thread")
+                .configurationParameter(RUN_FACTORY_FIXTURES, "true")
+                .build()
+
+            val listener = SummaryGeneratingListener()
+            LauncherFactory.create().execute(request, listener)
+
+            val context = requireNotNull(captured.get())
+            assertThat(context.parallelExecutionEnabled).isEqualTo(parallel)
+            assertThat(context.feature.scenarios.size).isGreaterThan(context.selectedScenarios.size)
+            assertThat(context.selectedScenarios.map { Triple(it.method, it.path, it.status) })
+                .containsExactly(Triple("GET", "/findAvailableProducts", 200))
+            assertThat(listener.summary.failures.map { it.exception.message })
+                .singleElement().asString().contains("Resource workflow setup failed")
+        } finally {
+            try {
+                unmockkObject(ContractTestInterceptorProvider.Companion)
+            } finally {
+                if (previousFilter == null) System.clearProperty("filter") else System.setProperty("filter", previousFilter)
+            }
+        }
+    }
+
+    @ExtendWith(FactoryFixtureCondition::class)
+    class InterfaceContractTests : SpecmaticContractTest
+
+    @Execution(ExecutionMode.CONCURRENT)
+    @ExtendWith(FactoryFixtureCondition::class)
+    class ConcurrentInterfaceContractTests : SpecmaticContractTest
+
+    @Execution(ExecutionMode.SAME_THREAD)
+    @ExtendWith(FactoryFixtureCondition::class)
+    class SerialJUnitSupport : SpecmaticJUnitSupport()
+
+    class FactoryFixtureCondition : ExecutionCondition {
+        override fun evaluateExecutionCondition(context: ExtensionContext): ConditionEvaluationResult {
+            return if (context.getConfigurationParameter(RUN_FACTORY_FIXTURES).orElse("false").toBoolean()) {
+                ConditionEvaluationResult.enabled("Selected by the filter integration test launcher")
+            } else {
+                ConditionEvaluationResult.disabled("Fixture requires the filter integration test launcher")
+            }
+        }
+    }
+
     companion object {
+        private const val RUN_FACTORY_FIXTURES = "specmatic.test.run-filter-factory-fixtures"
+
+        @JvmStatic
+        fun factoryExecutionModes(): List<Arguments> = listOf(
+            Arguments.of(SpecmaticJUnitSupport::class.java, true, true),
+            Arguments.of(SerialJUnitSupport::class.java, true, false),
+            Arguments.of(ConcurrentInterfaceContractTests::class.java, true, true),
+            Arguments.of(InterfaceContractTests::class.java, true, false),
+            Arguments.of(SpecmaticJUnitSupport::class.java, false, false),
+        )
+
         @JvmStatic
         fun filterProvider(): Stream<Arguments> {
             return Stream.of(

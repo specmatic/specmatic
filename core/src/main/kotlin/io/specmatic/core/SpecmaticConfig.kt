@@ -111,6 +111,9 @@ interface SpecmaticConfig {
     fun mockSpecDefinitionFor(file: File): SpecificationDefinition? = null
 
     @JsonIgnore
+    fun testSpecDefinitionFor(file: File): SpecificationDefinition? = null
+
+    @JsonIgnore
     fun getCtrfSpecConfig(
         specFile: File,
         testType: String,

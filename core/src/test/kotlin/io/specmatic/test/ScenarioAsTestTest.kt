@@ -103,6 +103,114 @@ class ScenarioAsTestTest {
         }
     }
 
+    @Test
+    fun `interceptors receive the previous processed value and passthrough keeps it for the next interceptor`() {
+        var executedRequest: HttpRequest? = null
+        val requestChainValues = mutableListOf<String?>()
+        var substitutionAfterObserver: Substitution? = null
+        val substitutionToken = StringValue("$(CHAIN_VALUE)")
+        var substitutionAfterPassthrough: Substitution? = null
+        val substitutionKey = StringValue("(CHAIN_VALUE:string)")
+
+        val firstInterceptor = TestContractInterceptor(
+            onRequest = { httpRequest ->
+                requestChainValues.add(httpRequest.headers["X-Interceptor-Chain"])
+                InterceptResult.Processed(
+                    HasValue(httpRequest.copy(headers = httpRequest.headers + ("X-Interceptor-Chain" to "first")))
+                )
+            },
+            onSubstitution = { substitution ->
+                InterceptResult.Processed(
+                    HasValue(substitution.upsertStoreUsing(substitutionKey, StringValue("first")))
+                )
+            }
+        )
+
+        val passthroughInterceptor = TestContractInterceptor(
+            onRequest = { httpRequest ->
+                requestChainValues.add(httpRequest.headers["X-Interceptor-Chain"])
+                InterceptResult.PassThrough
+            },
+            onSubstitution = { substitution ->
+                substitutionAfterPassthrough = substitution
+                InterceptResult.PassThrough
+            }
+        )
+
+        val secondInterceptor = TestContractInterceptor(
+            onRequest = { httpRequest ->
+                requestChainValues.add(httpRequest.headers["X-Interceptor-Chain"])
+                InterceptResult.Processed(
+                    HasValue(httpRequest.copy(headers = httpRequest.headers + ("X-Interceptor-Chain" to "second")))
+                )
+            },
+            onSubstitution = { substitution ->
+                assertThat(substitution.substitute(substitutionToken)).isEqualTo(HasValue(StringValue("first")))
+                InterceptResult.Processed(
+                    HasValue(substitution.upsertStoreUsing(substitutionKey, StringValue("second")))
+                )
+            }
+        )
+
+        val observerInterceptor = TestContractInterceptor(
+            onRequest = { httpRequest ->
+                requestChainValues.add(httpRequest.headers["X-Interceptor-Chain"])
+                InterceptResult.PassThrough
+            },
+            onSubstitution = { substitution ->
+                substitutionAfterObserver = substitution
+                InterceptResult.Processed(HasValue(substitution))
+            }
+        )
+
+        val contractTest = scenarioAsTest(scenario()).withRequestValidator(object : RequestValidator {
+            override fun validate(feature: Feature, scenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest): Result = Result.Success()
+        })
+
+        // Registration prepends interceptors, so scope them in reverse to execute in declaration order.
+        val result = ContractTestInterceptor.withInterceptor(observerInterceptor) {
+            ContractTestInterceptor.withInterceptor(secondInterceptor) {
+                ContractTestInterceptor.withInterceptor(passthroughInterceptor) {
+                    ContractTestInterceptor.withInterceptor(firstInterceptor) {
+                        contractTest.runTest(object : TestExecutor {
+                            override fun execute(request: HttpRequest): HttpResponse {
+                                executedRequest = request
+                                return HttpResponse(status = 200, body = "ok")
+                            }
+                        })
+                    }
+                }
+            }
+        }
+
+        assertThat(result.result).isInstanceOf(Result.Success::class.java)
+        assertThat(requestChainValues).containsExactly(null, "first", "first", "second")
+        assertThat(executedRequest?.headers?.get("X-Interceptor-Chain")).isEqualTo("second")
+        assertThat(requireNotNull(substitutionAfterPassthrough).substitute(substitutionToken))
+            .isEqualTo(HasValue(StringValue("first")))
+        assertThat(requireNotNull(substitutionAfterObserver).substitute(substitutionToken))
+            .isEqualTo(HasValue(StringValue("second")))
+    }
+
+    @Test
+    fun `requests pass through without validation when every interceptor passes through`() {
+        val first = TestContractInterceptor()
+        val second = TestContractInterceptor()
+        val validator = mockk<RequestValidator>()
+        val contractTest = scenarioAsTest(scenario()).withRequestValidator(validator)
+
+        mockkObject(ContractTestInterceptor.Companion)
+        try {
+            every { ContractTestInterceptor.load(emptyList()) } returns listOf(first, second)
+            val result = contractTest.runTest(fixedResponseExecutor(body = "ok"))
+
+            assertThat(result.result).isInstanceOf(Result.Success::class.java)
+            verify(exactly = 0) { validator.validate(any(), any(), any(), any()) }
+        } finally {
+            unmockkObject(ContractTestInterceptor.Companion)
+        }
+    }
+
     @Nested
     inner class FixtureExecutorTest {
         @Test
@@ -119,12 +227,7 @@ class ScenarioAsTestTest {
                 )
             )
 
-            val result = withServiceLoaderEntries(
-                mapOf(
-                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
-                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
-                )
-            ) {
+            val result = withFixtureAndInterceptor {
                 scenarioAsTest(scenario).runTest(fixedResponseExecutor(body = "anything")).result
             }
 
@@ -199,12 +302,7 @@ class ScenarioAsTestTest {
             )
 
             ServiceLoaderTestFixtureExecutor.reset()
-            val result = withServiceLoaderEntries(
-                mapOf(
-                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
-                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
-                )
-            ) {
+            val result = withFixtureAndInterceptor {
                 val test = scenarioAsTest(scenario = testScenario, originalScenario = originalScenario, substitution = substitution)
                 test.runTest(fixedResponseExecutor(body = "anything"))
             }
@@ -256,12 +354,7 @@ class ScenarioAsTestTest {
                 )
             )
 
-            val result = withServiceLoaderEntries(
-                mapOf(
-                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
-                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
-                )
-            ) {
+            val result = withFixtureAndInterceptor {
                 scenarioAsTest(scenario, substitution = substitution).runTest(
                     fixedResponseExecutor(
                         status = 200,
@@ -285,12 +378,7 @@ class ScenarioAsTestTest {
             ServiceLoaderTestFixtureExecutor.reset()
             val exampleRow = Row(scenarioStub = ScenarioStub(id = "fixture-id", beforeFixtures = listOf(StringValue("before")), afterFixtures = listOf(StringValue("after"))))
             val scenario = scenario(status = 400, exampleRow = exampleRow,).copy(isNegative = true)
-            withServiceLoaderEntries(
-                mapOf(
-                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
-                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
-                )
-            ) {
+            withFixtureAndInterceptor {
                 scenarioAsTest(scenario).runTest(fixedResponseExecutor(400, "anything"))
             }
 
@@ -318,12 +406,7 @@ class ScenarioAsTestTest {
                 )
             )
 
-            withServiceLoaderEntries(
-                mapOf(
-                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
-                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
-                )
-            ) {
+            withFixtureAndInterceptor {
                 scenarioAsTest(positiveScenario).runTest(fixedResponseExecutor(body = "anything"))
             }
 
@@ -447,9 +530,7 @@ class ScenarioAsTestTest {
             }
         })
 
-        val executionResult = withServiceLoaderEntries(
-            mapOf(ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name)
-        ) {
+        val executionResult = ContractTestInterceptor.withInterceptor(FixtureTestInterceptor()) {
             contractTest.runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     executorCalls += 1
@@ -478,12 +559,7 @@ class ScenarioAsTestTest {
             )
         )
 
-        val executionResult = withServiceLoaderEntries(
-            mapOf(
-                OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
-                ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
-            )
-        ) {
+        val executionResult = withFixtureAndInterceptor {
             val feature = Feature(name = "feature", scenarios = listOf(testScenario), protocol = SpecmaticProtocol.HTTP)
             ScenarioAsTest(
                 feature = feature,
@@ -758,6 +834,28 @@ class ScenarioAsTestTest {
         assertEquals(TestExecutionReason.NO_EXAMPLE.title, ctrfReasons.single().title)
     }
 
+    private class TestContractInterceptor(
+        private val onRequest: (HttpRequest) -> InterceptResult<HttpRequest> = { InterceptResult.PassThrough },
+        private val onSubstitution: (Substitution) -> InterceptResult<Substitution> = { InterceptResult.PassThrough },
+    ) : ContractTestInterceptor {
+        override fun updateRequest(
+            feature: Feature,
+            testScenario: Scenario,
+            originalScenario: Scenario,
+            httpRequest: HttpRequest,
+            substitution: Substitution,
+        ): InterceptResult<HttpRequest> = onRequest(httpRequest)
+
+        override fun updateSubstitution(
+            feature: Feature,
+            testScenario: Scenario,
+            originalScenario: Scenario,
+            httpRequest: HttpRequest,
+            httpResponse: HttpResponse,
+            substitution: Substitution,
+        ): InterceptResult<Substitution> = onSubstitution(substitution)
+    }
+
     private fun scenario(exampleRow: Row? = null, status: Int = 200): Scenario {
         return Scenario(
             ScenarioInfo(
@@ -829,6 +927,12 @@ class ScenarioAsTestTest {
             block()
         } finally {
             Thread.currentThread().contextClassLoader = previousClassLoader
+        }
+    }
+
+    private fun <T> withFixtureAndInterceptor(block: () -> T): T {
+        return withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)) {
+            ContractTestInterceptor.withInterceptor(FixtureTestInterceptor(), block)
         }
     }
 
@@ -923,8 +1027,9 @@ private fun Value.fixtureScenarioSelector(): String? {
         ?.lowercase()
 }
 
-class ServiceLoaderTestInterceptor : ContractTestInterceptor {
+class FixtureTestInterceptor : ContractTestInterceptor {
     override fun updateRequest(
+        feature: Feature,
         testScenario: Scenario,
         originalScenario: Scenario,
         httpRequest: HttpRequest,
@@ -936,8 +1041,10 @@ class ServiceLoaderTestInterceptor : ContractTestInterceptor {
     }
 
     override fun updateSubstitution(
+        feature: Feature,
         testScenario: Scenario,
         originalScenario: Scenario,
+        httpRequest: HttpRequest,
         httpResponse: HttpResponse,
         substitution: Substitution,
     ): InterceptResult<Substitution> {

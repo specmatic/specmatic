@@ -29,6 +29,7 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.HttpStubData
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.test.*
+import io.specmatic.test.interceptor.ContractTestInterceptor
 import io.swagger.v3.oas.models.*
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.headers.Header
@@ -907,7 +908,7 @@ data class Feature(
         fn: (Scenario, Row) -> Scenario = { s, _ -> s }
     ): Sequence<ContractTest> {
         val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
-        return generateContractTestsWithDecision(originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
+        return generateContractTestsWithDecision(originalScenarios, scenarioDecisions, fn = fn).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull decision.value
         }
@@ -916,6 +917,7 @@ data class Feature(
     fun generateContractTestsWithDecision(
         originalScenarios: List<Scenario> = this.scenarios,
         scenarios: Sequence<Decision<Scenario, Scenario>> = emptySequence(),
+        suiteInterceptors: List<ContractTestInterceptor> = emptyList(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
@@ -926,7 +928,15 @@ data class Feature(
             decision.flatMap { returnValue, originalScenario, reasoning ->
                 returnValue.realise(
                     hasValue = { concreteTestScenario, comment ->
-                        val scenarioAsTest = scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios, reasoning)
+                        val scenarioAsTest = scenarioAsTest(
+                            concreteTestScenario = concreteTestScenario,
+                            comment = comment,
+                            workflow = workflow,
+                            originalScenario = originalScenario,
+                            originalScenarios = originalScenarios,
+                            reasoning = reasoning,
+                            suiteInterceptors = suiteInterceptors,
+                        )
                         Decision.Execute(scenarioAsTest, originalScenario, reasoning)
                     },
                     orFailure = {
@@ -1000,7 +1010,8 @@ data class Feature(
         workflow: Workflow,
         originalScenario: Scenario,
         originalScenarios: List<Scenario> = emptyList(),
-        reasoning: Reasoning = Reasoning()
+        reasoning: Reasoning = Reasoning(),
+        suiteInterceptors: List<ContractTestInterceptor> = emptyList(),
     ): ContractTest = ScenarioAsTest(
         scenario = adjustTestDescription(concreteTestScenario, originalScenarios),
         feature = this.copy(scenarios = originalScenarios),
@@ -1014,7 +1025,8 @@ data class Feature(
         comment,
         workflow = workflow,
         originalScenario = originalScenario,
-        reasoning = reasoning
+        reasoning = reasoning,
+        suiteInterceptors = suiteInterceptors,
     )
 
     fun adjustTestDescription(scenario: Scenario, scenarios: List<Scenario> = this.scenarios): Scenario {

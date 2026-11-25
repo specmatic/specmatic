@@ -63,6 +63,7 @@ data class ScenarioAsTest(
         data = scenario.exampleRow?.scenarioStub?.data ?: JSONObjectValue(),
         strictMode = feature.specmaticConfig.getTestStrictMode() ?: feature.strictMode
     ),
+    private val suiteInterceptors: List<ContractTestInterceptor> = emptyList(),
 ) : ContractTest {
     companion object {
         private var id: Value? = null
@@ -71,7 +72,7 @@ data class ScenarioAsTest(
     private var startTime: Instant? = null
     private var endTime: Instant? = null
     private val matcherEngine: MatcherEngine? by lazy { MatcherEngine.load() }
-    private val interceptor: ContractTestInterceptor? by lazy { ContractTestInterceptor.load() }
+    private val interceptors: List<ContractTestInterceptor> by lazy { ContractTestInterceptor.load(suiteInterceptors) }
     private val fixtureExecutionMetadata: FixtureExecutionMetadata = FixtureExecutionMetadata.from(scenario)
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
@@ -158,13 +159,15 @@ data class ScenarioAsTest(
 
     private fun updateRequestAndValidate(httpRequest: HttpRequest, substitution: Substitution): ReturnValue<HttpRequest> {
         val workflowUpdatedRequest = workflow.updateRequest(httpRequest, originalScenario)
-        val interceptor = interceptor ?: return HasValue(workflowUpdatedRequest)
-        val result = interceptor.updateRequest(
-            testScenario = scenario,
-            substitution = substitution,
-            originalScenario = originalScenario,
-            httpRequest = workflowUpdatedRequest,
-        )
+        val result = intercept(workflowUpdatedRequest) { interceptor, request ->
+            interceptor.updateRequest(
+                feature = feature,
+                testScenario = scenario,
+                substitution = substitution,
+                httpRequest = request,
+                originalScenario = originalScenario,
+            )
+        }
 
         return when (result) {
             InterceptResult.PassThrough -> HasValue(workflowUpdatedRequest)
@@ -177,18 +180,39 @@ data class ScenarioAsTest(
         }
     }
 
-    private fun updateSubstitutionWithResponse(scenario: Scenario, substitution: Substitution, httpResponse: HttpResponse): ReturnValue<Substitution> {
-        val interceptor = interceptor ?: return HasValue(substitution)
-        val result = interceptor.updateSubstitution(
-            testScenario = scenario,
-            httpResponse = httpResponse,
-            substitution = substitution,
-            originalScenario = originalScenario,
-        )
+    private fun updateSubstitutionWithResponse(scenario: Scenario, substitution: Substitution, httpRequest: HttpRequest, httpResponse: HttpResponse): ReturnValue<Substitution> {
+        val result = intercept(substitution) { interceptor, currentSubstitution ->
+            interceptor.updateSubstitution(
+                feature = feature,
+                testScenario = scenario,
+                substitution = currentSubstitution,
+                httpRequest = httpRequest,
+                httpResponse = httpResponse,
+                originalScenario = originalScenario,
+            )
+        }
 
         return when (result) {
             InterceptResult.PassThrough -> HasValue(substitution)
             is InterceptResult.Processed<Substitution> -> result.value
+        }
+    }
+
+    private fun <T> intercept(initialValue: T, apply: (ContractTestInterceptor, T) -> InterceptResult<T>): InterceptResult<T> {
+        return interceptors.fold<ContractTestInterceptor, InterceptResult<T>>(InterceptResult.PassThrough) { previous, interceptor ->
+            val currentValue = when (previous) {
+                InterceptResult.PassThrough -> initialValue
+                is InterceptResult.Processed -> {
+                    val processed = previous.value
+                    if (processed !is HasValue) return previous
+                    processed.value
+                }
+            }
+
+            when (val next = apply(interceptor, currentValue)) {
+                is InterceptResult.Processed -> next
+                InterceptResult.PassThrough -> previous
+            }
         }
     }
 
@@ -306,6 +330,7 @@ data class ScenarioAsTest(
 
             if(result !is Result.Failure) {
                 val updatedSubstitution = updateSubstitutionWithResponse(
+                    httpRequest = request,
                     substitution = requestSubstitution,
                     scenario = testScenario,
                     httpResponse = responseForTestResult
