@@ -440,10 +440,18 @@ class HttpStub(
 
                     if (httpStubResponse.mock?.terminateConnection == true) {
                         httpLogMessage.addResponse(httpStubResponse.withResponse(HttpResponse.TERMINATED))
-                        addCtrfTestResultRecord(httpLogMessage, httpRequest, HttpResponse.TERMINATED, httpStubResponse)
+                        val connectionClosed = CompletableFuture<Unit>()
+                        val afterFixtures = matchedRequest?.let { request ->
+                            connectionClosed.thenCompose {
+                                afterFixtureRunner.start(request, httpStubResponse, HttpResponse.TERMINATED)
+                                    ?: CompletableFuture.completedFuture(null)
+                            }
+                        }
+
+                        addCtrfTestResultRecord(httpLogMessage, httpRequest, HttpResponse.TERMINATED, httpStubResponse, afterFixtures)
                         MockEvent(httpLogMessage, terminatedConnection = true).let { event -> listeners.forEach { it.onRespond(event) } }
                         log(httpLogMessage)
-                        terminateConnection(call)
+                        terminateConnection(call, connectionClosed)
                         return@intercept
                     }
 
@@ -950,9 +958,10 @@ class HttpStub(
         }
     }
 
-    private fun terminateConnection(call: ApplicationCall) {
+    private fun terminateConnection(call: ApplicationCall, connectionClosed: CompletableFuture<Unit>) {
         val nettyCall = call as? NettyApplicationCall ?: error("Connection termination requires the Netty engine")
         nettyCall.context.close()
+        nettyCall.context.channel().closeFuture().addListener { connectionClosed.complete(Unit) }
     }
 
     private suspend fun defensivelyExtractedRequestForLogging(call: ApplicationCall): HttpRequest {

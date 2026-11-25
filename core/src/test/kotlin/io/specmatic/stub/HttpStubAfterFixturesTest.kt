@@ -27,6 +27,8 @@ import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.net.Socket
+import java.net.URI
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
@@ -99,6 +101,31 @@ internal class HttpStubAfterFixturesTest {
 
     @Nested
     inner class ResponseLifecycle {
+        @Test
+        fun `runs and reports after fixtures when the example terminates the connection`() {
+            val example = example("terminating").copy(terminateConnection = true)
+            withStub(
+                examples = listOf(example),
+                afterClose = { stub, _ ->
+                    assertThat(calls.toList())
+                        .containsExactly(FixtureCall("terminating", "after", mockFixtures, StringValue("order-123")))
+
+                    val record = stub.ctrfTestResultRecords().single()
+                    assertThat(record.exampleId).isEqualTo("terminating")
+                    assertThat(record.connectionTerminated).isTrue()
+                    assertThat(fixtureResults(record)).containsExactly(success)
+                },
+            ) { stub, _ ->
+                val endpoint = URI(stub.endPoint)
+                Socket(endpoint.host, endpoint.port).use { socket ->
+                    socket.soTimeout = 5_000
+                    val rawRequest = "GET /orders HTTP/1.1\r\nHost: ${endpoint.rawAuthority}\r\nX-Order: order-123\r\n\r\n"
+                    socket.getOutputStream().write(rawRequest.toByteArray(Charsets.US_ASCII))
+                    assertThat(socket.getInputStream().read()).isEqualTo(-1)
+                }
+            }
+        }
+
         @Test
         fun `binds fixtures to the response after interception`() {
             val example = example("intercepted").copy(response = HttpResponse.ok(StringValue("Order: (ORDER:string)")))
