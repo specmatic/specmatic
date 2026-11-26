@@ -97,7 +97,7 @@ class Proxy(
     }
     private val targetOrigin = ProxyTargetOrigin.from(baseURL)
     private val clientKeyData = proxyTls.clientCert?.loadKeyData()
-    private val serverKeyData = (tls as? ProxyTlsSource.FromConfig)?.listenerOverride
+    private val serverKeyData = (tls as? ProxyTlsSource.FromConfig)?.override
         ?: proxyTls.cert?.toKeyData(aliasSuffix = "proxy")
     private val incomingMtlsContext = if (proxyTls.cert?.isMtlsEnabled() == true) {
         if (serverKeyData == null) {
