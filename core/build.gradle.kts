@@ -23,6 +23,7 @@ dependencies {
     implementation("io.cucumber:gherkin:33.0.0")
     implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
     implementation("io.ktor:ktor-server-core-jvm:2.3.13")
+    implementation("io.ktor:ktor-network-tls-certificates-jvm:2.3.13")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-apache-jvm:2.3.13")
     implementation("io.ktor:ktor-server-cors-jvm:2.3.13")
