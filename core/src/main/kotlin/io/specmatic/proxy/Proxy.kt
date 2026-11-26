@@ -42,12 +42,12 @@ fun interface RequestObserver {
     )
 }
 
-class Proxy(
+class Proxy private constructor(
     host: String,
     port: Int,
     baseURL: String,
     private val outputDirectory: FileWriter,
-    keyData: KeyData? = null,
+    tlsSource: TlsSource,
     timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
     filter: String? = "",
     private val requestObserver: RequestObserver? = null,
@@ -55,6 +55,45 @@ class Proxy(
     specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
     private val specificationFileName: String = "proxy_generated",
 ) : Closeable {
+    private sealed interface TlsSource {
+        data class FromConfig(val listenerOverride: KeyData?) : TlsSource
+        data class Explicit(val config: ProxyTlsConfig) : TlsSource
+    }
+
+    constructor(
+        host: String,
+        port: Int,
+        baseURL: String,
+        outputDirectory: FileWriter,
+        keyData: KeyData? = null,
+        timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
+        filter: String? = "",
+        requestObserver: RequestObserver? = null,
+        generateOnExit: Boolean = true,
+        specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
+        specificationFileName: String = "proxy_generated",
+    ) : this(
+        host, port, baseURL, outputDirectory, TlsSource.FromConfig(keyData),
+        timeoutInMilliseconds, filter, requestObserver, generateOnExit, specmaticConfigSource, specificationFileName,
+    )
+
+    constructor(
+        host: String,
+        port: Int,
+        baseURL: String,
+        outputDirectory: FileWriter,
+        tlsConfig: ProxyTlsConfig,
+        timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
+        filter: String? = "",
+        requestObserver: RequestObserver? = null,
+        generateOnExit: Boolean = true,
+        specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
+        specificationFileName: String = "proxy_generated",
+    ) : this(
+        host, port, baseURL, outputDirectory, TlsSource.Explicit(tlsConfig),
+        timeoutInMilliseconds, filter, requestObserver, generateOnExit, specmaticConfigSource, specificationFileName,
+    )
+
     private val defaultExamplesBaseDir = runCatching {
         File(outputDirectory.fileName("${specificationFileName.dropExtension()}$EXAMPLES_DIR_SUFFIX"))
     }.getOrElse {
@@ -115,10 +154,14 @@ class Proxy(
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
-    private val proxyTls = specmaticConfigInstance.resolveProxyTls(baseURL)
+    private val proxyTls = when (tlsSource) {
+        is TlsSource.Explicit -> tlsSource.config
+        is TlsSource.FromConfig -> specmaticConfigInstance.resolveProxyTls(baseURL)
+    }
     private val targetOrigin = ProxyTargetOrigin.from(baseURL)
     private val clientKeyData = proxyTls.clientCert?.loadKeyData()
-    private val serverKeyData = keyData ?: proxyTls.cert?.toKeyData(aliasSuffix = "proxy")
+    private val serverKeyData = (tlsSource as? TlsSource.FromConfig)?.listenerOverride
+        ?: proxyTls.cert?.toKeyData(aliasSuffix = "proxy")
     private val incomingMtlsContext = if (proxyTls.cert?.isMtlsEnabled() == true) {
         if (serverKeyData == null) {
             throw ContractException("Incoming proxy mTLS requires HTTPS server key material")
