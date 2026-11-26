@@ -9,6 +9,8 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.KeyData
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.proxy.Proxy
+import io.specmatic.proxy.ProxyTlsConfig
+import io.specmatic.proxy.RealFileWriter
 import io.specmatic.proxy.resolveProxyTls
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.HttpStubResponse
@@ -29,20 +31,27 @@ class SpecmaticProxyMtlsTest {
     lateinit var tempDir: File
 
     @ParameterizedTest
-    @CsvSource("false,false", "true,false", "false,true", "true,true")
+    @CsvSource(
+        "false,false,false", "true,false,false", "false,true,false", "true,true,false",
+        "false,false,true", "true,false,true", "false,true,true", "true,true,true",
+    )
     fun `records over independent incoming and outgoing TLS connections`(
         incomingMtls: Boolean,
         outgoingMtls: Boolean,
+        explicitTls: Boolean,
     ) {
         val targetPort = testPort()
         val recorderPort = testPort(1)
         val target = "https://localhost:$targetPort"
-        val recorder = "https://localhost:$recorderPort"
+        val scheme = if (!explicitTls || incomingMtls) "https" else "http"
+        val recorder = "$scheme://localhost:$recorderPort"
         identity("recorder")
         val caller = if (incomingMtls) identity("caller") else null
         val clientCert = if (outgoingMtls) {
             identity("upstream-client")
             clientCertConfig("upstream-client")
+        } else if (explicitTls) {
+            clientCertConfig("unused-yaml-alias")
         } else {
             ""
         }
@@ -60,7 +69,23 @@ class SpecmaticProxyMtlsTest {
         """.trimIndent() + clientCert)
 
         targetStub(targetPort, outgoingMtls).use {
-            startProxy(recorderPort, target, configSource).use {
+            val proxy = if (explicitTls) {
+                val tlsConfig = configSource.load().config.resolveProxyTls(target)
+                Proxy(
+                    host = "localhost",
+                    port = recorderPort,
+                    baseURL = target,
+                    outputDirectory = RealFileWriter(tempDir.resolve("recordings").path),
+                    tlsConfig = ProxyTlsConfig(
+                        cert = tlsConfig.cert.takeIf { incomingMtls },
+                        clientCert = tlsConfig.clientCert.takeIf { outgoingMtls },
+                    ),
+                    specmaticConfigSource = configSource,
+                )
+            } else {
+                startProxy(recorderPort, target, configSource)
+            }
+            proxy.use {
                 if (incomingMtls) {
                     HttpClient(recorder).use { client ->
                         assertThrows<IOException> { client.execute(HttpRequest("GET", "/hello")) }
