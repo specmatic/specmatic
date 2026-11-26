@@ -13,6 +13,11 @@ import java.security.KeyStore
 import java.security.PrivateKey
 import java.util.Locale
 
+sealed interface ProxyTlsSource {
+    data class FromConfig(val listenerOverride: KeyData? = null) : ProxyTlsSource
+    data class Explicit(val config: ProxyTlsConfig) : ProxyTlsSource
+}
+
 data class ProxyTlsConfig(
     val cert: HttpsConfiguration? = null,
     val clientCert: ProxyClientCertificate? = null,
