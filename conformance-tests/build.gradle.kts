@@ -7,7 +7,7 @@ dependencies {
         exclude(group = "commons-logging", module = "commons-logging")
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
-    implementation("ch.qos.logback:logback-core:1.6.7")
+    implementation("ch.qos.logback:logback-core:1.6.8")
     implementation("org.slf4j:slf4j-api:2.0.20")
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.4")
@@ -16,7 +16,7 @@ dependencies {
     implementation("info.picocli:picocli:4.7.7")
     implementation("com.networknt:json-schema-validator:2.0.1")
 
-    runtimeOnly("ch.qos.logback:logback-classic:1.6.7")
+    runtimeOnly("ch.qos.logback:logback-classic:1.6.8")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
 
