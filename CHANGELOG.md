@@ -36,6 +36,29 @@ Each release section should stand on its own and describe the behavior shipped i
 
 - Backward compatibility checks no longer list or check ordinary YAML/JSON files and schema fragments as standalone OpenAPI specifications. Shared fragments still trigger checks of affected specifications, including through transitive references.
 
+## 2.57.0 (2026-11-25)
+
+### Added
+
+- MCP auto tests support stdio transports.
+- WSDL contracts support additional SOAP headers in examples and matching, including headers scoped by namespace and optional header presence.
+- WSDL parsing and validation support `xs:anyType`, named unions and lists, and XML Schema date values.
+- OpenAPI object schemas enforce `minProperties` and `maxProperties` during parsing, generation, matching, and backward-compatibility checks, with clearer diagnostics for impossible bounds.
+- HTTP mocks now support executing `after` fixtures defined in external examples, once the response has been served using the matching example.
+- Introduced `supportingInterface` in Specmatic configuration, allowing contracts to participate in contract tests without being tested independently, enabling use cases such as side event-flow verification.
+
+### Changed
+
+- Backward-compatibility checks use parsed V3 configuration to determine which OpenAPI specifications are eligible, avoiding standalone checks of config-defined or otherwise ineligible specifications.
+- HTTP mocks decode gzip request bodies before parsing and schema matching, including JSON, URL-encoded forms, and multipart forms.
+- Specmatic uses shared reporter parsing APIs for JSON, YAML, and OpenAPI inputs, applying the reporter's common input size limit of 25 Mi code points.
+- Insights reports include the reporter's latest customer-facing updates: mock fixture results in CTRF reports, shared parsing APIs for specification metadata, Insights publishing readiness, typed server and client metadata, and Arazzo recognition.
+
+### Fixed
+
+- WSDL/SOAP matching now honors scoped header presence and reports more useful XML diagnostics while validating empty union values and preserving known `xs:all` member errors.
+- OpenAPI backward-compatibility discovery avoids treating regular YAML/JSON files and schema fragments as specifications while still checking specifications affected by shared fragments, including transitive references.
+
 ## 2.56.1 (2026-11-11)
 
 ### Added
