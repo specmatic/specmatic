@@ -103,6 +103,34 @@ class SpecmaticProxyMtlsTest {
         assertThat(specification).contains("openapi:", "/hello:")
     }
 
+    @ParameterizedTest
+    @CsvSource("false", "true")
+    fun `v2 presents a client certificate only for the configured origin`(overrideTarget: Boolean) {
+        val targetPort = testPort()
+        val recorderPort = testPort(1)
+        val configuredPort = if (overrideTarget) testPort(2) else targetPort
+        identity("upstream-client")
+        val configSource = config("""
+            proxy:
+              targetUrl: https://localhost:$configuredPort/configured
+              clientCert:
+                keyStore:
+                  file: upstream-client.jks
+                  alias: upstream-client
+                  password: fixture-password
+                keyStorePassword: fixture-password
+        """.trimIndent(), version = 2)
+
+        targetStub(targetPort, mtls = true).use {
+            startProxy(recorderPort, "https://localhost:$targetPort", configSource).use {
+                HttpClient("http://localhost:$recorderPort").use { client ->
+                    val status = client.execute(HttpRequest("GET", "/hello")).status
+                    assertThat(status).isEqualTo(if (overrideTarget) 500 else 200)
+                }
+            }
+        }
+    }
+
     @Test
     fun `a target override cannot use an identity configured for a different port`() {
         val targetPort = testPort()
@@ -237,8 +265,8 @@ class SpecmaticProxyMtlsTest {
           keyStorePassword: fixture-password
     """.trimIndent().prependIndent("      ")
 
-    private fun config(yaml: String): SpecmaticConfigSource {
-        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 3\n$yaml\n") }
+    private fun config(yaml: String, version: Int = 3): SpecmaticConfigSource {
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: $version\n$yaml\n") }
         return SpecmaticConfigSource.fromConfigFile(configFile.path)
     }
 

@@ -101,7 +101,8 @@ data class SpecmaticConfigV2(
             mcp = this.mcp,
             licensePath = this.licensePath,
             reportDirPath = this.reportDirPath,
-            globalSettings = this.globalSettings
+            globalSettings = this.globalSettings,
+            proxyConfigDirectory = file?.canonicalFile?.parentFile?.takeIf { proxy?.clientCert != null },
         )
     }
 

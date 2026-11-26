@@ -63,6 +63,7 @@ data class ProxyConfigV3(
             adapters = adapters?.resolveElseThrow(resolver),
             consumes = mock,
             https = cert?.resolveElseThrow(resolver),
+            clientCert = clientCert,
             outputDirectory = recordingsDirectory
         )
     }

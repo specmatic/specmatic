@@ -1631,6 +1631,24 @@
           "title": "HTTPS configuration",
           "description": "TLS settings used by the proxy listener."
         },
+        "clientCert": {
+          "type": "object",
+          "title": "Target client certificate",
+          "description": "Client certificate and private key presented by the proxy to its configured target.",
+          "additionalProperties": false,
+          "required": [
+            "keyStore"
+          ],
+          "properties": {
+            "keyStore": {
+              "$ref": "#/definitions/KeyStoreFileConfiguration"
+            },
+            "keyStorePassword": {
+              "type": "string",
+              "title": "Keystore password"
+            }
+          }
+        },
         "outputDirectory": {
           "type": "string",
           "title": "Proxy output directory",

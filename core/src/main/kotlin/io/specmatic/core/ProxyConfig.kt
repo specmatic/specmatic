@@ -5,6 +5,7 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_PORT
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.ConfigPathMapper
+import io.specmatic.core.config.v3.ProxyClientCertificate
 import io.specmatic.core.config.v3.components.Adapter
 import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
@@ -20,11 +21,13 @@ data class ProxyConfig(
     val consumes: List<String>? = null,
     val https: HttpsConfiguration? = null,
     val outputDirectory: String? = null,
+    val clientCert: ProxyClientCertificate? = null,
 ) {
     fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ProxyConfig {
         return copy(
             adapters = adapters?.mapPaths(mapper.child("adapters"), configDirectory),
             https = https?.mapPaths(mapper.child("https"), configDirectory),
+            clientCert = clientCert?.mapPaths(mapper.child("clientCert"), configDirectory),
             outputDirectory = outputDirectory?.let {
                 mapper.child("outputDirectory").map(it, configDirectory)
             },
