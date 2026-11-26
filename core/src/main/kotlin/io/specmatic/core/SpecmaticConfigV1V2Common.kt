@@ -348,6 +348,7 @@ data class SpecmaticConfigV1V2Common(
     private val licensePath: Path? = null,
     private val reportDirPath: Path? = null,
     private val globalSettings: SpecmaticGlobalSettings? = null,
+    @get:JsonIgnore internal val proxyConfigDirectory: File? = null,
 ) : SpecmaticConfig {
     companion object {
         fun getEffectiveBranchForSource(

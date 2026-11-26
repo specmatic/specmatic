@@ -44,6 +44,22 @@ class ConfigSchemaValidationTest {
         assertThat(output).isEqualTo(validOutput)
     }
 
+    @Test
+    fun `v2 proxy schema accepts a file-backed client certificate`() {
+        val output = schema(SpecmaticConfigVersion.VERSION_2, """
+            version: 2
+            proxy:
+              targetUrl: https://inventory.example
+              clientCert:
+                keyStore:
+                  file: identity.p12
+                  alias: inventory
+                keyStorePassword: fixture-password
+        """.trimIndent())
+
+        assertThat(output).isEqualTo(validOutput)
+    }
+
     @Nested
     inner class V2 {
         @ParameterizedTest(name = "{0}")

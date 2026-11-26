@@ -2,12 +2,14 @@ package io.specmatic.proxy
 
 import io.specmatic.core.KeyData
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.KeyStoreConfiguration
 import io.specmatic.core.config.v3.ProxyClientCertificate
 import io.specmatic.core.config.v3.SpecmaticConfigV3Impl
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.toKeyData
+import java.io.File
 import java.net.URI
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -25,7 +27,13 @@ data class ProxyTlsConfig(
 
 fun SpecmaticConfig.resolveProxyTls(effectiveTarget: String): ProxyTlsConfig {
     if (this !is SpecmaticConfigV3Impl) {
-        return ProxyTlsConfig(cert = getProxyConfig()?.getHttpsConfig())
+        val proxy = getProxyConfig() ?: return ProxyTlsConfig()
+        val targetOrigin = ProxyTargetOrigin.from(effectiveTarget)
+        val clientCert = proxy.clientCert?.takeIf {
+            targetOrigin != null && targetOrigin == ProxyTargetOrigin.from(proxy.targetUrl)
+        }
+        val directory = (this as? SpecmaticConfigV1V2Common)?.proxyConfigDirectory ?: File(".")
+        return ProxyTlsConfig(cert = proxy.getHttpsConfig(), clientCert = clientCert?.resolveFile(directory))
     }
 
     val origin = ProxyTargetOrigin.from(effectiveTarget) ?: return ProxyTlsConfig()

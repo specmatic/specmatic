@@ -31,6 +31,7 @@ class LegacySpecmaticConfigToV3Upgrader {
             target = targetUrl,
             recordingsDirectory = outputDirectory,
             cert = https?.let { RefOrValue.Value(it) },
+            clientCert = clientCert,
             timeoutInMilliseconds = timeoutInMilliseconds,
             adapters = mergedAdapters?.let { RefOrValue.Value(Adapter(it)) }
         )
