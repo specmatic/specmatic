@@ -14,7 +14,7 @@ import java.security.PrivateKey
 import java.util.Locale
 
 sealed interface ProxyTlsSource {
-    data class FromConfig(val listenerOverride: KeyData? = null) : ProxyTlsSource
+    data class FromConfig(val override: KeyData? = null) : ProxyTlsSource
     data class Explicit(val config: ProxyTlsConfig) : ProxyTlsSource
 }
 
