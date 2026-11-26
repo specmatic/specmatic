@@ -21,6 +21,8 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.proxy.Proxy
+import io.specmatic.proxy.ProxyTlsSource
+import io.specmatic.proxy.RealFileWriter
 import io.specmatic.proxy.resolveProxyTls
 import io.specmatic.stub.SpecmaticConfigSource
 import picocli.CommandLine.*
@@ -146,11 +148,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             host = host,
             port = port,
             requestObserver = null,
-            keyData = keyData,
+            tls = ProxyTlsSource.FromConfig(keyData),
             baseURL = target,
             timeoutInMilliseconds = timeout,
             specmaticConfigSource = specmaticConfigSource,
-            proxySpecmaticDataDir = outDir.canonicalPath,
+            outputDirectory = RealFileWriter(outDir.canonicalPath),
         ).also { consoleLog(StringLog(startupLogs)) }
     }
 

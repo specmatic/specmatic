@@ -9,7 +9,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.KeyData
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.proxy.Proxy
-import io.specmatic.proxy.ProxyTlsConfig
+import io.specmatic.proxy.ProxyTlsSource
 import io.specmatic.proxy.RealFileWriter
 import io.specmatic.proxy.resolveProxyTls
 import io.specmatic.stub.HttpStub
@@ -76,9 +76,11 @@ class SpecmaticProxyMtlsTest {
                     port = recorderPort,
                     baseURL = target,
                     outputDirectory = RealFileWriter(tempDir.resolve("recordings").path),
-                    tlsConfig = ProxyTlsConfig(
-                        cert = tlsConfig.cert.takeIf { incomingMtls },
-                        clientCert = tlsConfig.clientCert.takeIf { outgoingMtls },
+                    tls = ProxyTlsSource.Explicit(
+                        tlsConfig.copy(
+                            cert = tlsConfig.cert.takeIf { incomingMtls },
+                            clientCert = tlsConfig.clientCert.takeIf { outgoingMtls },
+                        ),
                     ),
                     specmaticConfigSource = configSource,
                 )
@@ -220,7 +222,7 @@ class SpecmaticProxyMtlsTest {
         host = "localhost",
         port = port,
         baseURL = target,
-        proxySpecmaticDataDir = tempDir.resolve("recordings").path,
+        outputDirectory = RealFileWriter(tempDir.resolve("recordings").path),
         timeoutInMilliseconds = 6000,
         filter = "",
         specmaticConfigSource = configSource,

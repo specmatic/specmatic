@@ -42,12 +42,12 @@ fun interface RequestObserver {
     )
 }
 
-class Proxy private constructor(
+class Proxy(
     host: String,
     port: Int,
     baseURL: String,
     private val outputDirectory: FileWriter,
-    tlsSource: TlsSource,
+    tls: ProxyTlsSource = ProxyTlsSource.FromConfig(),
     timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
     filter: String? = "",
     private val requestObserver: RequestObserver? = null,
@@ -55,74 +55,11 @@ class Proxy private constructor(
     specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
     private val specificationFileName: String = "proxy_generated",
 ) : Closeable {
-    private sealed interface TlsSource {
-        data class FromConfig(val listenerOverride: KeyData?) : TlsSource
-        data class Explicit(val config: ProxyTlsConfig) : TlsSource
-    }
-
-    constructor(
-        host: String,
-        port: Int,
-        baseURL: String,
-        outputDirectory: FileWriter,
-        keyData: KeyData? = null,
-        timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
-        filter: String? = "",
-        requestObserver: RequestObserver? = null,
-        generateOnExit: Boolean = true,
-        specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
-        specificationFileName: String = "proxy_generated",
-    ) : this(
-        host, port, baseURL, outputDirectory, TlsSource.FromConfig(keyData),
-        timeoutInMilliseconds, filter, requestObserver, generateOnExit, specmaticConfigSource, specificationFileName,
-    )
-
-    constructor(
-        host: String,
-        port: Int,
-        baseURL: String,
-        outputDirectory: FileWriter,
-        tlsConfig: ProxyTlsConfig,
-        timeoutInMilliseconds: Long = DEFAULT_TIMEOUT_IN_MILLISECONDS,
-        filter: String? = "",
-        requestObserver: RequestObserver? = null,
-        generateOnExit: Boolean = true,
-        specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
-        specificationFileName: String = "proxy_generated",
-    ) : this(
-        host, port, baseURL, outputDirectory, TlsSource.Explicit(tlsConfig),
-        timeoutInMilliseconds, filter, requestObserver, generateOnExit, specmaticConfigSource, specificationFileName,
-    )
-
     private val defaultExamplesBaseDir = runCatching {
         File(outputDirectory.fileName("${specificationFileName.dropExtension()}$EXAMPLES_DIR_SUFFIX"))
     }.getOrElse {
         File(".")
     }
-
-    constructor(
-        host: String,
-        port: Int,
-        baseURL: String,
-        proxySpecmaticDataDir: String,
-        keyData: KeyData? = null,
-        timeoutInMilliseconds: Long,
-        filter: String,
-        requestObserver: RequestObserver? = null,
-        generateOnExit: Boolean = true,
-        specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
-    ) : this(
-        host,
-        port,
-        baseURL,
-        RealFileWriter(proxySpecmaticDataDir),
-        keyData,
-        timeoutInMilliseconds,
-        filter,
-        requestObserver,
-        generateOnExit,
-        specmaticConfigSource
-    )
 
     private val stubs = mutableListOf<NamedStub>()
     private val requestInterceptors: MutableList<RequestInterceptor> = mutableListOf()
@@ -154,13 +91,13 @@ class Proxy private constructor(
 
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
-    private val proxyTls = when (tlsSource) {
-        is TlsSource.Explicit -> tlsSource.config
-        is TlsSource.FromConfig -> specmaticConfigInstance.resolveProxyTls(baseURL)
+    private val proxyTls = when (tls) {
+        is ProxyTlsSource.Explicit -> tls.config
+        is ProxyTlsSource.FromConfig -> specmaticConfigInstance.resolveProxyTls(baseURL)
     }
     private val targetOrigin = ProxyTargetOrigin.from(baseURL)
     private val clientKeyData = proxyTls.clientCert?.loadKeyData()
-    private val serverKeyData = (tlsSource as? TlsSource.FromConfig)?.listenerOverride
+    private val serverKeyData = (tls as? ProxyTlsSource.FromConfig)?.listenerOverride
         ?: proxyTls.cert?.toKeyData(aliasSuffix = "proxy")
     private val incomingMtlsContext = if (proxyTls.cert?.isMtlsEnabled() == true) {
         if (serverKeyData == null) {
