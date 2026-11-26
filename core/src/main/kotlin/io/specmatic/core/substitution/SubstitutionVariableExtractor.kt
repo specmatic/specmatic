@@ -36,7 +36,7 @@ internal object SubstitutionVariableExtractor {
         return InterpolatedSubstitution.extractVariables(
             resolver = resolver,
             original = originalValue.string,
-            running = runningValue.toStringLiteral(),
+            running = runningValue,
         )
     }
 

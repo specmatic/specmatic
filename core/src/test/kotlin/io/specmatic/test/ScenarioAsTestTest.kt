@@ -8,6 +8,7 @@ import io.mockk.verify
 import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.FailureReason
 import io.specmatic.core.Feature
+import io.specmatic.core.GeneratedScenarioOrigin
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.BadRequestOrDefault
@@ -135,6 +136,28 @@ class ScenarioAsTestTest {
             assertThat(ServiceLoaderTestFixtureExecutor.receivedContexts).containsExactly(
                 FixtureExecutionMetadata(FixtureScenarioType.POSITIVE, config),
                 FixtureExecutionMetadata(FixtureScenarioType.POSITIVE, config)
+            )
+        }
+
+        @Test
+        fun `passes example metadata for a scenario generated from an example row`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+            val exampleScenario = scenario(
+                exampleRow = Row(
+                    scenarioStub = ScenarioStub(
+                        beforeFixtures = listOf(StringValue("before")),
+                        afterFixtures = listOf(StringValue("after"))
+                    )
+                )
+            ).copy(generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW)
+
+            withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)) {
+                scenarioAsTest(exampleScenario).runTest(fixedResponseExecutor(body = "anything"))
+            }
+
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedContexts).containsExactly(
+                FixtureExecutionMetadata(FixtureScenarioType.EXAMPLE),
+                FixtureExecutionMetadata(FixtureScenarioType.EXAMPLE)
             )
         }
 
@@ -336,6 +359,51 @@ class ScenarioAsTestTest {
         }
 
         @Test
+        fun `filters example fixtures for example-generated scenarios`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+            val exampleScenario = scenario(
+                Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        beforeFixtures = listOf(
+                            parsedValue("""{"name":"before-all","executeFor":{"scenarios":"all"}}"""),
+                            parsedValue("""{"name":"before-positive","executeFor":{"scenarios":"positive"}}"""),
+                            parsedValue("""{"name":"before-negative","executeFor":{"scenarios":"negative"}}"""),
+                            parsedValue("""{"name":"before-example","executeFor":{"scenarios":"example"}}""")
+                        ),
+                        afterFixtures = listOf(
+                            parsedValue("""{"name":"after-all","executeFor":{"scenarios":"all"}}"""),
+                            parsedValue("""{"name":"after-positive","executeFor":{"scenarios":"positive"}}"""),
+                            parsedValue("""{"name":"after-example","executeFor":{"scenarios":"example"}}""")
+                        )
+                    )
+                )
+            ).copy(generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW)
+
+            withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
+                scenarioAsTest(exampleScenario).runTest(fixedResponseExecutor(body = "anything"))
+            }
+
+            assertThat(ServiceLoaderTestFixtureExecutor.fixturesSeen).containsExactly(
+                listOf(
+                    parsedValue("""{"name":"before-all","executeFor":{"scenarios":"all"}}"""),
+                    parsedValue("""{"name":"before-positive","executeFor":{"scenarios":"positive"}}"""),
+                    parsedValue("""{"name":"before-example","executeFor":{"scenarios":"example"}}""")
+                ),
+                listOf(
+                    parsedValue("""{"name":"after-all","executeFor":{"scenarios":"all"}}"""),
+                    parsedValue("""{"name":"after-positive","executeFor":{"scenarios":"positive"}}"""),
+                    parsedValue("""{"name":"after-example","executeFor":{"scenarios":"example"}}""")
+                )
+            )
+        }
+
+        @Test
         fun `does not call fixture executor when missing from service loader`() {
             ServiceLoaderTestFixtureExecutor.reset()
 
@@ -370,6 +438,22 @@ class ScenarioAsTestTest {
         fun `should derive negative scenario type for negative scenario`() {
             val negativeContext = FixtureExecutionMetadata.from(scenario().copy(isNegative = true))
             assertThat(negativeContext.scenarioType).isEqualTo(FixtureScenarioType.NEGATIVE)
+        }
+
+        @Test
+        fun `should derive example scenario type for a scenario generated from an example row`() {
+            val exampleContext = FixtureExecutionMetadata
+                .from(scenario().copy(generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW))
+
+            assertThat(exampleContext.scenarioType).isEqualTo(FixtureScenarioType.EXAMPLE)
+        }
+
+        @Test
+        fun `negative scenario type should take precedence over example origin`() {
+            val exampleContext = FixtureExecutionMetadata
+                .from(scenario().copy(isNegative = true, generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW))
+
+            assertThat(exampleContext.scenarioType).isEqualTo(FixtureScenarioType.NEGATIVE)
         }
     }
 
@@ -909,7 +993,8 @@ private fun List<Value>.filterFor(context: FixtureExecutionMetadata): List<Value
     return filter { fixture ->
         when (fixture.fixtureScenarioSelector()) {
             null, "all" -> true
-            "positive" -> context.scenarioType == FixtureScenarioType.POSITIVE
+            "example" -> context.scenarioType == FixtureScenarioType.EXAMPLE
+            "positive" -> context.scenarioType in setOf(FixtureScenarioType.POSITIVE, FixtureScenarioType.EXAMPLE)
             "negative" -> context.scenarioType == FixtureScenarioType.NEGATIVE
             else -> error("Unexpected executeFor.scenarios value in test fixture")
         }

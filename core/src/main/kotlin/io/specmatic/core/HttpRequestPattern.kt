@@ -825,6 +825,12 @@ data class HttpRequestPattern(
     fun newBasedOn(row: Row, initialResolver: Resolver, status: Int = 0): Sequence<ReturnValue<HttpRequestPattern>> {
         val allowInvalidRequest = status in 400..499
         val resolver = if (allowInvalidRequest) initialResolver.invalidRequestResolver() else initialResolver
+        val row = row.let { initialRow ->
+            val rowRequest = initialRow.requestExample ?: return@let initialRow
+            val selectedSecurityMetadata = selectSecurityMatches(securityMatches(rowRequest, resolver))
+                .fold(HttpRequestMetadata()) { acc, scheme -> acc + scheme.scheme.securityMetadata() }
+            initialRow.copy(requestExample = rowRequest.copy(metadata = rowRequest.metadata + selectedSecurityMetadata))
+        }
 
         return returnValue(breadCrumb = "REQUEST") {
             val newHttpPathPatterns: Sequence<ReturnValue<HttpPathPattern?>> = returnValue(breadCrumb = BreadCrumb.PARAM_PATH.value) {

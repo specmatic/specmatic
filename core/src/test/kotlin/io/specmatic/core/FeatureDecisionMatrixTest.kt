@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Decision
@@ -7,12 +8,15 @@ import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.ContractTest
 import io.specmatic.test.ScenarioAsTest
 import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestExecutor
 import io.specmatic.test.TestSkipReason
+import io.specmatic.test.fixtures.FixtureExecutionMetadata
+import io.specmatic.test.fixtures.FixtureScenarioType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -288,6 +292,95 @@ class FeatureDecisionMatrixTest {
                 assertThat(schemaDecision.reasoning.mainReason).isEqualTo(TestExecutionReason.NO_EXAMPLE)
                 assertThat(schemaDecision.reasoning.otherReasons).isEmpty()
             }
+        }
+
+        @Test
+        fun `one literal example is classified as example among positive and negative mutations`() {
+            val feature = featureFromResourceOpenapi("feature_decision_matrix.yaml").enableGenerativeTesting()
+            val scenario = firstScenario(feature, 200, hasExamples = true)
+            val generatedDecisions = feature.generateContractTestScenariosWithDecision(
+                originalScenarios = listOf(scenario),
+                scenarios = sequenceOf(Decision.execute(scenario))
+            ).toList()
+
+            val skipDecisions = generatedDecisions.filterIsInstance<Decision.Skip<Scenario>>()
+            val executeDecisions = generatedDecisions.filterIsInstance<Decision.Execute<ReturnValue<Scenario>, Scenario>>()
+
+            val executeScenarios = executeDecisions.map { it.value.value }
+            val exampleScenarios = executeScenarios.filter {
+                FixtureExecutionMetadata.from(it).scenarioType == FixtureScenarioType.EXAMPLE
+            }
+
+            assertThat(skipDecisions).isEmpty()
+            assertThat(exampleScenarios).hasSize(1)
+            assertThat(executeScenarios).anySatisfy { assertThat(it.isNegative).isTrue() }
+            assertThat(executeScenarios).anySatisfy { assertThat(it.isNegative).isFalse() }
+            assertThat(executeScenarios.filter { it.isNegative }).allSatisfy {
+                assertThat(it.generatedFrom).isEqualTo(GeneratedScenarioOrigin.MUTATION)
+            }
+
+            val literalExampleRequest = exampleScenarios.single().generateHttpRequest()
+            assertThat(literalExampleRequest.method).isEqualTo("GET")
+            assertThat(literalExampleRequest.path).isEqualTo("/matrix")
+            assertThat(literalExampleRequest.queryParams.asMap()).isEqualTo(mapOf("type" to "case1"))
+        }
+
+        @Test
+        fun `an external example with only a method and path is classified as a literal example`() {
+            val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Health
+              version: 1.0.0
+            paths:
+              /health:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+            """.trimIndent(),
+            "health.yaml"
+            ).toFeature()
+
+            val row = ExampleFromFile(ScenarioStub(HttpRequest("GET", "/health"), HttpResponse(200, emptyMap()))).toRow()
+            val scenario = feature.scenarios.single()
+            assertThat(row.isEmpty()).isTrue()
+
+            val generated = scenario.newBasedOn(row, feature.flagsBased).single().value
+            assertThat(generated.generateHttpRequest().let { it.method to it.path }).isEqualTo("GET" to "/health")
+            assertThat(FixtureExecutionMetadata.from(generated)).isEqualTo(FixtureExecutionMetadata(FixtureScenarioType.EXAMPLE))
+        }
+
+        @Test
+        fun `one partial example is classified as example after its missing request key is filled`() {
+            val feature = featureFromResourceOpenapi("feature_decision_matrix.yaml")
+            val originalScenario = firstScenario(feature, 200, hasExamples = true)
+            val example = originalScenario.examples.single().rows.single()
+            val partialScenario = originalScenario.copy(
+                httpRequestPattern = originalScenario.httpRequestPattern.copy(
+                    headersPattern = originalScenario.httpRequestPattern.headersPattern.copy(
+                        pattern = mapOf("X-Filled" to ExactValuePattern(StringValue("filled")))
+                    )
+                ),
+                examples = listOf(originalScenario.examples.single().copy(rows = listOf(example.copy(isPartial = true))))
+            )
+            val generativeFeature = feature.copy(scenarios = listOf(partialScenario)).enableGenerativeTesting()
+            val generated = generativeFeature.generateContractTestScenariosWithDecision(
+                originalScenarios = listOf(partialScenario),
+                scenarios = sequenceOf(Decision.execute(partialScenario))
+            ).filterIsInstance<Decision.Execute<ReturnValue<Scenario>, Scenario>>()
+                .map { it.value.value }
+                .toList()
+
+            val exampleScenarios = generated.filter {
+                FixtureExecutionMetadata.from(it).scenarioType == FixtureScenarioType.EXAMPLE
+            }
+
+            assertThat(exampleScenarios).hasSize(1)
+            val generatedExampleRequest = exampleScenarios.single().generateHttpRequest()
+            assertThat(generatedExampleRequest.queryParams.asMap()).isEqualTo(mapOf("type" to "case1"))
+            assertThat(generatedExampleRequest.headers).containsEntry("X-Filled", "filled")
         }
 
         @Test

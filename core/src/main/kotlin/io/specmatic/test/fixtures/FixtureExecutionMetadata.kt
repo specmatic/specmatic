@@ -1,18 +1,19 @@
 package io.specmatic.test.fixtures
 
+import io.specmatic.core.GeneratedScenarioOrigin
 import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 
 enum class FixtureScenarioType {
     POSITIVE,
-    NEGATIVE;
+    NEGATIVE,
+    EXAMPLE;
 
     companion object {
         fun from(scenario: Scenario): FixtureScenarioType {
-            return when (scenario.isNegative) {
-                true -> NEGATIVE
-                false -> POSITIVE
-            }
+            if (scenario.isNegative) return NEGATIVE
+            if (scenario.generatedFrom == GeneratedScenarioOrigin.EXAMPLE_ROW) return EXAMPLE
+            return POSITIVE
         }
     }
 }

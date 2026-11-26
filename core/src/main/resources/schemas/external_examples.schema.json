@@ -837,13 +837,13 @@
       ],
       "properties": {
         "scenarios": {
-          "description": "Test scenarios that run the fixture. \"positive\" selects positive scenarios, \"negative\" selects negative scenarios, and \"all\" selects both.",
+          "description": "Test scenarios that run the fixture. \"positive\" selects successful scenarios, including literal examples; \"negative\" selects negative scenarios; \"example\" selects only the single scenario using the literal example; and \"all\" selects every scenario.",
           "default": "positive",
           "oneOf": [
             {
               "type": "string",
-              "errorMessage": "Expected one of 'all', 'positive', or 'negative', or a template-value/substitution-lookup expression.",
-              "enum": ["all", "positive", "negative"]
+              "errorMessage": "Expected one of 'all', 'positive', 'negative', or 'example', or a template-value/substitution-lookup expression.",
+              "enum": ["all", "positive", "negative", "example"]
             },
             {
               "$ref": "#/$defs/TemplateValueOrSubstitutionLookupStringExpression"

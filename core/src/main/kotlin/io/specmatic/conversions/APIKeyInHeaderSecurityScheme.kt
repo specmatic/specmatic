@@ -10,6 +10,8 @@ data class APIKeyInHeaderSecurityScheme(
     private val apiKey: String?,
     override val schemeName: String? = null,
 ) : OpenAPISecurityScheme {
+    override fun securityMetadata(): HttpRequestMetadata = HttpRequestMetadata(securityHeaderNames = setOf(name))
+
     override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
         val entry = httpRequest.headers.getCaseInsensitive(name) ?: return Result.Success()
         return Result.Failure(

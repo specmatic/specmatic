@@ -48,6 +48,31 @@
         },
         {
             "executeFor": {
+                "scenarios": "example"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/beforeExample",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)",
+                    "beforePositive": "$(BEFORE_POSITIVE)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "beforeExample": "(BEFORE_EXAMPLE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
                 "scenarios": "negative"
             },
             "type": "http",
@@ -138,6 +163,32 @@
                 "status": 200,
                 "body": {
                     "afterPositive": "(AFTER_POSITIVE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
+                "scenarios": "example"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/afterExample",
+                "method": "POST",
+                "body": {
+                    "test": "$(TEST)",
+                    "beforeExample": "$(BEFORE_EXAMPLE)",
+                    "afterAll": "$(AFTER_ALL)",
+                    "afterPositive": "$(AFTER_POSITIVE)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "afterExample": "(AFTER_EXAMPLE:string)"
                 },
                 "headers": {
                     "Content-Type": "application/json"
