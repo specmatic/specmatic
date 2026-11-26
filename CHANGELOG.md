@@ -40,11 +40,12 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Added
 
-- HTTP stub examples can run `after` fixtures, including when the stub terminates the connection. External examples can define mock fixtures, and `before`/`after` fixtures can target supporting interfaces in standalone contract tests.
 - MCP auto tests support stdio transports.
 - WSDL contracts support additional SOAP headers in examples and matching, including headers scoped by namespace and optional header presence.
 - WSDL parsing and validation support `xs:anyType`, named unions and lists, and XML Schema date values.
 - OpenAPI object schemas enforce `minProperties` and `maxProperties` during parsing, generation, matching, and backward-compatibility checks, with clearer diagnostics for impossible bounds.
+- HTTP mocks now support executing `after` fixtures defined in external examples, once the response has been served using the matching example.
+- Introduced `supportingInterface` in Specmatic configuration, allowing contracts to participate in contract tests without being tested independently, enabling use cases such as side event-flow verification.
 
 ### Changed
 
@@ -56,7 +57,6 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Fixed
 
 - WSDL/SOAP matching now honors scoped header presence and reports more useful XML diagnostics while validating empty union values and preserving known `xs:all` member errors.
-- Mock `after` fixtures run for example responses and for connection-terminating stubs.
 - OpenAPI backward-compatibility discovery avoids treating regular YAML/JSON files and schema fragments as specifications while still checking specifications affected by shared fragments, including transitive references.
 
 ## 2.56.1 (2026-11-11)
