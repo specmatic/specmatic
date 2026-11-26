@@ -7,9 +7,12 @@ import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ObjectNode
+import io.ktor.network.tls.certificates.generateCertificate
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.log.logger
 import java.io.File
+import java.nio.file.FileAlreadyExistsException
+import java.nio.file.Files
 
 @JsonDeserialize(using = KeyStoreConfiguration.Companion.KeyStoreConfigurationDeserializer::class)
 @JsonIgnoreProperties("filePath", "directoryPath")
@@ -101,6 +104,30 @@ data class HttpsConfiguration(
 ) {
     fun mapPaths(location: ConfigPathMapper, configDirectory: File): HttpsConfiguration {
         return copy(keyStore = keyStore?.mapPaths(location.child("keyStore"), configDirectory))
+    }
+
+    fun prepareListenerKeyStore() {
+        val directory = keyStoreDir()?.let(::File)?.toPath() ?: return
+        val keyStore = directory.resolve("$APPLICATION_NAME_LOWER_CASE.jks")
+        if (!Files.exists(keyStore)) {
+            Files.createDirectories(directory)
+            val temporary = Files.createTempFile(directory, ".$APPLICATION_NAME_LOWER_CASE-", ".jks")
+            try {
+                generateCertificate(
+                    temporary.toFile(),
+                    jksPassword = keyStorePasswordOrDefault(),
+                    keyAlias = keyStoreAliasOrDefault("proxy"),
+                    keyPassword = keyPasswordOrDefault(),
+                )
+                try {
+                    Files.move(temporary, keyStore)
+                } catch (_: FileAlreadyExistsException) {
+                    // Another recording already created the directory keystore.
+                }
+            } finally {
+                Files.deleteIfExists(temporary)
+            }
+        }
     }
 
     fun keyStoreFile(): String? = keyStore?.getFilePath()
