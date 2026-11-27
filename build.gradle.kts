@@ -43,6 +43,7 @@ specmatic {
             RepoType.PUBLISH_ALL
         )
         dockerImage("specmatic/specmatic-snapshots", "specmatic/specmatic")
+        githubReleaseArtifacts("io.specmatic:specmatic-executable-all")
     }
 
     withOSSLibrary(project(":specmatic-core")) {
