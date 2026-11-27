@@ -65,6 +65,7 @@ jobs:
       - name: Publish Snapshot
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'self-hosted-mac'
         run: |
+          cat "$DOCKER_CONFIG/config.json"
           printf '%s' "$SPECMATIC_DOCKER_HUB_TOKEN" | docker login -u "$SPECMATIC_DOCKER_HUB_USERNAME" --password-stdin
           ./gradlew publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository dockerBuildxPublish --parallel
         env:
