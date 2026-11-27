@@ -55,7 +55,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("org.json:json:20250517")
     testImplementation("org.springframework:spring-web:6.2.18")
-    testImplementation("io.mockk:mockk-jvm:1.14.11")
+    testImplementation("io.mockk:mockk-jvm:1.14.12")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
