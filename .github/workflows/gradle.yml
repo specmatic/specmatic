@@ -34,6 +34,7 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest, self-hosted-mac, self-hosted-windows ]
     runs-on: ${{ matrix.os }}
